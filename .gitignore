@@ -18,3 +18,11 @@ local.properties
 *.jks
 *.keystore
 key/
+
+# Firebase (contains sensitive project info)
+google-services.json
+
+# Release builds
+*.aab
+*.apk
+app/release/
