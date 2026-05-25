@@ -1,0 +1,14 @@
+{
+  "동대문승무소": {
+    "day": "https://dongseoung-day-cowoker.vercel.app/",
+    "month": "https://dongseoung-month-cowoker.vercel.app/"
+  },
+  "대공원승무소": {
+    "day": "http://seoulmetroline7.co.kr/login.php",
+    "month": "http://seoulmetroline7.co.kr/login.php"
+  },
+  "영등포승무소": {
+    "day": "https://work.line5.kr/calendar.php",
+    "month": "https://work.line5.kr/calendar.php"
+  }
+}

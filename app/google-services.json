@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "188406916055",
+    "project_id": "mydia-29ac2",
+    "storage_bucket": "mydia-29ac2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:188406916055:android:3efa2d4dad8dbe51922192",
+        "android_client_info": {
+          "package_name": "com.sonbum.diacalendar2"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "188406916055-of2kgpvju7v3mktdkiu2thfc0sn6nk4b.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.sonbum.diacalendar2",
+            "certificate_hash": "54a1113e701051f3c4b14e4fdb82b2a818045bd3"
+          }
+        },
+        {
+          "client_id": "188406916055-uv7bi4l5vka8k2hnsqsgcomk0m3os222.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDKZkm3DD5ejRb-edIeY4497HJP1ma159A"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "188406916055-uv7bi4l5vka8k2hnsqsgcomk0m3os222.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
