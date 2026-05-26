@@ -92,6 +92,7 @@ import com.sonbum.diacalendar2.presentation.board.PostEditViewModel
 import com.sonbum.diacalendar2.presentation.board.PostWriteViewModel
 import com.sonbum.diacalendar2.presentation.board.BlockedUsersViewModel
 import com.sonbum.diacalendar2.data.local.datastore.AuthPreferences
+import com.sonbum.diacalendar2.data.local.datastore.VipPreferences
 import com.sonbum.diacalendar2.data.remote.BoardSupabaseConfig
 import com.sonbum.diacalendar2.data.remote.MenuSupabaseConfig
 import com.sonbum.diacalendar2.data.remote.api.SupabaseBoardApi
@@ -193,6 +194,7 @@ val dataStoreModule = module {
     single { MenuPreferences(androidContext()) }
     single { CoworkerPreferences(androidContext()) }
     single { OfficeWebsiteRegistry(androidContext()) }
+    single { VipPreferences(androidContext()) }
 }
 
 /**
@@ -244,7 +246,7 @@ val repositoryModule = module {
     single<BoardRepository> { BoardRepositoryImpl(get(named("boardApi")), get()) }
     single<MenuRepository> { MenuRepositoryImpl(get(named("menuApi"))) }
     single<CoworkerRepository> { CoworkerRepositoryImpl(get(), get(), get()) }
-    single<SubscriptionRepository> { SubscriptionRepositoryImpl() }
+    single<SubscriptionRepository> { SubscriptionRepositoryImpl(get(), get()) }
 }
 
 /**

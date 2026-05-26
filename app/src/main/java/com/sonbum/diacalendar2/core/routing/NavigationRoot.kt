@@ -45,6 +45,8 @@ import com.sonbum.diacalendar2.presentation.coworker.CoworkerGroupScreen
 import com.sonbum.diacalendar2.presentation.coworker.CoworkerEditScreen
 import com.sonbum.diacalendar2.presentation.subscription.PaywallScreen
 import com.sonbum.diacalendar2.domain.repository.SubscriptionRepository
+import com.sonbum.diacalendar2.core.util.DeviceIdProvider
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -78,12 +80,14 @@ fun NavigationRoot(
 	var showDateDetailPaywall by remember { mutableStateOf(false) }
 	val dateDetailSubscriptionRepository: SubscriptionRepository = koinInject()
 	val navigationScope = rememberCoroutineScope()
+	val appContext = LocalContext.current.applicationContext
 
 	// 달력 셀 클릭으로 DateDetail을 새로 열 때 호출 (다른 화면 다녀와 돌아오는 경우는 제외)
 	fun openDateDetail(route: Route.DateDetail) {
 		topLevelBackStack.add(route)
 		navigationScope.launch {
-			if (dateDetailSubscriptionRepository.isSubscribed()) return@launch
+			val ssaid = DeviceIdProvider.getSsaid(appContext)
+			if (dateDetailSubscriptionRepository.isVip(ssaid)) return@launch
 			dateDetailOpenCount += 1
 			if (dateDetailOpenCount >= 3) {
 				showDateDetailPaywall = true
@@ -521,9 +525,11 @@ fun NavigationRoot(
 								entry<Route.Coworker> {
 									val subscriptionRepository: SubscriptionRepository = koinInject()
 									var isSubscribed by remember { mutableStateOf<Boolean?>(null) }
+									val coworkerEntryContext = LocalContext.current.applicationContext
 
 									LaunchedEffect(Unit) {
-										isSubscribed = subscriptionRepository.isSubscribed()
+										val ssaid = DeviceIdProvider.getSsaid(coworkerEntryContext)
+										isSubscribed = subscriptionRepository.isVip(ssaid)
 									}
 
 									when (isSubscribed) {

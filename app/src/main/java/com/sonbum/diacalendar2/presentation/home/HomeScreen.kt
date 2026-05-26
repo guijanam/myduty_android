@@ -1,9 +1,14 @@
 package com.sonbum.diacalendar2.presentation.home
 
 import android.annotation.SuppressLint
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material3.IconButton
+import com.sonbum.diacalendar2.core.util.DeviceIdProvider
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.border
@@ -649,12 +654,43 @@ private fun HomeDrawerContent(
 				Column(
 					modifier = Modifier.padding(16.dp)
 				) {
-					Text(
-						text = "내근무",
-						style = MaterialTheme.typography.headlineSmall,
-						fontWeight = FontWeight.Bold,
-						color = MaterialTheme.colorScheme.onPrimaryContainer
-					)
+					val drawerContext = LocalContext.current
+					val ssaid = remember { DeviceIdProvider.getSsaid(drawerContext) }
+
+					Row(
+						modifier = Modifier.fillMaxWidth(),
+						verticalAlignment = Alignment.CenterVertically
+					) {
+						Text(
+							text = "내근무",
+							style = MaterialTheme.typography.headlineSmall,
+							fontWeight = FontWeight.Bold,
+							color = MaterialTheme.colorScheme.onPrimaryContainer
+						)
+						Spacer(modifier = Modifier.width(12.dp))
+						Text(
+							text = ssaid.ifBlank { "-" },
+							style = MaterialTheme.typography.labelSmall,
+							color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+							modifier = Modifier.weight(1f)
+						)
+						IconButton(
+							onClick = {
+								val clipboard = drawerContext.getSystemService(ClipboardManager::class.java)
+								clipboard?.setPrimaryClip(ClipData.newPlainText("device_id", ssaid))
+								Toast.makeText(drawerContext, "기기 ID가 복사되었습니다", Toast.LENGTH_SHORT).show()
+							},
+							enabled = ssaid.isNotBlank(),
+							modifier = Modifier.size(28.dp)
+						) {
+							Icon(
+								imageVector = Icons.Default.ContentCopy,
+								contentDescription = "기기 ID 복사",
+								tint = MaterialTheme.colorScheme.onPrimaryContainer,
+								modifier = Modifier.size(18.dp)
+							)
+						}
+					}
 					Spacer(modifier = Modifier.height(4.dp))
 					Text(
 						text = "교번,교대,통상 모든 근무자의 달력",
