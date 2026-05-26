@@ -20,6 +20,7 @@ import com.sonbum.diacalendar2.domain.repository.LateHolidayRecordRepository
 import com.sonbum.diacalendar2.domain.repository.OfficeRepository
 import com.sonbum.diacalendar2.domain.repository.ShiftInputRecordRepository
 import com.sonbum.diacalendar2.domain.repository.BackupRepository
+import com.sonbum.diacalendar2.domain.repository.AnniversaryRepository
 import android.net.Uri
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -55,7 +56,8 @@ data class HomeCalendarState(
     val shiftInputMap: Map<LocalDate, ShiftInputInfo> = emptyMap(), // date -> ShiftInputInfo
     val holidayWorkShifts: List<String> = emptyList(),
     val isCustomShift: Boolean = false,
-    val officeName: String? = null
+    val officeName: String? = null,
+    val anniversaryMap: Map<LocalDate, String> = emptyMap()
 )
 
 class HomeViewModel(
@@ -72,7 +74,8 @@ class HomeViewModel(
     private val shiftInputRecordRepository: ShiftInputRecordRepository,
     private val officeRepository: OfficeRepository,
     private val backupRepository: BackupRepository,
-    private val crewPatternPreferences: CrewPatternPreferences
+    private val crewPatternPreferences: CrewPatternPreferences,
+    private val anniversaryRepository: AnniversaryRepository
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(HomeCalendarState())
@@ -96,6 +99,9 @@ class HomeViewModel(
     val crewPatternStartDate = crewPatternPreferences.crewPatternStartDate
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), java.time.LocalDate.of(2026, 2, 1))
 
+    // 현재 캘린더에 표시 중인 연도 (HomeScreen에서 갱신) - init 이전에 초기화 필요
+    private val _visibleYear = MutableStateFlow(LocalDate.now().year)
+
     init {
         loadAllMemos()
         observeSelectedCalendars()
@@ -104,6 +110,7 @@ class HomeViewModel(
         observeShiftSchedules()
         observeVacationRecords()
         loadShiftPattern()
+        observeAnniversaries()
     }
 
     private fun loadAllMemos() {
@@ -285,6 +292,33 @@ class HomeViewModel(
         viewModelScope.launch {
             crewPatternPreferences.saveShowCrewPattern(show)
         }
+    }
+
+    private fun observeAnniversaries() {
+        viewModelScope.launch {
+            // 기념일 목록 변화 또는 표시 연도 변화 시 모두 재계산
+            combine(
+                anniversaryRepository.getAll(),
+                _visibleYear
+            ) { list, year -> list to year }
+                .collect { (list, year) ->
+                    val map = buildAnniversaryMap(year)
+                    _state.update { it.copy(anniversaryMap = map) }
+                }
+        }
+    }
+
+    fun onVisibleYearChanged(year: Int) {
+        if (_visibleYear.value != year) {
+            _visibleYear.value = year
+        }
+    }
+
+    private suspend fun buildAnniversaryMap(year: Int): Map<LocalDate, String> {
+        val raw = anniversaryRepository.getAnniversaryMapForYear(year)
+        return raw.mapNotNull { (key, value) ->
+            try { LocalDate.parse(key) to value } catch (e: Exception) { null }
+        }.toMap()
     }
 
     private fun loadShiftPattern() {

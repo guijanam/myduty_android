@@ -9,4 +9,7 @@ interface SubscriptionRepository {
 
     // RevenueCat 구독 OR SSAID 평생 무료
     suspend fun isVip(deviceId: String): Boolean
+
+    // 캐시 무효화 후 서버 즉시 재확인 (새로고침 버튼용)
+    suspend fun refreshVipStatus(deviceId: String): Boolean
 }

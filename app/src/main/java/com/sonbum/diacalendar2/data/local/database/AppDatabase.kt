@@ -50,6 +50,8 @@ import com.sonbum.diacalendar2.data.local.entity.OfficeEditBackupEntity
 import com.sonbum.diacalendar2.data.local.entity.DiaEditBackupEntity
 import com.sonbum.diacalendar2.data.local.entity.CoworkerEntity
 import com.sonbum.diacalendar2.data.local.entity.CoworkerGroupEntity
+import com.sonbum.diacalendar2.data.local.entity.AnniversaryEntity
+import com.sonbum.diacalendar2.data.local.dao.AnniversaryDao
 
 @Database(
     entities = [
@@ -75,9 +77,10 @@ import com.sonbum.diacalendar2.data.local.entity.CoworkerGroupEntity
         OfficeEditBackupEntity::class,
         DiaEditBackupEntity::class,
         CoworkerEntity::class,
-        CoworkerGroupEntity::class
+        CoworkerGroupEntity::class,
+        AnniversaryEntity::class
     ],
-    version = 23,
+    version = 24,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -104,6 +107,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun diaEditBackupDao(): DiaEditBackupDao
     abstract fun coworkerDao(): CoworkerDao
     abstract fun coworkerGroupDao(): CoworkerGroupDao
+    abstract fun anniversaryDao(): AnniversaryDao
 
     companion object {
         // 버전 2 → 3: holidays 테이블에 isUserCreated 컬럼 추가
@@ -450,6 +454,22 @@ abstract class AppDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE vacation_types ADD COLUMN annualQuota INTEGER NOT NULL DEFAULT 0")
                 db.execSQL("ALTER TABLE vacation_types ADD COLUMN resetMonthDay TEXT NOT NULL DEFAULT '01-01'")
+            }
+        }
+
+        // 버전 23 → 24: anniversaries 테이블 추가
+        val MIGRATION_23_24 = object : Migration(23, 24) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS anniversaries (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        name TEXT NOT NULL,
+                        month INTEGER NOT NULL,
+                        day INTEGER NOT NULL,
+                        isLunar INTEGER NOT NULL,
+                        createdAt INTEGER NOT NULL
+                    )
+                """.trimIndent())
             }
         }
 

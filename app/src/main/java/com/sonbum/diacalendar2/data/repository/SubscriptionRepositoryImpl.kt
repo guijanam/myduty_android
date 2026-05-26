@@ -42,9 +42,12 @@ class SubscriptionRepositoryImpl(
         if (deviceId.isBlank()) return false
 
         val (cached, lastChecked) = vipPreferences.readSnapshot()
-        if (cached != null &&
-            System.currentTimeMillis() - lastChecked < VipPreferences.CACHE_TTL_MS) {
-            return cached
+        if (cached != null) {
+            val ttl = if (cached) VipPreferences.CACHE_TTL_VIP_MS
+                      else        VipPreferences.CACHE_TTL_NON_VIP_MS
+            if (System.currentTimeMillis() - lastChecked < ttl) {
+                return cached
+            }
         }
 
         return try {
@@ -58,6 +61,11 @@ class SubscriptionRepositoryImpl(
         } catch (e: Exception) {
             cached ?: false
         }
+    }
+
+    override suspend fun refreshVipStatus(deviceId: String): Boolean {
+        vipPreferences.clearCache()
+        return isDeviceVip(deviceId)
     }
 
     override suspend fun isVip(deviceId: String): Boolean {

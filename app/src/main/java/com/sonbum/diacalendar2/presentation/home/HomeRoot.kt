@@ -21,6 +21,7 @@ import java.time.format.DateTimeFormatter
 fun HomeRoot(
 	onNavigateToDetail: (String) -> Unit,
 	onNavigateToCalendarSelection: () -> Unit = {},
+	onNavigateToAnniversary: () -> Unit = {},
 	onNavigateToShiftSelection: () -> Unit = {},
 	onNavigateToAddMemo: (String) -> Unit = {},
 	onNavigateToAddEvent: (String) -> Unit = {},
@@ -89,6 +90,7 @@ fun HomeRoot(
 		memosByDate = state.memosByDate,
 		eventsByDate = state.eventsByDate,
 		holidayMap = state.holidayMap,
+		anniversaryMap = state.anniversaryMap,
 		shiftScheduleMap = state.shiftScheduleMap,
 		swapDates = state.swapDates,
 		shiftInputMap = state.shiftInputMap,
@@ -99,7 +101,9 @@ fun HomeRoot(
 		isCustomShift = state.isCustomShift,
 		officeName = state.officeName,
 		onAction = viewModel::onAction,
+		onVisibleYearChanged = viewModel::onVisibleYearChanged,
 		onNavigateToCalendarSelection = onNavigateToCalendarSelection,
+		onNavigateToAnniversary = onNavigateToAnniversary,
 		onNavigateToShiftSelection = onNavigateToShiftSelection,
 		onAddMemo = { date ->
 			onNavigateToAddMemo(date.toString())

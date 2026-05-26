@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.sonbum.diacalendar2.core.util.DeviceIdProvider
 import com.sonbum.diacalendar2.core.util.ImageUtils
 import com.sonbum.diacalendar2.domain.model.ChatNote
 import com.sonbum.diacalendar2.domain.model.Memo
@@ -11,11 +12,14 @@ import com.sonbum.diacalendar2.domain.model.VacationRecord
 import com.sonbum.diacalendar2.domain.model.VacationType
 import com.sonbum.diacalendar2.domain.repository.ChatNoteRepository
 import com.sonbum.diacalendar2.domain.repository.MemoRepository
+import com.sonbum.diacalendar2.domain.repository.SubscriptionRepository
 import com.sonbum.diacalendar2.domain.repository.VacationRecordRepository
 import com.sonbum.diacalendar2.domain.repository.VacationTypeRepository
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -27,19 +31,28 @@ data class ProfileState(
     val chatNotes: List<ChatNote> = emptyList(),
     val isLoading: Boolean = true,
     val isVacationLoading: Boolean = true,
-    val isChatNotesLoading: Boolean = true
+    val isChatNotesLoading: Boolean = true,
+    val isVipRefreshing: Boolean = false
 )
+
+sealed interface ProfileEvent {
+    data class VipRefreshResult(val isVip: Boolean) : ProfileEvent
+}
 
 class ProfileViewModel(
     private val memoRepository: MemoRepository,
     private val vacationRecordRepository: VacationRecordRepository,
     private val vacationTypeRepository: VacationTypeRepository,
     private val chatNoteRepository: ChatNoteRepository,
+    private val subscriptionRepository: SubscriptionRepository,
     private val appContext: Context
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(ProfileState())
     val state = _state.asStateFlow()
+
+    private val _events = Channel<ProfileEvent>(Channel.BUFFERED)
+    val events = _events.receiveAsFlow()
 
     init {
         loadAllMemos()
@@ -133,6 +146,16 @@ class ProfileViewModel(
             // 이미지 파일 삭제
             note.imagePath?.let { ImageUtils.deleteImage(it) }
             chatNoteRepository.deleteNote(note)
+        }
+    }
+
+    fun onRefreshVipStatus() {
+        viewModelScope.launch {
+            _state.update { it.copy(isVipRefreshing = true) }
+            val ssaid = DeviceIdProvider.getSsaid(appContext)
+            val isVip = subscriptionRepository.refreshVipStatus(ssaid)
+            _state.update { it.copy(isVipRefreshing = false) }
+            _events.send(ProfileEvent.VipRefreshResult(isVip))
         }
     }
 }

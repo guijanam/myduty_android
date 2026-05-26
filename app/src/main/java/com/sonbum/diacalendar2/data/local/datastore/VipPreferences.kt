@@ -18,7 +18,8 @@ class VipPreferences(private val context: Context) {
     companion object {
         val DEVICE_VIP_STATUS = booleanPreferencesKey("device_vip_status")
         val DEVICE_VIP_LAST_CHECKED = longPreferencesKey("device_vip_last_checked")
-        const val CACHE_TTL_MS = 24L * 60L * 60L * 1000L
+        const val CACHE_TTL_VIP_MS     = 3L * 24L * 60L * 60L * 1000L  // 3일 (VIP=true)
+        const val CACHE_TTL_NON_VIP_MS = 24L * 60L * 60L * 1000L       // 1일 (VIP=false)
     }
 
     val deviceVipStatus: Flow<Boolean> = context.vipDataStore.data
@@ -38,6 +39,13 @@ class VipPreferences(private val context: Context) {
         context.vipDataStore.edit { prefs ->
             prefs[DEVICE_VIP_STATUS] = isVip
             prefs[DEVICE_VIP_LAST_CHECKED] = System.currentTimeMillis()
+        }
+    }
+
+    suspend fun clearCache() {
+        context.vipDataStore.edit { prefs ->
+            prefs.remove(DEVICE_VIP_STATUS)
+            prefs.remove(DEVICE_VIP_LAST_CHECKED)
         }
     }
 }

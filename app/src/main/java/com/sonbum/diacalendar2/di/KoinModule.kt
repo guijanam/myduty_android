@@ -107,6 +107,9 @@ import com.sonbum.diacalendar2.core.notification.NotificationHelper
 import com.sonbum.diacalendar2.data.local.datastore.CrewPatternPreferences
 import com.sonbum.diacalendar2.data.local.datastore.NotificationPreferences
 import androidx.work.WorkManager
+import com.sonbum.diacalendar2.data.repository.AnniversaryRepositoryImpl
+import com.sonbum.diacalendar2.domain.repository.AnniversaryRepository
+import com.sonbum.diacalendar2.presentation.anniversary.AnniversaryViewModel
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import org.koin.android.ext.koin.androidContext
@@ -151,7 +154,8 @@ val databaseModule = module {
                 AppDatabase.MIGRATION_19_20,
                 AppDatabase.MIGRATION_20_21,
                 AppDatabase.MIGRATION_21_22,
-                AppDatabase.MIGRATION_22_23
+                AppDatabase.MIGRATION_22_23,
+                AppDatabase.MIGRATION_23_24
             )
             .fallbackToDestructiveMigration()
             .build()
@@ -179,6 +183,7 @@ val databaseModule = module {
     single { get<AppDatabase>().diaEditBackupDao() }
     single { get<AppDatabase>().coworkerDao() }
     single { get<AppDatabase>().coworkerGroupDao() }
+    single { get<AppDatabase>().anniversaryDao() }
 }
 
 /**
@@ -250,6 +255,7 @@ val repositoryModule = module {
     single<MenuRepository> { MenuRepositoryImpl(get(named("menuApi"))) }
     single<CoworkerRepository> { CoworkerRepositoryImpl(get(), get(), get()) }
     single<SubscriptionRepository> { SubscriptionRepositoryImpl(get(), get()) }
+    single<AnniversaryRepository> { AnniversaryRepositoryImpl(get()) }
 }
 
 /**
@@ -258,10 +264,10 @@ val repositoryModule = module {
  */
 val viewModelModule = module {
     viewModelOf(::HomeViewModel)
-    viewModel { DateDetailViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), androidContext()) }
+    viewModel { DateDetailViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), androidContext()) }
     viewModel { MemoEditViewModel(get(), get(), androidContext()) }
     viewModelOf(::CalendarSelectionViewModel)
-    viewModel { ProfileViewModel(get(), get(), get(), get(), androidContext()) }
+    viewModel { ProfileViewModel(get(), get(), get(), get(), get(), androidContext()) }
     viewModel { ShiftSelectionViewModel(get(), get(), get(), get(), get(), androidContext()) }
     viewModelOf(::DiaTableViewModel)
     viewModelOf(::VacationSettingViewModel)
@@ -287,6 +293,7 @@ val viewModelModule = module {
     viewModelOf(::CoworkerGroupViewModel)
     viewModelOf(::CoworkerEditViewModel)
     viewModelOf(::PaywallViewModel)
+    viewModelOf(::AnniversaryViewModel)
 }
 
 /**

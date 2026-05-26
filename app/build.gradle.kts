@@ -33,7 +33,7 @@ android {
 		applicationId = "com.sonbum.diacalendar2"
 		minSdk = 29
 		targetSdk = 36
-		versionCode = 45
+		versionCode = 46
 		versionName = "4.0"
 
 		testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

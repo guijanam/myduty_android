@@ -8,11 +8,17 @@ import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material3.IconButton
 import com.sonbum.diacalendar2.core.util.DeviceIdProvider
 import com.sonbum.diacalendar2.data.local.DrawerWebsiteRegistry
+import com.sonbum.diacalendar2.domain.repository.SubscriptionRepository
 import org.koin.compose.koinInject
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.border
@@ -163,6 +169,7 @@ fun HomeScreen(
 	memosByDate: Map<LocalDate, List<Memo>> = emptyMap(),
 	eventsByDate: Map<LocalDate, List<CalendarEvent>> = emptyMap(),
 	holidayMap: Map<LocalDate, String> = emptyMap(),
+	anniversaryMap: Map<LocalDate, String> = emptyMap(),
 	shiftScheduleMap: Map<LocalDate, String> = emptyMap(),
 	swapDates: Set<LocalDate> = emptySet(),
 	shiftInputMap: Map<LocalDate, ShiftInputInfo> = emptyMap(), // date -> ShiftInputInfo
@@ -173,7 +180,9 @@ fun HomeScreen(
 	isCustomShift: Boolean = false,
 	officeName: String? = null,
 	onAction: (HomeAction) -> Unit,
+	onVisibleYearChanged: (Int) -> Unit = {},
 	onNavigateToCalendarSelection: () -> Unit = {},
+	onNavigateToAnniversary: () -> Unit = {},
 	onNavigateToShiftSelection: () -> Unit = {},
 	onAddMemo: (LocalDate) -> Unit = {},
 	onAddEvent: (LocalDate) -> Unit = {},
@@ -256,6 +265,7 @@ fun HomeScreen(
 						drawerState.close()
 						when (item) {
 							DrawerItem.CALENDAR -> onNavigateToCalendarSelection()
+							DrawerItem.ANNIVERSARY -> onNavigateToAnniversary()
 							DrawerItem.SHIFT -> onNavigateToShiftSelection()
 							DrawerItem.HOLIDAY_REFRESH -> onRefreshHolidays()
 							DrawerItem.SETTINGS -> showThemeDialog = true
@@ -316,6 +326,10 @@ fun HomeScreen(
 			//val visibleMonth = rememberFirstVisibleMonthAfterScroll(state)
 			val visibleMonth = rememberFirstCompletelyVisibleMonth(state)
 
+			LaunchedEffect(visibleMonth.yearMonth.year) {
+				onVisibleYearChanged(visibleMonth.yearMonth.year)
+			}
+
 			val titleYearMonth = visibleMonth.yearMonth
 			val titleDaysInMonth = (1..titleYearMonth.lengthOfMonth()).map { titleYearMonth.atDay(it) }
 			val titleRestCount = if (shiftPattern.isNotEmpty() && !isCustomShift) {
@@ -374,6 +388,7 @@ fun HomeScreen(
 					val memosForDay = memosByDate[day.date] ?: emptyList()
 					val eventsForDay = eventsByDate[day.date] ?: emptyList()
 					val holidayName = holidayMap[day.date]
+					val anniversaryName = anniversaryMap[day.date]
 					val shiftName = shiftScheduleMap[day.date]
 					val vacationShortName = vacationMap[day.date]
 					val shiftInputInfo = shiftInputMap[day.date]
@@ -392,6 +407,7 @@ fun HomeScreen(
 						isSelected = selections.contains(day),
 						isToday = day.position == DayPosition.MonthDate && day.date == today,
 						holidayName = holidayName,
+						anniversaryName = anniversaryName,
 						shiftName = shiftName,
 						swapDates = swapDates,
 						shiftInputInfo = shiftInputInfo?.let { it.shortName to it.colorHex },
@@ -658,7 +674,7 @@ private fun ExpandableFab(
 }
 
 private enum class DrawerItem {
-	CALENDAR, SHIFT, HOLIDAY_REFRESH, SETTINGS, VACATION, TEXT_SIZE, BACKUP, RESTORE, MENU_UPLOAD, OFFICE_WEBSITE
+	CALENDAR, ANNIVERSARY, SHIFT, HOLIDAY_REFRESH, SETTINGS, VACATION, TEXT_SIZE, BACKUP, RESTORE, MENU_UPLOAD, OFFICE_WEBSITE
 }
 
 @Composable
@@ -690,6 +706,34 @@ private fun HomeDrawerContent(
 				) {
 					val drawerContext = LocalContext.current
 					val ssaid = remember { DeviceIdProvider.getSsaid(drawerContext) }
+					val subscriptionRepository: SubscriptionRepository = koinInject()
+					val drawerScope = rememberCoroutineScope()
+					val snackbarHostState = remember { SnackbarHostState() }
+					var isVipRefreshing by remember { mutableStateOf(false) }
+
+					SnackbarHost(hostState = snackbarHostState)
+
+					OutlinedButton(
+						onClick = {
+							drawerScope.launch {
+								isVipRefreshing = true
+								val isVip = subscriptionRepository.refreshVipStatus(ssaid)
+								isVipRefreshing = false
+								val message = if (isVip) "VIP가 확인되었습니다." else "VIP 권한이 없습니다."
+								snackbarHostState.showSnackbar(message)
+							}
+						},
+						enabled = !isVipRefreshing,
+						modifier = Modifier.fillMaxWidth()
+					) {
+						if (isVipRefreshing) {
+							CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+						} else {
+							Text("VIP 상태 확인", style = MaterialTheme.typography.labelMedium)
+						}
+					}
+
+					Spacer(modifier = Modifier.height(8.dp))
 
 					Row(
 						modifier = Modifier.fillMaxWidth(),
@@ -742,6 +786,14 @@ private fun HomeDrawerContent(
 				label = { Text("캘린더 연동") },
 				selected = false,
 				onClick = { onItemClick(DrawerItem.CALENDAR) },
+				modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+			)
+
+			NavigationDrawerItem(
+				icon = { Icon(Icons.Default.Favorite, contentDescription = null) },
+				label = { Text("기념일 관리") },
+				selected = false,
+				onClick = { onItemClick(DrawerItem.ANNIVERSARY) },
 				modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
 			)
 
@@ -1059,6 +1111,7 @@ private fun Day(
 	isSelected: Boolean,
 	isToday: Boolean,
 	holidayName: String? = null,
+	anniversaryName: String? = null,
 	shiftName: String? = null,
 	swapDates: Set<LocalDate> = emptySet(),
 	shiftInputInfo: Pair<String, String>? = null, // (shortName, colorHex) for 충당
@@ -1172,6 +1225,23 @@ private fun Day(
 					modifier = Modifier.fillMaxWidth()
 				)
 			}
+		}
+
+		if (day.position == DayPosition.MonthDate && anniversaryName != null) {
+			Text(
+				text = anniversaryName,
+				color = Color(0xFF6366F1),
+				maxLines = 1,
+				overflow = TextOverflow.Ellipsis,
+				textAlign = TextAlign.Center,
+				style = TextStyle(
+					fontSize = 10.sp,
+					fontWeight = FontWeight.Bold,
+					platformStyle = PlatformTextStyle(includeFontPadding = false),
+					lineHeight = 10.sp
+				),
+				modifier = Modifier.fillMaxWidth()
+			)
 		}
 
 		Row(

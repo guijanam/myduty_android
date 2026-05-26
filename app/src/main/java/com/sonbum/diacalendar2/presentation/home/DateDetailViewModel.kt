@@ -33,6 +33,7 @@ import com.sonbum.diacalendar2.domain.repository.LateHolidayRecordRepository
 import com.sonbum.diacalendar2.domain.repository.LateHolidayTypeRepository
 import com.sonbum.diacalendar2.domain.repository.ShiftInputRecordRepository
 import com.sonbum.diacalendar2.domain.repository.ShiftInputTypeRepository
+import com.sonbum.diacalendar2.domain.repository.AnniversaryRepository
 import com.sonbum.diacalendar2.data.local.OfficeWebsiteRegistry
 import com.sonbum.diacalendar2.domain.util.DayTypeResolver
 import com.sonbum.diacalendar2.widget.WidgetUpdater
@@ -56,6 +57,7 @@ data class DateDetailState(
     val availableCalendars: List<DeviceCalendar> = emptyList(),
     val selectedCalendarIds: Set<Long> = emptySet(),
     val holidayName: String? = null,
+    val anniversaryName: String? = null,
     val holidayId: String? = null,
     val isUserCreatedHoliday: Boolean = false,
     val isLoading: Boolean = false,
@@ -99,6 +101,7 @@ class DateDetailViewModel(
     private val officeRepository: OfficeRepository,
     private val localOfficeRepository: LocalOfficeRepository,
     private val officeWebsiteRegistry: OfficeWebsiteRegistry,
+    private val anniversaryRepository: AnniversaryRepository,
     private val appContext: Context
 ) : ViewModel() {
 
@@ -134,6 +137,16 @@ class DateDetailViewModel(
         loadShiftSwapInfo(date)
         loadShiftInputInfo(date)
         loadShiftInputTypes()
+        loadAnniversaryInfo(date)
+    }
+
+    private fun loadAnniversaryInfo(date: LocalDate) {
+        viewModelScope.launch {
+            anniversaryRepository.getAll().collect { list ->
+                val map = anniversaryRepository.getAnniversaryMapForYear(date.year)
+                _state.update { it.copy(anniversaryName = map[date.toString()]) }
+            }
+        }
     }
 
     private fun loadHolidayInfo(date: LocalDate) {

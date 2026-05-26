@@ -46,6 +46,7 @@ import com.sonbum.diacalendar2.presentation.coworker.CoworkerEditScreen
 import com.sonbum.diacalendar2.presentation.subscription.PaywallScreen
 import com.sonbum.diacalendar2.domain.repository.SubscriptionRepository
 import com.sonbum.diacalendar2.core.util.DeviceIdProvider
+import com.sonbum.diacalendar2.presentation.anniversary.AnniversaryScreen
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -195,6 +196,16 @@ fun NavigationRoot(
 			// 캘린더 선택 화면
 			entry<Route.CalendarSelection> {
 				CalendarSelectionScreen(
+					onBack = {
+						if (topLevelBackStack.size > 1) {
+							topLevelBackStack.removeAt(topLevelBackStack.lastIndex)
+						}
+					}
+				)
+			}
+
+			entry<Route.Anniversary> {
+				AnniversaryScreen(
 					onBack = {
 						if (topLevelBackStack.size > 1) {
 							topLevelBackStack.removeAt(topLevelBackStack.lastIndex)
@@ -502,6 +513,9 @@ fun NavigationRoot(
 									},
 									onNavigateToCalendarSelection = {
 										topLevelBackStack.add(Route.CalendarSelection)
+									},
+									onNavigateToAnniversary = {
+										topLevelBackStack.add(Route.Anniversary)
 									},
 									onNavigateToShiftSelection = {
 										topLevelBackStack.add(Route.ShiftSelection)

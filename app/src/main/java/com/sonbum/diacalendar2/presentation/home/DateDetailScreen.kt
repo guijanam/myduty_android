@@ -237,23 +237,33 @@ fun DateDetailScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "${state.date.year}년 ${state.date.monthValue}월 ${state.date.dayOfMonth}일($dayOfWeekText)",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = titleColor
-                        )
-                        // 공휴일 이름 표시 (클릭하여 편집 가능)
-                        if (state.holidayName != null) {
-                            Spacer(modifier = Modifier.width(8.dp))
+                    Column {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Text(
-                                text = state.holidayName!!,
-                                style = MaterialTheme.typography.titleSmall,
-                                color = MaterialTheme.colorScheme.error,
-                                fontWeight = FontWeight.Medium,
-                                modifier = Modifier.clickable { showHolidayDialog = true }
+                                text = "${state.date.year}년 ${state.date.monthValue}월 ${state.date.dayOfMonth}일($dayOfWeekText)",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = titleColor
+                            )
+                            // 공휴일 이름 표시 (클릭하여 편집 가능)
+                            if (state.holidayName != null) {
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = state.holidayName!!,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                    fontWeight = FontWeight.Medium,
+                                    modifier = Modifier.clickable { showHolidayDialog = true }
+                                )
+                            }
+                        }
+                        if (state.anniversaryName != null) {
+                            Text(
+                                text = state.anniversaryName!!,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFF6366F1),
+                                fontWeight = FontWeight.Medium
                             )
                         }
                     }

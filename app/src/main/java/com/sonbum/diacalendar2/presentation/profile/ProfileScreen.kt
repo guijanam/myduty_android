@@ -72,6 +72,10 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.graphics.toColorInt
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Scaffold
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -109,6 +113,18 @@ fun ProfileScreen(
 	val coroutineScope = rememberCoroutineScope()
 	var chatInputText by remember { mutableStateOf("") }
 	var chatImageUri by remember { mutableStateOf<Uri?>(null) }
+	val snackbarHostState = remember { SnackbarHostState() }
+
+	LaunchedEffect(Unit) {
+		viewModel.events.collect { event ->
+			when (event) {
+				is ProfileEvent.VipRefreshResult -> {
+					val message = if (event.isVip) "VIP가 확인되었습니다." else "VIP 권한이 없습니다."
+					snackbarHostState.showSnackbar(message)
+				}
+			}
+		}
+	}
 
 	val chatImagePickerLauncher = rememberLauncherForActivityResult(
 		contract = ActivityResultContracts.GetContent()
@@ -119,11 +135,17 @@ fun ProfileScreen(
 	val tabs = listOf("메모내역", "근태내역", "나와의 채팅")
 	val scaffoldBottomPadding = com.sonbum.diacalendar2.LocalScaffoldPaddingValues.current.calculateBottomPadding()
 
+	Scaffold(
+		modifier = modifier,
+		snackbarHost = { SnackbarHost(snackbarHostState) },
+		containerColor = MaterialTheme.colorScheme.background
+	) { innerPadding ->
 	Column(
-		modifier = modifier
+		modifier = Modifier
 			.fillMaxSize()
 			.statusBarsPadding()
 			.padding(bottom = scaffoldBottomPadding)
+			.padding(innerPadding)
 	) {
 		PrimaryTabRow(
 			selectedTabIndex = pagerState.currentPage,
@@ -197,6 +219,8 @@ fun ProfileScreen(
 				}
 			)
 		}
+
+	}
 	}
 }
 
