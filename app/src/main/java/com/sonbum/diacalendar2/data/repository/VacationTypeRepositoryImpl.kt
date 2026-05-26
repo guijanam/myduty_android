@@ -44,12 +44,14 @@ class VacationTypeRepositoryImpl(
         }
     }
 
-    override suspend fun addVacationType(name: String, shortName: String): Long {
+    override suspend fun addVacationType(name: String, shortName: String, annualQuota: Int, resetMonthDay: String): Long {
         return vacationTypeDao.insert(
             VacationTypeEntity(
                 name = name,
                 shortName = shortName,
-                isDefault = false
+                isDefault = false,
+                annualQuota = annualQuota,
+                resetMonthDay = resetMonthDay
             )
         )
     }
@@ -62,8 +64,8 @@ class VacationTypeRepositoryImpl(
         vacationTypeDao.updateShortName(id, shortName)
     }
 
-    override suspend fun updateVacationType(id: Long, name: String, shortName: String) {
-        vacationTypeDao.updateNameAndShortName(id, name, shortName)
+    override suspend fun updateVacationType(id: Long, name: String, shortName: String, annualQuota: Int, resetMonthDay: String) {
+        vacationTypeDao.updateAll(id, name, shortName, annualQuota, resetMonthDay)
     }
 
     override suspend fun ensureDefaultsExist() {
@@ -81,7 +83,9 @@ class VacationTypeRepositoryImpl(
             id = id,
             name = name,
             shortName = shortName,
-            isDefault = isDefault
+            isDefault = isDefault,
+            annualQuota = annualQuota,
+            resetMonthDay = resetMonthDay
         )
     }
 }

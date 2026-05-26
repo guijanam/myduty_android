@@ -41,17 +41,28 @@ class VacationSettingViewModel(
         }
     }
 
-    fun addVacationType(name: String, shortName: String) {
+    fun addVacationType(name: String, shortName: String, annualQuota: Int, resetMonthDay: String) {
         if (name.isBlank() || shortName.isBlank()) return
         viewModelScope.launch {
-            vacationTypeRepository.addVacationType(name.trim(), shortName.trim())
+            vacationTypeRepository.addVacationType(
+                name.trim(),
+                shortName.trim(),
+                annualQuota.coerceAtLeast(0),
+                resetMonthDay
+            )
         }
     }
 
-    fun updateVacationType(id: Long, name: String, shortName: String) {
+    fun updateVacationType(id: Long, name: String, shortName: String, annualQuota: Int, resetMonthDay: String) {
         if (name.isBlank() || shortName.isBlank()) return
         viewModelScope.launch {
-            vacationTypeRepository.updateVacationType(id, name.trim(), shortName.trim())
+            vacationTypeRepository.updateVacationType(
+                id,
+                name.trim(),
+                shortName.trim(),
+                annualQuota.coerceAtLeast(0),
+                resetMonthDay
+            )
         }
     }
 

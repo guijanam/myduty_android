@@ -97,6 +97,7 @@ fun HomeRoot(
 		isRefreshingHolidays = state.isRefreshingHolidays,
 		shiftPattern = state.shiftPattern,
 		isCustomShift = state.isCustomShift,
+		officeName = state.officeName,
 		onAction = viewModel::onAction,
 		onNavigateToCalendarSelection = onNavigateToCalendarSelection,
 		onNavigateToShiftSelection = onNavigateToShiftSelection,

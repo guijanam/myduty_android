@@ -540,8 +540,15 @@ private fun VacationHistoryTab(
 					}.filterValues { it.isNotEmpty() }
 				}
 				filtered.flatMap { (typeName, records) ->
-					listOf(VacationListItemType.Header(typeName, records.size)) +
-						records.map { VacationListItemType.RecordItem(it) }
+					val type = state.vacationTypesByName[typeName]
+					listOf(
+						VacationListItemType.Header(
+							typeName = typeName,
+							count = records.size,
+							quota = type?.annualQuota ?: 0,
+							resetMonthDay = type?.resetMonthDay ?: "01-01"
+						)
+					) + records.map { VacationListItemType.RecordItem(it) }
 				}
 			}
 
@@ -587,7 +594,12 @@ private fun VacationHistoryTab(
 						) { item ->
 							when (item) {
 								is VacationListItemType.Header -> {
-									VacationTypeHeader(typeName = item.typeName, count = item.count)
+									VacationTypeHeader(
+										typeName = item.typeName,
+										count = item.count,
+										quota = item.quota,
+										resetMonthDay = item.resetMonthDay
+									)
 								}
 								is VacationListItemType.RecordItem -> {
 									VacationRecordItem(
@@ -605,14 +617,21 @@ private fun VacationHistoryTab(
 }
 
 private sealed class VacationListItemType {
-	data class Header(val typeName: String, val count: Int) : VacationListItemType()
+	data class Header(
+		val typeName: String,
+		val count: Int,
+		val quota: Int,
+		val resetMonthDay: String
+	) : VacationListItemType()
 	data class RecordItem(val record: VacationRecord) : VacationListItemType()
 }
 
 @Composable
 private fun VacationTypeHeader(
 	typeName: String,
-	count: Int
+	count: Int,
+	quota: Int,
+	resetMonthDay: String
 ) {
 	Column {
 		Spacer(modifier = Modifier.height(8.dp))
@@ -623,14 +642,23 @@ private fun VacationTypeHeader(
 			horizontalArrangement = Arrangement.SpaceBetween,
 			verticalAlignment = Alignment.CenterVertically
 		) {
+			Column {
+				Text(
+					text = typeName,
+					style = MaterialTheme.typography.titleMedium,
+					fontWeight = FontWeight.SemiBold,
+					color = MaterialTheme.colorScheme.primary
+				)
+				if (quota > 0) {
+					Text(
+						text = "${resetMonthDay} 초기화",
+						style = MaterialTheme.typography.labelSmall,
+						color = MaterialTheme.colorScheme.outline
+					)
+				}
+			}
 			Text(
-				text = typeName,
-				style = MaterialTheme.typography.titleMedium,
-				fontWeight = FontWeight.SemiBold,
-				color = MaterialTheme.colorScheme.primary
-			)
-			Text(
-				text = "${count}일",
+				text = if (quota > 0) "${count}일 / ${quota}일" else "${count}일",
 				style = MaterialTheme.typography.bodySmall,
 				color = MaterialTheme.colorScheme.outline
 			)

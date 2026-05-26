@@ -54,7 +54,8 @@ data class HomeCalendarState(
     val swapDates: Set<LocalDate> = emptySet(),
     val shiftInputMap: Map<LocalDate, ShiftInputInfo> = emptyMap(), // date -> ShiftInputInfo
     val holidayWorkShifts: List<String> = emptyList(),
-    val isCustomShift: Boolean = false
+    val isCustomShift: Boolean = false,
+    val officeName: String? = null
 )
 
 class HomeViewModel(
@@ -295,7 +296,8 @@ class HomeViewModel(
                         it.copy(
                             shiftPattern = emptyList(),
                             holidayWorkShifts = emptyList(),
-                            isCustomShift = false
+                            isCustomShift = false,
+                            officeName = null
                         )
                     }
                     return@collect
@@ -325,7 +327,8 @@ class HomeViewModel(
                     it.copy(
                         shiftPattern = pattern,
                         holidayWorkShifts = holidayWorkShifts,
-                        isCustomShift = isCustomShiftConfig
+                        isCustomShift = isCustomShiftConfig,
+                        officeName = config.officeName
                     )
                 }
             }

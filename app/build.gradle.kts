@@ -33,8 +33,8 @@ android {
 		applicationId = "com.sonbum.diacalendar2"
 		minSdk = 29
 		targetSdk = 36
-		versionCode = 44
-		versionName = "3.9"
+		versionCode = 45
+		versionName = "4.0"
 
 		testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -77,7 +77,7 @@ dependencies {
 
 	implementation("com.kizitonwose.calendar:compose:2.10.1")
 
-	implementation("com.google.android.material:material:1.13.0")
+	implementation("com.google.android.material:material:1.14.0")
 
 
 
@@ -120,8 +120,8 @@ dependencies {
 	implementation("com.google.android.gms:play-services-ads:25.2.0")
 
 	//결제시스템
-	implementation("com.revenuecat.purchases:purchases:10.2.1")
-	implementation("com.revenuecat.purchases:purchases-ui:10.2.1")
+	implementation("com.revenuecat.purchases:purchases:10.6.1")
+	implementation("com.revenuecat.purchases:purchases-ui:10.6.1")
 
 
 	// Google Credential Manager (Google Sign-In)
@@ -130,7 +130,7 @@ dependencies {
 	implementation("com.google.android.libraries.identity.googleid:googleid:1.2.0")
 
 	// Firebase
-	implementation(platform("com.google.firebase:firebase-bom:34.12.0"))
+	implementation(platform("com.google.firebase:firebase-bom:34.13.0"))
 	implementation("com.google.firebase:firebase-messaging")
 
 	// WorkManager

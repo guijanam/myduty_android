@@ -8,11 +8,14 @@ import com.sonbum.diacalendar2.core.util.ImageUtils
 import com.sonbum.diacalendar2.domain.model.ChatNote
 import com.sonbum.diacalendar2.domain.model.Memo
 import com.sonbum.diacalendar2.domain.model.VacationRecord
+import com.sonbum.diacalendar2.domain.model.VacationType
 import com.sonbum.diacalendar2.domain.repository.ChatNoteRepository
 import com.sonbum.diacalendar2.domain.repository.MemoRepository
 import com.sonbum.diacalendar2.domain.repository.VacationRecordRepository
+import com.sonbum.diacalendar2.domain.repository.VacationTypeRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -20,6 +23,7 @@ import java.time.LocalDate
 data class ProfileState(
     val memosByDate: Map<LocalDate, List<Memo>> = emptyMap(),
     val vacationsByType: Map<String, List<VacationRecord>> = emptyMap(),
+    val vacationTypesByName: Map<String, VacationType> = emptyMap(),
     val chatNotes: List<ChatNote> = emptyList(),
     val isLoading: Boolean = true,
     val isVacationLoading: Boolean = true,
@@ -29,6 +33,7 @@ data class ProfileState(
 class ProfileViewModel(
     private val memoRepository: MemoRepository,
     private val vacationRecordRepository: VacationRecordRepository,
+    private val vacationTypeRepository: VacationTypeRepository,
     private val chatNoteRepository: ChatNoteRepository,
     private val appContext: Context
 ) : ViewModel() {
@@ -62,15 +67,23 @@ class ProfileViewModel(
 
     private fun loadVacationRecords() {
         viewModelScope.launch {
-            vacationRecordRepository.getAllRecords().collect { records ->
-                // 휴가 이름별로 그룹화, 각 그룹 내에서 날짜 내림차순
-                val grouped = records
-                    .sortedByDescending { it.date }
-                    .groupBy { it.vacationName }
-                _state.update {
-                    it.copy(vacationsByType = grouped, isVacationLoading = false)
+            combine(
+                vacationRecordRepository.getAllRecords(),
+                vacationTypeRepository.getAllVacationTypes()
+            ) { records, types -> records to types }
+                .collect { (records, types) ->
+                    val grouped = records
+                        .sortedByDescending { it.date }
+                        .groupBy { it.vacationName }
+                    val typesByName = types.associateBy { it.name }
+                    _state.update {
+                        it.copy(
+                            vacationsByType = grouped,
+                            vacationTypesByName = typesByName,
+                            isVacationLoading = false
+                        )
+                    }
                 }
-            }
         }
     }
 

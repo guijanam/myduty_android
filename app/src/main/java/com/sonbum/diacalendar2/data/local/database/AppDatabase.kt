@@ -77,7 +77,7 @@ import com.sonbum.diacalendar2.data.local.entity.CoworkerGroupEntity
         CoworkerEntity::class,
         CoworkerGroupEntity::class
     ],
-    version = 22,
+    version = 23,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -442,6 +442,14 @@ abstract class AppDatabase : RoomDatabase() {
                         createdAt INTEGER NOT NULL DEFAULT 0
                     )
                 """.trimIndent())
+            }
+        }
+
+        // 버전 22 → 23: vacation_types에 annualQuota, resetMonthDay 컬럼 추가
+        val MIGRATION_22_23 = object : Migration(22, 23) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE vacation_types ADD COLUMN annualQuota INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE vacation_types ADD COLUMN resetMonthDay TEXT NOT NULL DEFAULT '01-01'")
             }
         }
 

@@ -3,6 +3,7 @@ package com.sonbum.diacalendar2.di
 import androidx.room.Room
 import okhttp3.logging.HttpLoggingInterceptor
 import com.sonbum.diacalendar2.data.local.OfficeWebsiteRegistry
+import com.sonbum.diacalendar2.data.local.DrawerWebsiteRegistry
 import com.sonbum.diacalendar2.data.local.database.AppDatabase
 import com.sonbum.diacalendar2.data.local.datastore.CalendarPreferences
 import com.sonbum.diacalendar2.data.local.datastore.CoworkerPreferences
@@ -149,7 +150,8 @@ val databaseModule = module {
                 AppDatabase.MIGRATION_18_19,
                 AppDatabase.MIGRATION_19_20,
                 AppDatabase.MIGRATION_20_21,
-                AppDatabase.MIGRATION_21_22
+                AppDatabase.MIGRATION_21_22,
+                AppDatabase.MIGRATION_22_23
             )
             .fallbackToDestructiveMigration()
             .build()
@@ -194,6 +196,7 @@ val dataStoreModule = module {
     single { MenuPreferences(androidContext()) }
     single { CoworkerPreferences(androidContext()) }
     single { OfficeWebsiteRegistry(androidContext()) }
+    single { DrawerWebsiteRegistry(androidContext()) }
     single { VipPreferences(androidContext()) }
 }
 
@@ -258,7 +261,7 @@ val viewModelModule = module {
     viewModel { DateDetailViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), androidContext()) }
     viewModel { MemoEditViewModel(get(), get(), androidContext()) }
     viewModelOf(::CalendarSelectionViewModel)
-    viewModel { ProfileViewModel(get(), get(), get(), androidContext()) }
+    viewModel { ProfileViewModel(get(), get(), get(), get(), androidContext()) }
     viewModel { ShiftSelectionViewModel(get(), get(), get(), get(), get(), androidContext()) }
     viewModelOf(::DiaTableViewModel)
     viewModelOf(::VacationSettingViewModel)
