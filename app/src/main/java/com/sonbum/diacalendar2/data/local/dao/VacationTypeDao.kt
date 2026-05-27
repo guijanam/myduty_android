@@ -33,8 +33,8 @@ interface VacationTypeDao {
     @Query("UPDATE vacation_types SET name = :name, shortName = :shortName WHERE id = :id")
     suspend fun updateNameAndShortName(id: Long, name: String, shortName: String)
 
-    @Query("UPDATE vacation_types SET name = :name, shortName = :shortName, annualQuota = :annualQuota, resetMonthDay = :resetMonthDay WHERE id = :id")
-    suspend fun updateAll(id: Long, name: String, shortName: String, annualQuota: Int, resetMonthDay: String)
+    @Query("UPDATE vacation_types SET name = :name, shortName = :shortName, annualQuota = :annualQuota, resetMonthDay = :resetMonthDay, grantYear = :grantYear, expiryYear = :expiryYear, grantDate = :grantDate, expiryDate = :expiryDate WHERE id = :id")
+    suspend fun updateAll(id: Long, name: String, shortName: String, annualQuota: Int, resetMonthDay: String, grantYear: Int, expiryYear: Int, grantDate: String, expiryDate: String)
 
     @Query("DELETE FROM vacation_types")
     suspend fun deleteAll()

@@ -28,6 +28,8 @@ data class ProfileState(
     val memosByDate: Map<LocalDate, List<Memo>> = emptyMap(),
     val vacationsByType: Map<String, List<VacationRecord>> = emptyMap(),
     val vacationTypesByName: Map<String, VacationType> = emptyMap(),
+    /** 다년도 근태의 전체 기간 누적 사용량 (typeName → totalUsedCount) */
+    val vacationTotalUsed: Map<String, Int> = emptyMap(),
     val chatNotes: List<ChatNote> = emptyList(),
     val isLoading: Boolean = true,
     val isVacationLoading: Boolean = true,
@@ -89,10 +91,26 @@ class ProfileViewModel(
                         .sortedByDescending { it.date }
                         .groupBy { it.vacationName }
                     val typesByName = types.associateBy { it.name }
+
+                    // 다년도 근태: 전체 기간(발생일~소멸일)의 누적 사용량 계산
+                    val totalUsed = grouped.mapValues { (typeName, allRecords) ->
+                        val type = typesByName[typeName]
+                        if (type != null && type.isMultiYear) {
+                            // 발생일~소멸일 사이의 모든 레코드 카운트 (날짜 문자열 비교)
+                            allRecords.count { record ->
+                                val dateStr = record.date.toString() // "YYYY-MM-DD"
+                                dateStr >= type.grantDate && dateStr <= type.expiryDate
+                            }
+                        } else {
+                            0 // 일반 근태는 연도별 필터를 UI에서 처리
+                        }
+                    }
+
                     _state.update {
                         it.copy(
                             vacationsByType = grouped,
                             vacationTypesByName = typesByName,
+                            vacationTotalUsed = totalUsed,
                             isVacationLoading = false
                         )
                     }

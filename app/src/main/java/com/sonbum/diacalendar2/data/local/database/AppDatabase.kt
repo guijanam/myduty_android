@@ -80,7 +80,7 @@ import com.sonbum.diacalendar2.data.local.dao.AnniversaryDao
         CoworkerGroupEntity::class,
         AnniversaryEntity::class
     ],
-    version = 24,
+    version = 26,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -470,6 +470,22 @@ abstract class AppDatabase : RoomDatabase() {
                         createdAt INTEGER NOT NULL
                     )
                 """.trimIndent())
+            }
+        }
+
+        // 버전 24 → 25: vacation_types에 grantYear, expiryYear 컬럼 추가
+        val MIGRATION_24_25 = object : Migration(24, 25) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE vacation_types ADD COLUMN grantYear INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE vacation_types ADD COLUMN expiryYear INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        // 버전 25 → 26: vacation_types에 grantDate, expiryDate 컬럼 추가 (월/일 포함 날짜)
+        val MIGRATION_25_26 = object : Migration(25, 26) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE vacation_types ADD COLUMN grantDate TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE vacation_types ADD COLUMN expiryDate TEXT NOT NULL DEFAULT ''")
             }
         }
 

@@ -44,14 +44,18 @@ class VacationTypeRepositoryImpl(
         }
     }
 
-    override suspend fun addVacationType(name: String, shortName: String, annualQuota: Int, resetMonthDay: String): Long {
+    override suspend fun addVacationType(name: String, shortName: String, annualQuota: Int, resetMonthDay: String, grantYear: Int, expiryYear: Int, grantDate: String, expiryDate: String): Long {
         return vacationTypeDao.insert(
             VacationTypeEntity(
                 name = name,
                 shortName = shortName,
                 isDefault = false,
                 annualQuota = annualQuota,
-                resetMonthDay = resetMonthDay
+                resetMonthDay = resetMonthDay,
+                grantYear = grantYear,
+                expiryYear = expiryYear,
+                grantDate = grantDate,
+                expiryDate = expiryDate
             )
         )
     }
@@ -64,8 +68,8 @@ class VacationTypeRepositoryImpl(
         vacationTypeDao.updateShortName(id, shortName)
     }
 
-    override suspend fun updateVacationType(id: Long, name: String, shortName: String, annualQuota: Int, resetMonthDay: String) {
-        vacationTypeDao.updateAll(id, name, shortName, annualQuota, resetMonthDay)
+    override suspend fun updateVacationType(id: Long, name: String, shortName: String, annualQuota: Int, resetMonthDay: String, grantYear: Int, expiryYear: Int, grantDate: String, expiryDate: String) {
+        vacationTypeDao.updateAll(id, name, shortName, annualQuota, resetMonthDay, grantYear, expiryYear, grantDate, expiryDate)
     }
 
     override suspend fun ensureDefaultsExist() {
@@ -85,7 +89,11 @@ class VacationTypeRepositoryImpl(
             shortName = shortName,
             isDefault = isDefault,
             annualQuota = annualQuota,
-            resetMonthDay = resetMonthDay
+            resetMonthDay = resetMonthDay,
+            grantYear = grantYear,
+            expiryYear = expiryYear,
+            grantDate = grantDate,
+            expiryDate = expiryDate
         )
     }
 }

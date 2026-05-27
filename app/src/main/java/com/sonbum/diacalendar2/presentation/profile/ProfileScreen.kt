@@ -555,25 +555,58 @@ private fun VacationHistoryTab(
 				state.vacationsByType.values.flatten().map { it.date.year }.distinct().sortedDescending()
 			}
 
-			val filteredVacationList = remember(state.vacationsByType, selectedYear) {
-				val filtered = if (selectedYear == null) {
-					state.vacationsByType
-				} else {
-					state.vacationsByType.mapValues { (_, records) ->
-						records.filter { it.date.year == selectedYear }
-					}.filterValues { it.isNotEmpty() }
-				}
-				filtered.flatMap { (typeName, records) ->
+			val filteredVacationList = remember(state.vacationsByType, state.vacationTypesByName, state.vacationTotalUsed, selectedYear) {
+				// 다년도 근태는 연도 필터와 무관하게 헤더에 항상 표시 (단, 해당 근태 레코드가 존재해야 함)
+				val allTypes = state.vacationsByType.keys
+
+				val result = mutableListOf<VacationListItemType>()
+				for (typeName in allTypes) {
+					val allRecords = state.vacationsByType[typeName] ?: continue
 					val type = state.vacationTypesByName[typeName]
-					listOf(
+					val isMultiYear = type?.isMultiYear == true
+
+					// 다년도 근태: 발생일~소멸일 범위 안의 레코드만 대상
+					// 일반 근태: 모든 레코드 대상
+					val rangeRecords = if (isMultiYear && type != null) {
+						allRecords.filter { record ->
+							val dateStr = record.date.toString()
+							dateStr >= type.grantDate && dateStr <= type.expiryDate
+						}
+					} else {
+						allRecords
+					}
+
+					// 연도 필터 추가 적용
+					val displayRecords = if (selectedYear == null) {
+						rangeRecords
+					} else {
+						rangeRecords.filter { it.date.year == selectedYear }
+					}
+
+					// 다년도 근태는 선택 연도 레코드가 없어도 헤더를 표시 (발생~소멸 범위 내에 레코드 존재 여부와 무관)
+					// 일반 근태는 해당 연도 레코드가 없으면 항목 자체를 숨김
+					if (!isMultiYear && displayRecords.isEmpty()) continue
+
+					// totalUsed = ViewModel에서 계산된 발생일~소멸일 범위의 전체 누적 수
+					val totalUsed = if (isMultiYear) state.vacationTotalUsed[typeName] ?: 0 else 0
+
+					result.add(
 						VacationListItemType.Header(
 							typeName = typeName,
-							count = records.size,
+							count = displayRecords.size,
 							quota = type?.annualQuota ?: 0,
-							resetMonthDay = type?.resetMonthDay ?: "01-01"
+							resetMonthDay = type?.resetMonthDay ?: "01-01",
+							isMultiYear = isMultiYear,
+							grantYear = type?.effectiveGrantYear ?: 0,
+							expiryYear = type?.effectiveExpiryYear ?: 0,
+							grantDate = type?.grantDate ?: "",
+							expiryDate = type?.expiryDate ?: "",
+							totalUsed = totalUsed
 						)
-					) + records.map { VacationListItemType.RecordItem(it) }
+					)
+					result.addAll(displayRecords.map { VacationListItemType.RecordItem(it) })
 				}
+				result
 			}
 
 			Column(modifier = Modifier.fillMaxSize()) {
@@ -622,7 +655,14 @@ private fun VacationHistoryTab(
 										typeName = item.typeName,
 										count = item.count,
 										quota = item.quota,
-										resetMonthDay = item.resetMonthDay
+										resetMonthDay = item.resetMonthDay,
+										isMultiYear = item.isMultiYear,
+										grantYear = item.grantYear,
+										expiryYear = item.expiryYear,
+										grantDate = item.grantDate,
+										expiryDate = item.expiryDate,
+										totalUsed = item.totalUsed,
+										selectedYear = selectedYear
 									)
 								}
 								is VacationListItemType.RecordItem -> {
@@ -645,7 +685,13 @@ private sealed class VacationListItemType {
 		val typeName: String,
 		val count: Int,
 		val quota: Int,
-		val resetMonthDay: String
+		val resetMonthDay: String,
+		val isMultiYear: Boolean = false,
+		val grantYear: Int = 0,
+		val expiryYear: Int = 0,
+		val grantDate: String = "",  // "YYYY-MM-DD"
+		val expiryDate: String = "", // "YYYY-MM-DD"
+		val totalUsed: Int = 0       // 다년도: 전체 기간 누적 사용량
 	) : VacationListItemType()
 	data class RecordItem(val record: VacationRecord) : VacationListItemType()
 }
@@ -655,7 +701,14 @@ private fun VacationTypeHeader(
 	typeName: String,
 	count: Int,
 	quota: Int,
-	resetMonthDay: String
+	resetMonthDay: String,
+	isMultiYear: Boolean = false,
+	grantYear: Int = 0,
+	expiryYear: Int = 0,
+	grantDate: String = "",
+	expiryDate: String = "",
+	totalUsed: Int = 0,
+	selectedYear: Int? = null
 ) {
 	Column {
 		Spacer(modifier = Modifier.height(8.dp))
@@ -666,14 +719,24 @@ private fun VacationTypeHeader(
 			horizontalArrangement = Arrangement.SpaceBetween,
 			verticalAlignment = Alignment.CenterVertically
 		) {
-			Column {
+			Column(modifier = Modifier.weight(1f)) {
 				Text(
 					text = typeName,
 					style = MaterialTheme.typography.titleMedium,
 					fontWeight = FontWeight.SemiBold,
 					color = MaterialTheme.colorScheme.primary
 				)
-				if (quota > 0) {
+				if (isMultiYear) {
+					// 다년도 근태: 발생~소멸 날짜 표시 (날짜 전체 or 년도만)
+					val grantLabel = formatVacationDate(grantDate, grantYear)
+					val expiryLabel = formatVacationDate(expiryDate, expiryYear)
+					Text(
+						text = "발생: $grantLabel → 소멸: $expiryLabel",
+						style = MaterialTheme.typography.labelSmall,
+						color = MaterialTheme.colorScheme.tertiary
+					)
+				} else if (quota > 0) {
+					// 일반 근태: 초기화 날짜 표시
 					Text(
 						text = "${resetMonthDay} 초기화",
 						style = MaterialTheme.typography.labelSmall,
@@ -681,11 +744,32 @@ private fun VacationTypeHeader(
 					)
 				}
 			}
-			Text(
-				text = if (quota > 0) "${count}일 / ${quota}일" else "${count}일",
-				style = MaterialTheme.typography.bodySmall,
-				color = MaterialTheme.colorScheme.outline
-			)
+			Column(horizontalAlignment = Alignment.End) {
+				if (isMultiYear) {
+					// 다년도: 전체 기간 누적 사용량 / 총 갯수 (항상 표시)
+					Text(
+						text = if (quota > 0) "누적 ${totalUsed}일 / 총 ${quota}일" else "누적 ${totalUsed}일",
+						style = MaterialTheme.typography.bodySmall,
+						fontWeight = FontWeight.Medium,
+						color = MaterialTheme.colorScheme.tertiary
+					)
+					// 특정 연도 선택 시: 해당 연도 사용량도 별도 표시
+					if (selectedYear != null && count != totalUsed) {
+						Text(
+							text = "${selectedYear}년 ${count}일",
+							style = MaterialTheme.typography.labelSmall,
+							color = MaterialTheme.colorScheme.outline
+						)
+					}
+				} else {
+					// 일반 근태: 당해 사용량 / 연간 할당량
+					Text(
+						text = if (quota > 0) "${count}일 / ${quota}일" else "${count}일",
+						style = MaterialTheme.typography.bodySmall,
+						color = MaterialTheme.colorScheme.outline
+					)
+				}
+			}
 		}
 		HorizontalDivider(
 			color = MaterialTheme.colorScheme.outlineVariant,
@@ -1328,4 +1412,16 @@ private fun FullScreenImageDialog(
 			}
 		}
 	}
+}
+
+
+/** "YYYY-MM-DD" 날짜 문자열 → "YYYY년 MM월 DD일" 표시. 빈 문자열이면 년도만 표시. */
+private fun formatVacationDate(dateStr: String, fallbackYear: Int): String {
+    if (dateStr.isBlank()) return if (fallbackYear > 0) "${fallbackYear}년" else ""
+    val parts = dateStr.split("-")
+    if (parts.size < 3) return dateStr
+    val y = parts[0].toIntOrNull() ?: return dateStr
+    val m = parts[1].toIntOrNull() ?: return dateStr
+    val d = parts[2].toIntOrNull() ?: return dateStr
+    return "${y}년 ${m}월 ${d}일"
 }
