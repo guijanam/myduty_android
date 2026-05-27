@@ -30,4 +30,7 @@ interface CoworkerDao {
 
     @Query("SELECT * FROM coworkers")
     suspend fun getAllOnce(): List<CoworkerEntity>
+
+    @Query("DELETE FROM coworkers")
+    suspend fun deleteAll()
 }

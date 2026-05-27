@@ -90,9 +90,9 @@ fun SimpleCalendarTitle(
 		) {
 			if (restCount != null) {
 				Text(
-					text = "휴무:${restCount}개",
+					text = "휴무:${restCount}",
 					color = MaterialTheme.colorScheme.onErrorContainer,
-					fontSize = 14.sp,
+					fontSize = 18.sp,
 					fontWeight = FontWeight.Bold,
 				)
 				Spacer(modifier = Modifier.width(10.dp))
@@ -116,9 +116,9 @@ fun SimpleCalendarTitle(
 			if (coverCount != null) {
 				Spacer(modifier = Modifier.width(10.dp))
 				Text(
-					text = "휴근:${coverCount}개",
+					text = "휴근:${coverCount}",
 					color = MaterialTheme.colorScheme.onBackground,
-					fontSize = 14.sp,
+					fontSize = 18.sp,
 					fontWeight = FontWeight.Bold,
 				)
 			}

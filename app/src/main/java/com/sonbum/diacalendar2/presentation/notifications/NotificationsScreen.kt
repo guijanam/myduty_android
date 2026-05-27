@@ -22,43 +22,58 @@ fun NotificationsScreen(
     onNavigateToPostDetail: (Long) -> Unit = {},
     onNavigateToPostWrite: (String?) -> Unit = {},
     onNavigateToPostEdit: (Long) -> Unit = {},
+    onNavigateToDocumentDetail: (String) -> Unit = {},
     onNavigateToAuth: () -> Unit = {},
     onNavigateToBlockedUsers: () -> Unit = {},
     boardRefreshTrigger: Int = 0,
+    initialTab: Int = 0,
     modifier: Modifier = Modifier
 ) {
-    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+    var selectedTab by rememberSaveable { mutableIntStateOf(initialTab) }
 
     Column(modifier = modifier.fillMaxSize()) {
         TabRow(selectedTabIndex = selectedTab) {
+//            Tab(
+//                selected = selectedTab == 0,
+//                onClick = { selectedTab = 0 },
+//                text = { Text("게시판") }
+//            )
             Tab(
                 selected = selectedTab == 0,
                 onClick = { selectedTab = 0 },
-                text = { Text("게시판") }
+                text = { Text("공지") }
             )
-            Tab(
-                selected = selectedTab == 1,
-                onClick = { selectedTab = 1 },
-                text = { Text("내 글 관리") }
-            )
-
+//            Tab(
+//                selected = selectedTab == 2,
+//                onClick = { selectedTab = 2 },
+//                text = { Text("내 글 관리") }
+//            )
         }
 
         when (selectedTab) {
-            0 -> BoardListScreen(
-                onNavigateToPostDetail = onNavigateToPostDetail,
-                onNavigateToPostWrite = onNavigateToPostWrite,
-                onNavigateToAuth = onNavigateToAuth,
-                onNavigateToBlockedUsers = onNavigateToBlockedUsers,
-                boardRefreshTrigger = boardRefreshTrigger,
-                modifier = Modifier.weight(1f)
-            )
-            1 -> MyPostsScreen(
-                onNavigateToPostDetail = onNavigateToPostDetail,
-                onNavigateToPostEdit = onNavigateToPostEdit,
-                onNavigateToAuth = onNavigateToAuth,
-                modifier = Modifier.weight(1f)
-            )
+//            0 -> BoardListScreen(
+//                onNavigateToPostDetail = onNavigateToPostDetail,
+//                onNavigateToPostWrite = onNavigateToPostWrite,
+//                onNavigateToAuth = onNavigateToAuth,
+//                onNavigateToBlockedUsers = onNavigateToBlockedUsers,
+//                boardRefreshTrigger = boardRefreshTrigger,
+//                modifier = Modifier.weight(1f)
+//            )
+//            1 -> DocumentListScreen(
+//                onNavigateToDetail = onNavigateToDocumentDetail,
+//                modifier = Modifier.weight(1f)
+//            )
+//            2 -> MyPostsScreen(
+//                onNavigateToPostDetail = onNavigateToPostDetail,
+//                onNavigateToPostEdit = onNavigateToPostEdit,
+//                onNavigateToAuth = onNavigateToAuth,
+//                modifier = Modifier.weight(1f)
+//            )
+
+	        0 -> DocumentListScreen(
+		        onNavigateToDetail = onNavigateToDocumentDetail,
+		        modifier = Modifier.weight(1f)
+	        )
 
         }
     }

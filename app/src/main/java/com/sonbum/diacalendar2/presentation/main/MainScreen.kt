@@ -38,6 +38,7 @@ fun MainScreen(
 ) {
 	val currentRoute = backStack.lastOrNull()
 	val hasNewBoardPosts by viewModel.hasNewBoardPosts.collectAsStateWithLifecycle()
+	val officeWebsiteTabState by viewModel.officeWebsiteTabState.collectAsStateWithLifecycle()
 
 	fun switchTab(route: NavKey) {
 		if (currentRoute == route) return
@@ -89,21 +90,21 @@ fun MainScreen(
 //				)
 
 				//게시판
-				NavigationBarItem(
-					selected = currentRoute is Route.Notifications,
-					onClick = {
-						viewModel.markBoardChecked()
-						switchTab(Route.Notifications)
-					},
-					icon = {
-						BadgedBox(badge = {
-							if (hasNewBoardPosts) Badge()
-						}) {
-							Icon(Icons.Default.Forum, contentDescription = "게시판")
-						}
-					},
-					label = { Text("게시판") }
-				)
+//				NavigationBarItem(
+//					selected = currentRoute is Route.Notifications,
+//					onClick = {
+//						viewModel.markBoardChecked()
+//						switchTab(Route.Notifications)
+//					},
+//					icon = {
+//						BadgedBox(badge = {
+//							if (hasNewBoardPosts) Badge()
+//						}) {
+//							Icon(Icons.Default.Forum, contentDescription = "게시판")
+//						}
+//					},
+//					label = { Text("게시판") }
+//				)
 
 				//커뮤니티(seoulmetrospace)
 //				NavigationBarItem(
@@ -118,6 +119,8 @@ fun MainScreen(
 //					label = { Text("커뮤니티") }
 //				)
 
+
+
 				//profile
 				NavigationBarItem(
 					selected = currentRoute is Route.Profile,
@@ -127,6 +130,18 @@ fun MainScreen(
 					},
 					label = { Text("MyInfo") }
 				)
+
+				// 승무소 사이트 탭 (URL이 등록된 승무소 사용자에게만 표시)
+				if (officeWebsiteTabState is MainViewModel.OfficeWebsiteTabState.Available) {
+					NavigationBarItem(
+						selected = currentRoute is Route.OfficeWebsiteTab,
+						onClick = { switchTab(Route.OfficeWebsiteTab) },
+						icon = {
+							Icon(Icons.Default.Language, contentDescription = "승무소 사이트")
+						},
+						label = { Text("승무소") }
+					)
+				}
 			}
 		}
 	) { innerPadding -> // Scaffold가 계산한 하단 바 높이

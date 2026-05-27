@@ -110,6 +110,9 @@ import androidx.work.WorkManager
 import com.sonbum.diacalendar2.data.repository.AnniversaryRepositoryImpl
 import com.sonbum.diacalendar2.domain.repository.AnniversaryRepository
 import com.sonbum.diacalendar2.presentation.anniversary.AnniversaryViewModel
+import com.sonbum.diacalendar2.data.repository.DocumentRepositoryImpl
+import com.sonbum.diacalendar2.domain.repository.DocumentRepository
+import com.sonbum.diacalendar2.presentation.notifications.DocumentViewModel
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import org.koin.android.ext.koin.androidContext
@@ -248,7 +251,10 @@ val repositoryModule = module {
             lateHolidayRecordDao = get(),
             localOfficeDao = get(),
             localDiaDao = get(),
-            chatNoteDao = get()
+            chatNoteDao = get(),
+            anniversaryDao = get(),
+            coworkerDao = get(),
+            coworkerGroupDao = get()
         )
     }
     singleOf(::BackupRestoreUseCase)
@@ -258,6 +264,7 @@ val repositoryModule = module {
     single<CoworkerRepository> { CoworkerRepositoryImpl(get(), get(), get()) }
     single<SubscriptionRepository> { SubscriptionRepositoryImpl(get(), get()) }
     single<AnniversaryRepository> { AnniversaryRepositoryImpl(get()) }
+    single<DocumentRepository> { DocumentRepositoryImpl(get()) }
 }
 
 /**
@@ -296,6 +303,7 @@ val viewModelModule = module {
     viewModelOf(::CoworkerEditViewModel)
     viewModelOf(::PaywallViewModel)
     viewModelOf(::AnniversaryViewModel)
+    viewModelOf(::DocumentViewModel)
 }
 
 /**

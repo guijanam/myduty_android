@@ -6,6 +6,12 @@ import android.util.Base64
 import com.sonbum.diacalendar2.data.local.dao.*
 import com.sonbum.diacalendar2.data.local.entity.*
 import com.sonbum.diacalendar2.domain.model.*
+import com.sonbum.diacalendar2.data.local.dao.AnniversaryDao
+import com.sonbum.diacalendar2.data.local.dao.CoworkerDao
+import com.sonbum.diacalendar2.data.local.dao.CoworkerGroupDao
+import com.sonbum.diacalendar2.data.local.entity.AnniversaryEntity
+import com.sonbum.diacalendar2.data.local.entity.CoworkerEntity
+import com.sonbum.diacalendar2.data.local.entity.CoworkerGroupEntity
 import com.sonbum.diacalendar2.domain.repository.BackupRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -32,6 +38,9 @@ class BackupRepositoryImpl(
     private val localDiaDao: LocalDiaDao,
     private val lateHolidayRecordDao: LateHolidayRecordDao,
     private val chatNoteDao: ChatNoteDao,
+    private val anniversaryDao: AnniversaryDao,
+    private val coworkerDao: CoworkerDao,
+    private val coworkerGroupDao: CoworkerGroupDao,
 ) : BackupRepository {
 
     private val json = Json {
@@ -221,6 +230,46 @@ class BackupRepositoryImpl(
             )
         }
 
+        // Anniversaries
+        val anniversaries = anniversaryDao.getAllOnce()
+        val anniversaryBackups = anniversaries.map {
+            AnniversaryBackup(
+                id = it.id,
+                name = it.name,
+                month = it.month,
+                day = it.day,
+                isLunar = it.isLunar,
+                createdAt = it.createdAt
+            )
+        }
+
+        // CoworkerGroups
+        val coworkerGroups = coworkerGroupDao.getAllOnce()
+        val coworkerGroupBackups = coworkerGroups.map {
+            CoworkerGroupBackup(
+                id = it.id,
+                name = it.name,
+                sortOrder = it.sortOrder,
+                createdAt = it.createdAt
+            )
+        }
+
+        // Coworkers
+        val coworkers = coworkerDao.getAllOnce()
+        val coworkerBackups = coworkers.map {
+            CoworkerBackup(
+                id = it.id,
+                name = it.name,
+                sortOrder = it.sortOrder,
+                groupIds = it.groupIds,
+                shiftPattern = it.shiftPattern,
+                referenceDate = it.referenceDate,
+                referenceShift = it.referenceShift,
+                referenceShiftIndex = it.referenceShiftIndex,
+                createdAt = it.createdAt
+            )
+        }
+
         AppBackupData(
             userShiftConfig = userShiftConfigBackup,
             shiftSchedules = shiftScheduleBackups,
@@ -236,7 +285,10 @@ class BackupRepositoryImpl(
             lateHolidayRecords = lateHolidayRecordBackups,
             localOffices = localOfficeBackups,
             localDias = localDiaBackups,
-            chatNotes = chatNoteBackups
+            chatNotes = chatNoteBackups,
+            anniversaries = anniversaryBackups,
+            coworkerGroups = coworkerGroupBackups,
+            coworkers = coworkerBackups
         )
     }
 
@@ -289,6 +341,9 @@ class BackupRepositoryImpl(
                 localDiaDao.deleteAll()
                 localOfficeDao.deleteAll()
                 chatNoteDao.deleteAll()
+                anniversaryDao.deleteAll()
+                coworkerDao.deleteAll()
+                coworkerGroupDao.deleteAll()
             }
 
             // UserShiftConfig 복원
@@ -508,6 +563,56 @@ class BackupRepositoryImpl(
                         createdAt = note.createdAt,
                         isPinned = note.isPinned,
                         imagePath = restoredImagePath
+                    )
+                )
+                restoredCount++
+            }
+
+            // Anniversaries 복원
+            backupData.anniversaries.forEach { ann ->
+                anniversaryDao.insert(
+                    AnniversaryEntity(
+                        name = ann.name,
+                        month = ann.month,
+                        day = ann.day,
+                        isLunar = ann.isLunar,
+                        createdAt = ann.createdAt
+                    )
+                )
+                restoredCount++
+            }
+
+            // CoworkerGroups 복원 (id → 새 id 매핑 보존)
+            val groupIdMap = mutableMapOf<Long, Long>()
+            backupData.coworkerGroups.forEach { group ->
+                val newId = coworkerGroupDao.insert(
+                    CoworkerGroupEntity(
+                        name = group.name,
+                        sortOrder = group.sortOrder,
+                        createdAt = group.createdAt
+                    )
+                )
+                groupIdMap[group.id] = newId
+                restoredCount++
+            }
+
+            // Coworkers 복원 (groupIds를 새 id로 재매핑)
+            backupData.coworkers.forEach { coworker ->
+                val remappedGroupIds = coworker.groupIds
+                    .split(",")
+                    .filter { it.isNotBlank() }
+                    .mapNotNull { oldId -> groupIdMap[oldId.trim().toLongOrNull() ?: return@mapNotNull null] }
+                    .joinToString(",")
+                coworkerDao.insert(
+                    CoworkerEntity(
+                        name = coworker.name,
+                        sortOrder = coworker.sortOrder,
+                        groupIds = remappedGroupIds,
+                        shiftPattern = coworker.shiftPattern,
+                        referenceDate = coworker.referenceDate,
+                        referenceShift = coworker.referenceShift,
+                        referenceShiftIndex = coworker.referenceShiftIndex,
+                        createdAt = coworker.createdAt
                     )
                 )
                 restoredCount++

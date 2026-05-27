@@ -906,13 +906,13 @@ fun WorkTimeCard(
                         modifier = Modifier
                             .clip(RoundedCornerShape(6.dp))
                             .background(badgeBackgroundColor)
-                            .padding(horizontal = 10.dp, vertical = 2.dp),
+                            .padding(horizontal = 8.dp, vertical = 2.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = shiftName,
                             color = badgeTextColor,
-	                        fontSize = 20.sp,
+	                        fontSize = 26.sp,
 //                            style = MaterialTheme.typography.titleMedium
 //		                            fontSize = 15.sp,
 	                        style = TextStyle(
@@ -926,7 +926,7 @@ fun WorkTimeCard(
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = dia.typeName,
-                            style = MaterialTheme.typography.labelLarge,
+                            style = MaterialTheme.typography.titleSmall,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                     }
@@ -934,7 +934,7 @@ fun WorkTimeCard(
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = "(본:${originalShiftName})",
-                            style = MaterialTheme.typography.labelLarge,
+                            style = MaterialTheme.typography.titleSmall,
                             color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                         )
                     }
@@ -972,7 +972,7 @@ fun WorkTimeCard(
 			                    MaterialTheme.colorScheme.onTertiaryContainer
 		                    },
 		                    fontWeight = FontWeight.Bold,
-		                    style = MaterialTheme.typography.labelMedium
+		                    style = MaterialTheme.typography.bodyMedium
 	                    )
                     }
 
@@ -1000,7 +1000,7 @@ fun WorkTimeCard(
                             else
                                 MaterialTheme.colorScheme.onTertiaryContainer,
                             fontWeight = FontWeight.Bold,
-                            style = MaterialTheme.typography.labelMedium
+                            style = MaterialTheme.typography.bodyMedium
                         )
                     }
 
@@ -1025,7 +1025,7 @@ fun WorkTimeCard(
                             else
                                 MaterialTheme.colorScheme.onTertiaryContainer,
                             fontWeight = FontWeight.Bold,
-                            style = MaterialTheme.typography.labelLarge
+                            style = MaterialTheme.typography.bodyLarge
                         )
                     }
                 }
@@ -1300,7 +1300,7 @@ fun WorkTimeCard(
 								Spacer(modifier = Modifier.width(10.dp))
 								Text(
 									text = "-${dia.totalTime}-",
-									style = MaterialTheme.typography.labelLarge,
+									style = MaterialTheme.typography.titleSmall,
 									color = MaterialTheme.colorScheme.onPrimaryContainer
 								)
 							}
@@ -1353,13 +1353,13 @@ private fun ShiftInfoRow(label: String, value: String) {
     ) {
         Text(
             text = label,
-            style = MaterialTheme.typography.labelLarge,
+            style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
-            modifier = Modifier.width(35.dp)
+            modifier = Modifier.width(40.dp)
         )
         Text(
             text = value,
-            style = MaterialTheme.typography.bodyLarge,
+            style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onPrimaryContainer
         )
@@ -1798,7 +1798,7 @@ private fun ReorderableMemoCard(
 				) {
 					Text(
 						text = memo.title,
-						style = MaterialTheme.typography.bodyMedium.copy(
+						style = MaterialTheme.typography.titleLarge.copy(
 							fontWeight = FontWeight.SemiBold,
 							platformStyle = PlatformTextStyle(includeFontPadding = false)
 						),
@@ -1821,7 +1821,7 @@ private fun ReorderableMemoCard(
 				if (memo.content.isNotBlank()) {
 					Text(
 						text = memo.content,
-						style = MaterialTheme.typography.bodySmall.copy(
+						style = MaterialTheme.typography.titleMedium.copy(
 							platformStyle = PlatformTextStyle(includeFontPadding = false)
 						),
 						color = MaterialTheme.colorScheme.onSurfaceVariant,

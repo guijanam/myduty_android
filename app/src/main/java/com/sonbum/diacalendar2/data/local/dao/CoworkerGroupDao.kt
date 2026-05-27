@@ -27,4 +27,10 @@ interface CoworkerGroupDao {
 
     @Query("UPDATE coworker_groups SET sortOrder = :order WHERE id = :id")
     suspend fun updateSortOrder(id: Long, order: Int)
+
+    @Query("SELECT * FROM coworker_groups ORDER BY sortOrder ASC")
+    suspend fun getAllOnce(): List<CoworkerGroupEntity>
+
+    @Query("DELETE FROM coworker_groups")
+    suspend fun deleteAll()
 }

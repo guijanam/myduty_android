@@ -47,6 +47,7 @@ import com.sonbum.diacalendar2.presentation.subscription.PaywallScreen
 import com.sonbum.diacalendar2.domain.repository.SubscriptionRepository
 import com.sonbum.diacalendar2.core.util.DeviceIdProvider
 import com.sonbum.diacalendar2.presentation.anniversary.AnniversaryScreen
+import com.sonbum.diacalendar2.presentation.notifications.DocumentDetailScreen
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -67,6 +68,9 @@ import androidx.compose.runtime.snapshots.Snapshot
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import org.koin.compose.koinInject
+import org.koin.androidx.compose.koinViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.sonbum.diacalendar2.presentation.main.MainViewModel
 
 
 @Composable
@@ -595,6 +599,9 @@ fun NavigationRoot(
 										onNavigateToPostEdit = { postId ->
 											topLevelBackStack.add(Route.PostEdit(postId))
 										},
+										onNavigateToDocumentDetail = { documentId ->
+											topLevelBackStack.add(Route.DocumentDetail(documentId))
+										},
 										onNavigateToAuth = {
 											topLevelBackStack.add(Route.Auth)
 										},
@@ -604,11 +611,48 @@ fun NavigationRoot(
 									)
 								}
 
+								entry<Route.DocumentDetail> {
+									DocumentDetailScreen(
+										documentId = it.documentId,
+										onBack = { topLevelBackStack.removeLastOrNull() }
+									)
+								}
+
 								entry<Route.Community> {
 									CommunityScreen(modifier = paddedModifier)
 								}
 
 								entry<Route.Profile> { ProfileScreen() }
+
+								// 승무소 사이트 탭 (URL이 등록된 승무소 사용자에게만 표시)
+								entry<Route.OfficeWebsiteTab> {
+									val mainViewModel: MainViewModel = koinViewModel()
+									val tabState by mainViewModel.officeWebsiteTabState.collectAsStateWithLifecycle()
+
+									when (val state = tabState) {
+										is MainViewModel.OfficeWebsiteTabState.Loading -> {
+											// 로딩 중엔 아무것도 표시하지 않음 (튕기지 않도록)
+											Box(modifier = Modifier.fillMaxSize())
+										}
+										is MainViewModel.OfficeWebsiteTabState.Unavailable -> {
+											// URL 없음 확정 → Home으로 리다이렉트
+											LaunchedEffect(Unit) {
+												Snapshot.withMutableSnapshot {
+													backStack.clear()
+													backStack.add(Route.Home)
+												}
+											}
+										}
+										is MainViewModel.OfficeWebsiteTabState.Available -> {
+											OfficeWebsiteScreen(
+												url = state.url,
+												officeName = state.officeName,
+												onBack = {},
+												isTab = true
+											)
+										}
+									}
+								}
 							}
 						)
 					}

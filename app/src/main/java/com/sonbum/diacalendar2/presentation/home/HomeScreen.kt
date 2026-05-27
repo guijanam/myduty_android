@@ -1,7 +1,6 @@
 package com.sonbum.diacalendar2.presentation.home
 
 import android.annotation.SuppressLint
-import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
@@ -9,10 +8,8 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Language
 import androidx.compose.material3.IconButton
 import com.sonbum.diacalendar2.core.util.DeviceIdProvider
-import com.sonbum.diacalendar2.data.local.DrawerWebsiteRegistry
 import com.sonbum.diacalendar2.domain.repository.SubscriptionRepository
 import org.koin.compose.koinInject
 import androidx.compose.material3.OutlinedButton
@@ -247,9 +244,6 @@ fun HomeScreen(
 		)
 	}
 
-	val drawerWebsiteRegistry: DrawerWebsiteRegistry = koinInject()
-	val drawerWebsiteUrl = remember(officeName) { drawerWebsiteRegistry.getUrl(officeName) }
-
 	ModalNavigationDrawer(
 		drawerState = drawerState,
 		drawerContent = {
@@ -258,7 +252,6 @@ fun HomeScreen(
 				showCrewPattern = showCrewPattern,
 				onToggleCrewPattern = onToggleCrewPattern,
 				officeName = officeName,
-				hasOfficeWebsite = drawerWebsiteUrl != null && !isCustomShift,
 				onItemClick = { item ->
 
 					scope.launch {
@@ -276,27 +269,6 @@ fun HomeScreen(
 							DrawerItem.MENU_UPLOAD -> {
 								val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://cafeteria-nine-psi.vercel.app/analyze"))
 								context.startActivity(intent)
-							}
-							DrawerItem.OFFICE_WEBSITE -> {
-								val url = drawerWebsiteRegistry.getUrl(officeName)
-								when {
-									officeName.isNullOrBlank() ->
-										Toast.makeText(context, "교번 설정이 필요합니다", Toast.LENGTH_SHORT).show()
-									isCustomShift ->
-										Toast.makeText(context, "교대근무자는 사이트가 없습니다", Toast.LENGTH_SHORT).show()
-									url == null ->
-										Toast.makeText(context, "등록된 사이트가 없습니다", Toast.LENGTH_SHORT).show()
-									else -> {
-										val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
-											addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-										}
-										try {
-											context.startActivity(intent)
-										} catch (e: ActivityNotFoundException) {
-											Toast.makeText(context, "브라우저를 찾을 수 없습니다", Toast.LENGTH_SHORT).show()
-										}
-									}
-								}
 							}
 						}
 					}
@@ -674,7 +646,7 @@ private fun ExpandableFab(
 }
 
 private enum class DrawerItem {
-	CALENDAR, ANNIVERSARY, SHIFT, HOLIDAY_REFRESH, SETTINGS, VACATION, TEXT_SIZE, BACKUP, RESTORE, MENU_UPLOAD, OFFICE_WEBSITE
+	CALENDAR, ANNIVERSARY, SHIFT, HOLIDAY_REFRESH, SETTINGS, VACATION, TEXT_SIZE, BACKUP, RESTORE, MENU_UPLOAD
 }
 
 @Composable
@@ -683,7 +655,6 @@ private fun HomeDrawerContent(
 	showCrewPattern: Boolean = false,
 	onToggleCrewPattern: (Boolean) -> Unit = {},
 	officeName: String? = null,
-	hasOfficeWebsite: Boolean = false,
 	onItemClick: (DrawerItem) -> Unit
 ) {
 	ModalDrawerSheet(
@@ -896,18 +867,6 @@ private fun HomeDrawerContent(
 				onClick = { onItemClick(DrawerItem.RESTORE) },
 				modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
 			)
-
-			if (hasOfficeWebsite && officeName != null) {
-				HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
-				NavigationDrawerItem(
-					icon = { Icon(Icons.Default.Language, contentDescription = null) },
-					label = { Text("$officeName 사이트") },
-					selected = false,
-					onClick = { onItemClick(DrawerItem.OFFICE_WEBSITE) },
-					modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-				)
-			}
 
 			Spacer(modifier = Modifier.height(80.dp))
 		}

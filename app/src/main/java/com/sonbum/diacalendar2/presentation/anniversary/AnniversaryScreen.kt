@@ -35,6 +35,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -52,8 +53,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.github.usingsky.calendar.KoreanLunarCalendar
 import com.sonbum.diacalendar2.domain.model.Anniversary
 import org.koin.androidx.compose.koinViewModel
+import java.time.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -141,6 +144,12 @@ private fun AnniversaryListItem(
     onClick: () -> Unit,
     onDelete: () -> Unit
 ) {
+    // 올해 기준 음력 → 양력 변환 (음력 기념일만)
+    val solarDateText: String? = remember(anniversary) {
+        if (!anniversary.isLunar) null
+        else lunarToSolarText(LocalDate.now().year, anniversary.month, anniversary.day)
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
@@ -165,6 +174,30 @@ private fun AnniversaryListItem(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                // 음력 입력 시 올해 양력 변환 날짜 표시
+                if (solarDateText != null) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = MaterialTheme.colorScheme.secondaryContainer
+                        ) {
+                            Text(
+                                text = "양력",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = solarDateText,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.secondary,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
             }
             IconButton(onClick = onDelete) {
                 Icon(Icons.Default.Delete, contentDescription = "삭제", tint = MaterialTheme.colorScheme.error)
@@ -233,6 +266,39 @@ private fun AnniversaryEditDialog(
                         onSelect = { selectedDay = it }
                     )
                 }
+
+                // 음력 선택 시 올해 양력 변환 날짜 실시간 미리보기
+                if (isLunar) {
+                    val solarPreview = remember(selectedMonth, selectedDay) {
+                        lunarToSolarText(LocalDate.now().year, selectedMonth, selectedDay)
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "올해 양력",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = solarPreview ?: "변환 불가",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (solarPreview != null)
+                                    MaterialTheme.colorScheme.onSecondaryContainer
+                                else
+                                    MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
+                }
             }
         },
         confirmButton = {
@@ -256,6 +322,24 @@ private fun AnniversaryEditDialog(
         },
         shape = RoundedCornerShape(16.dp)
     )
+}
+
+/**
+ * 음력 월/일을 지정 연도 기준 양력 날짜 문자열로 변환 ("M월 d일" 형식)
+ * 변환 실패 시 null 반환
+ */
+private fun lunarToSolarText(year: Int, lunarMonth: Int, lunarDay: Int): String? {
+    return try {
+        val lunar = KoreanLunarCalendar.getInstance()
+        lunar.setLunarDate(year, lunarMonth, lunarDay, false)
+        val sy = lunar.solarYear
+        val sm = lunar.solarMonth
+        val sd = lunar.solarDay
+        if (sy == 0 && sm == 0 && sd == 0) null
+        else "${sm}월 ${sd}일"
+    } catch (e: Exception) {
+        null
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

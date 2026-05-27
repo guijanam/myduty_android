@@ -77,9 +77,11 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.text.KeyboardOptions
@@ -836,21 +838,17 @@ private fun ReminderSection(
     val dateFormatter = remember { DateTimeFormatter.ofPattern("M월 d일 HH:mm") }
     val context = LocalContext.current
 
-    val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (granted) {
-            onReminderToggle(true)
-        }
-    }
-
     fun handleReminderToggle(enabled: Boolean) {
         if (enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val hasPermission = ContextCompat.checkSelfPermission(
                 context, Manifest.permission.POST_NOTIFICATIONS
             ) == PackageManager.PERMISSION_GRANTED
             if (!hasPermission) {
-                permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                // 앱 시작 시 이미 권한 요청을 했으므로, 여기서는 설정 화면으로 안내
+                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                    data = Uri.fromParts("package", context.packageName, null)
+                }
+                context.startActivity(intent)
                 return
             }
         }

@@ -25,9 +25,12 @@ class DiaFirebaseMessagingService : FirebaseMessagingService() {
 
         val title = message.notification?.title ?: message.data["title"] ?: "DiaCalendar"
         val body = message.notification?.body ?: message.data["body"] ?: ""
-        val dateString = message.data["date"]
+        val type = message.data["type"]
 
-        showFcmNotification(title, body, dateString)
+        when (type) {
+            "document" -> showFcmNotification(title, body, navigateTo = "documents")
+            else -> showFcmNotification(title, body, dateString = message.data["date"])
+        }
     }
 
     override fun onNewToken(token: String) {
@@ -35,12 +38,16 @@ class DiaFirebaseMessagingService : FirebaseMessagingService() {
         Log.d(TAG, "New FCM token: $token")
     }
 
-    private fun showFcmNotification(title: String, body: String, dateString: String?) {
+    private fun showFcmNotification(
+        title: String,
+        body: String,
+        dateString: String? = null,
+        navigateTo: String? = null
+    ) {
         val intent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            if (dateString != null) {
-                putExtra("navigate_to_date", dateString)
-            }
+            if (dateString != null) putExtra("navigate_to_date", dateString)
+            if (navigateTo != null) putExtra("navigate_to", navigateTo)
         }
 
         val pendingIntent = PendingIntent.getActivity(

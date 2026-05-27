@@ -20,4 +20,10 @@ interface AnniversaryDao {
 
     @Query("DELETE FROM anniversaries WHERE id = :id")
     suspend fun deleteById(id: Long)
+
+    @Query("SELECT * FROM anniversaries ORDER BY month, day")
+    suspend fun getAllOnce(): List<AnniversaryEntity>
+
+    @Query("DELETE FROM anniversaries")
+    suspend fun deleteAll()
 }

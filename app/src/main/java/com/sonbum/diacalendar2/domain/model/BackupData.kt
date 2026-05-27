@@ -59,10 +59,13 @@ data class AppBackupData(
     val lateHolidayTypes: List<LateHolidayTypeBackup> = emptyList(),
     val localOffices: List<LocalOfficeBackup> = emptyList(),
     val localDias: List<LocalDiaBackup> = emptyList(),
-    val chatNotes: List<ChatNoteBackup> = emptyList()
+    val chatNotes: List<ChatNoteBackup> = emptyList(),
+    val anniversaries: List<AnniversaryBackup> = emptyList(),
+    val coworkerGroups: List<CoworkerGroupBackup> = emptyList(),
+    val coworkers: List<CoworkerBackup> = emptyList()
 ) {
     companion object {
-        const val CURRENT_VERSION = 1
+        const val CURRENT_VERSION = 2
         const val FILE_EXTENSION = "dcbackup"
     }
 }
@@ -218,4 +221,35 @@ data class ChatNoteBackup(
     val createdAt: String,
     val isPinned: Boolean = false,
     val imageBase64: String? = null
+)
+
+@Serializable
+data class AnniversaryBackup(
+    val id: Long,
+    val name: String,
+    val month: Int,
+    val day: Int,
+    val isLunar: Boolean,
+    val createdAt: Long
+)
+
+@Serializable
+data class CoworkerGroupBackup(
+    val id: Long,
+    val name: String,
+    val sortOrder: Int,
+    val createdAt: Long
+)
+
+@Serializable
+data class CoworkerBackup(
+    val id: Long,
+    val name: String,
+    val sortOrder: Int,
+    val groupIds: String,
+    val shiftPattern: String,
+    val referenceDate: String,
+    val referenceShift: String,
+    val referenceShiftIndex: Int? = null,
+    val createdAt: Long
 )

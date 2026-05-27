@@ -373,3 +373,124 @@ private const val SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.
 eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNyc3l4c2RkamJvam53dmpvZXJhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg3NjY4NTEsImV4cCI6MjA3NDM0Mjg1MX0.wmTrMzDqBs10qL_wBeJJQTjQMuCuvfAmY6_eW2brqT8"
 
 private const val SUPABASE_HOST = "srsyxsddjbojnwvjoera.supabase.co" // ⭐️ 헤더 구분을 위한 호스트
+
+
+
+## 11. supabase 공지등록
+Supabase 설정 (수동 작업 필요)
+Supabase 대시보드에서 아래 두 가지를 설정해야 합니다:
+
+1. Edge Function 생성 → 대시보드 → Edge Functions → send-document-notice
+
+환경변수 FCM_SERVER_KEY 설정 (Firebase 콘솔 → 프로젝트 설정 → 클라우드 메시징 → 서버 키)
+2. DB 트리거 생성 → 대시보드 → SQL Editor에서 실행:
+
+
+CREATE EXTENSION IF NOT EXISTS pg_net;
+
+CREATE OR REPLACE FUNCTION notify_new_document()
+RETURNS TRIGGER AS $$
+BEGIN
+  PERFORM net.http_post(
+    url := 'https://<메인_프로젝트_ID>.supabase.co/functions/v1/send-document-notice',
+    body := json_build_object('title', NEW.title, 'description', NEW.description)::text,
+    headers := '{"Authorization": "Bearer <service_role_key>", "Content-Type": "application/json"}'::jsonb
+  );
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER on_document_insert
+AFTER INSERT ON public.documents
+FOR EACH ROW EXECUTE FUNCTION notify_new_document();
+또한 documents 테이블의 RLS 정책에서 anon 역할의 SELECT를 허용해야 앱에서 목록 조회가 됩니다.
+
+
+
+
+## 11. supabase 공지등록
+
+Supabase Edge Function 생성
+1. 대시보드 접속
+Supabase 대시보드 → 좌측 메뉴 Edge Functions → New Function → 이름: send-document-notice
+
+2. 함수 코드
+
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+
+serve(async (req) => {
+  try {
+    const { title, description } = await req.json()
+    const FCM_SERVER_KEY = Deno.env.get("FCM_SERVER_KEY")!
+
+    const response = await fetch("https://fcm.googleapis.com/fcm/send", {
+      method: "POST",
+      headers: {
+        "Authorization": `key=${FCM_SERVER_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        to: "/topics/documents",
+        notification: {
+          title: title,
+          body: description ?? ""
+        },
+        data: {
+          type: "document"
+        }
+      })
+    })
+
+    const result = await response.json()
+    return new Response(JSON.stringify({ ok: true, result }), {
+      headers: { "Content-Type": "application/json" }
+    })
+  } catch (e) {
+    return new Response(JSON.stringify({ ok: false, error: String(e) }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" }
+    })
+  }
+})
+3. 환경변수 설정 (중요)
+Edge Functions → send-document-notice → Secrets 탭에서 추가:
+
+Key	Value
+FCM_SERVER_KEY	Firebase 서버 키
+Firebase 서버 키 찾는 방법:
+
+Firebase 콘솔 → 프로젝트 설정 → 클라우드 메시징 탭 → 서버 키 (Legacy 항목)
+
+4. DB 트리거 (SQL Editor에서 실행)
+Supabase 대시보드 → SQL Editor → New Query:
+
+
+-- pg_net 확장 활성화 (이미 있으면 생략)
+CREATE EXTENSION IF NOT EXISTS pg_net;
+
+-- Edge Function 호출 함수
+CREATE OR REPLACE FUNCTION notify_new_document()
+RETURNS TRIGGER AS $$
+BEGIN
+  PERFORM net.http_post(
+    url     := 'https://<프로젝트_ID>.supabase.co/functions/v1/send-document-notice',
+    body    := json_build_object('title', NEW.title, 'description', NEW.description)::text,
+    headers := json_build_object(
+                 'Authorization', 'Bearer <service_role_key>',
+                 'Content-Type', 'application/json'
+               )::jsonb
+  );
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 트리거 등록
+CREATE TRIGGER on_document_insert
+AFTER INSERT ON public.documents
+FOR EACH ROW EXECUTE FUNCTION notify_new_document();
+<프로젝트_ID> 와 <service_role_key> 는:
+
+Supabase 대시보드 → Project Settings → API 에서 확인
+
+Project ID → URL에서 확인
+service_role secret key → API Keys 섹션

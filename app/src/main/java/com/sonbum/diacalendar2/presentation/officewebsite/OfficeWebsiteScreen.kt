@@ -44,6 +44,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.sonbum.diacalendar2.LocalScaffoldPaddingValues
 import com.sonbum.diacalendar2.data.local.OfficeWebsiteRegistry
 import org.koin.compose.koinInject
 
@@ -54,6 +55,7 @@ fun OfficeWebsiteScreen(
 	url: String,
 	officeName: String,
 	onBack: () -> Unit,
+	isTab: Boolean = false,
 ) {
 	val registry: OfficeWebsiteRegistry = koinInject()
 	val variantUrls = remember(officeName) { registry.getVariantUrls(officeName) }
@@ -72,13 +74,12 @@ fun OfficeWebsiteScreen(
 		)
 	}
 
-	BackHandler {
-		val wv = webView
-		if (wv != null && wv.canGoBack()) {
-			wv.goBack()
-		} else {
-			onBack()
-		}
+	BackHandler(enabled = webView?.canGoBack() == true) {
+		webView?.goBack()
+	}
+	// 탭 모드가 아닐 때만 WebView 히스토리 없으면 onBack 호출
+	BackHandler(enabled = !isTab && webView?.canGoBack() != true) {
+		onBack()
 	}
 
 	Scaffold(
@@ -86,8 +87,10 @@ fun OfficeWebsiteScreen(
 			TopAppBar(
 				title = { Text(officeName.ifBlank { "승무소 사이트" }) },
 				navigationIcon = {
-					IconButton(onClick = onBack) {
-						Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "뒤로")
+					if (!isTab) {
+						IconButton(onClick = onBack) {
+							Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "뒤로")
+						}
 					}
 				},
 				actions = {
@@ -101,10 +104,12 @@ fun OfficeWebsiteScreen(
 			)
 		}
 	) { padding ->
+		val bottomNavPadding = if (isTab) LocalScaffoldPaddingValues.current.calculateBottomPadding() else 0.dp
 		Column(
 			modifier = Modifier
 				.fillMaxSize()
 				.padding(padding)
+				.padding(bottom = bottomNavPadding)
 		) {
 			Box(
 				modifier = Modifier
@@ -183,54 +188,54 @@ fun OfficeWebsiteScreen(
 				}
 			}
 
-			if (variantUrls.isNotEmpty()) {
-				Row(
-					modifier = Modifier
-						.fillMaxWidth()
-						.padding(horizontal = 5.dp, vertical = 4.dp),
-					horizontalArrangement = Arrangement.SpaceEvenly
-				) {
-					Button(
-						onClick = {
-							val target = dayUrl ?: return@Button
-							currentLabel = "day"
-							webView?.loadUrl(target)
-						},
-						modifier = Modifier
-							.weight(1f)
-							.height(50.dp)
-							.padding(4.dp),
-						shape = RoundedCornerShape(12.dp),
-						colors = ButtonDefaults.buttonColors(
-							containerColor = if (currentLabel == "day") Color.Blue else Color.Gray,
-							contentColor = Color.White
-						),
-						enabled = dayUrl != null
-					) {
-						Text("Day", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-					}
-
-					Button(
-						onClick = {
-							val target = monthUrl ?: return@Button
-							currentLabel = "month"
-							webView?.loadUrl(target)
-						},
-						modifier = Modifier
-							.weight(1f)
-							.height(50.dp)
-							.padding(4.dp),
-						shape = RoundedCornerShape(12.dp),
-						colors = ButtonDefaults.buttonColors(
-							containerColor = if (currentLabel == "month") Color.Blue else Color.Gray,
-							contentColor = Color.White
-						),
-						enabled = monthUrl != null
-					) {
-						Text("Month", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-					}
-				}
-			}
+//			if (variantUrls.isNotEmpty()) {
+//				Row(
+//					modifier = Modifier
+//						.fillMaxWidth()
+//						.padding(horizontal = 5.dp, vertical = 4.dp),
+//					horizontalArrangement = Arrangement.SpaceEvenly
+//				) {
+//					Button(
+//						onClick = {
+//							val target = dayUrl ?: return@Button
+//							currentLabel = "day"
+//							webView?.loadUrl(target)
+//						},
+//						modifier = Modifier
+//							.weight(1f)
+//							.height(50.dp)
+//							.padding(4.dp),
+//						shape = RoundedCornerShape(12.dp),
+//						colors = ButtonDefaults.buttonColors(
+//							containerColor = if (currentLabel == "day") Color.Blue else Color.Gray,
+//							contentColor = Color.White
+//						),
+//						enabled = dayUrl != null
+//					) {
+//						Text("Day", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+//					}
+//
+//					Button(
+//						onClick = {
+//							val target = monthUrl ?: return@Button
+//							currentLabel = "month"
+//							webView?.loadUrl(target)
+//						},
+//						modifier = Modifier
+//							.weight(1f)
+//							.height(50.dp)
+//							.padding(4.dp),
+//						shape = RoundedCornerShape(12.dp),
+//						colors = ButtonDefaults.buttonColors(
+//							containerColor = if (currentLabel == "month") Color.Blue else Color.Gray,
+//							contentColor = Color.White
+//						),
+//						enabled = monthUrl != null
+//					) {
+//						Text("Month", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+//					}
+//				}
+//			}
 		}
 	}
 }
