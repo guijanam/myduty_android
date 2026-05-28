@@ -190,13 +190,13 @@ fun CoworkerScreen(
                         selected = state.selectedTab == CoworkerTab.CALENDAR,
                         onClick = { viewModel.onTabSelected(CoworkerTab.CALENDAR) },
                         text = { Text("달력") },
-                        icon = { Icon(Icons.Default.CalendarMonth, contentDescription = null, modifier = Modifier.size(18.dp)) }
+                        //icon = { Icon(Icons.Default.CalendarMonth, contentDescription = null, modifier = Modifier.size(18.dp)) }
                     )
                     Tab(
                         selected = state.selectedTab == CoworkerTab.LIST,
                         onClick = { viewModel.onTabSelected(CoworkerTab.LIST) },
                         text = { Text("목록") },
-                        icon = { Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(18.dp)) }
+                        //icon = { Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(18.dp)) }
                     )
                 }
             }

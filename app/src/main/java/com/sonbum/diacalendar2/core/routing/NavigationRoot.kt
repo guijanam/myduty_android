@@ -39,6 +39,8 @@ import com.sonbum.diacalendar2.presentation.board.PostWriteScreen
 import com.sonbum.diacalendar2.presentation.diatable.ServerDiaEditScreen
 import com.sonbum.diacalendar2.presentation.diatable.ServerOfficeEditScreen
 import com.sonbum.diacalendar2.presentation.menu.MenuScreen
+import android.content.Intent
+import com.sonbum.diacalendar2.presentation.officewebsite.OfficeWebsiteActivity
 import com.sonbum.diacalendar2.presentation.officewebsite.OfficeWebsiteScreen
 import com.sonbum.diacalendar2.presentation.coworker.CoworkerScreen
 import com.sonbum.diacalendar2.presentation.coworker.CoworkerGroupScreen
@@ -140,7 +142,12 @@ fun NavigationRoot(
 						topLevelBackStack.add(Route.Menu(key.dateString))
 					},
 					onNavigateToOfficeWebsite = { url, officeName ->
-						topLevelBackStack.add(Route.OfficeWebsite(url, officeName))
+						val intent = Intent(appContext, OfficeWebsiteActivity::class.java).apply {
+							putExtra("url", url)
+							putExtra("officeName", officeName)
+							addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_NEW_TASK)
+						}
+						appContext.startActivity(intent)
 					},
 					openEventDialogOnStart = key.openEventDialog
 				)

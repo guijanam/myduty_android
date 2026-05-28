@@ -56,6 +56,8 @@ fun OfficeWebsiteScreen(
 	officeName: String,
 	onBack: () -> Unit,
 	isTab: Boolean = false,
+	onWebViewReady: ((WebView) -> Unit)? = null,
+	modifier: Modifier = Modifier,
 ) {
 	val registry: OfficeWebsiteRegistry = koinInject()
 	val variantUrls = remember(officeName) { registry.getVariantUrls(officeName) }
@@ -83,6 +85,7 @@ fun OfficeWebsiteScreen(
 	}
 
 	Scaffold(
+		modifier = modifier,
 		topBar = {
 			TopAppBar(
 				title = { Text(officeName.ifBlank { "승무소 사이트" }) },
@@ -108,8 +111,10 @@ fun OfficeWebsiteScreen(
 		Column(
 			modifier = Modifier
 				.fillMaxSize()
-				.padding(padding)
-				.padding(bottom = bottomNavPadding)
+				.padding(
+					top = padding.calculateTopPadding(),
+					bottom = if (isTab) padding.calculateBottomPadding() + bottomNavPadding else 0.dp
+				)
 		) {
 			Box(
 				modifier = Modifier
@@ -175,6 +180,7 @@ fun OfficeWebsiteScreen(
 							}
 							loadUrl(url)
 							webView = this
+							onWebViewReady?.invoke(this)
 						}
 					},
 				)
@@ -188,54 +194,6 @@ fun OfficeWebsiteScreen(
 				}
 			}
 
-//			if (variantUrls.isNotEmpty()) {
-//				Row(
-//					modifier = Modifier
-//						.fillMaxWidth()
-//						.padding(horizontal = 5.dp, vertical = 4.dp),
-//					horizontalArrangement = Arrangement.SpaceEvenly
-//				) {
-//					Button(
-//						onClick = {
-//							val target = dayUrl ?: return@Button
-//							currentLabel = "day"
-//							webView?.loadUrl(target)
-//						},
-//						modifier = Modifier
-//							.weight(1f)
-//							.height(50.dp)
-//							.padding(4.dp),
-//						shape = RoundedCornerShape(12.dp),
-//						colors = ButtonDefaults.buttonColors(
-//							containerColor = if (currentLabel == "day") Color.Blue else Color.Gray,
-//							contentColor = Color.White
-//						),
-//						enabled = dayUrl != null
-//					) {
-//						Text("Day", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-//					}
-//
-//					Button(
-//						onClick = {
-//							val target = monthUrl ?: return@Button
-//							currentLabel = "month"
-//							webView?.loadUrl(target)
-//						},
-//						modifier = Modifier
-//							.weight(1f)
-//							.height(50.dp)
-//							.padding(4.dp),
-//						shape = RoundedCornerShape(12.dp),
-//						colors = ButtonDefaults.buttonColors(
-//							containerColor = if (currentLabel == "month") Color.Blue else Color.Gray,
-//							contentColor = Color.White
-//						),
-//						enabled = monthUrl != null
-//					) {
-//						Text("Month", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-//					}
-//				}
-//			}
 		}
 	}
 }
