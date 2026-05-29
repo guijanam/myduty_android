@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.EditOff
+import androidx.compose.material.icons.filled.FormatSize
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Settings
@@ -128,6 +129,11 @@ private fun DiaTableContent(
 ) {
     var showRestoreDialog by remember { mutableStateOf(false) }
 
+    // 글자 크기 배율 (노안 사용자용) - 1.0 → 1.3 → 1.6 순환
+    val fontScaleSteps = listOf(1.0f, 1.3f, 1.6f)
+    var fontScaleIndex by remember { mutableStateOf(0) }
+    val fontScale = fontScaleSteps[fontScaleIndex]
+
     if (showRestoreDialog) {
         AlertDialog(
             onDismissRequest = { showRestoreDialog = false },
@@ -167,17 +173,29 @@ private fun DiaTableContent(
                         )
                     }
                 },
-//                actions = {
-//                    // 서버 승무소일 때만 편집 모드 토글 표시
-//                    if (state.isServerOffice) {
-//                        IconButton(onClick = onToggleEditMode) {
-//                            Icon(
-//                                imageVector = if (state.isEditMode) Icons.Default.EditOff else Icons.Default.Edit,
-//                                contentDescription = if (state.isEditMode) "편집 모드 끄기" else "편집 모드"
-//                            )
-//                        }
-//                    }
-//                },
+                actions = {
+                    // 글자 크기 조절 (노안 사용자용) - 탭하면 보통 → 크게 → 더크게 순환
+                    TextButton(
+                        onClick = {
+                            fontScaleIndex = (fontScaleIndex + 1) % fontScaleSteps.size
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.FormatSize,
+                            contentDescription = "글자 크기 조절",
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            text = when (fontScaleIndex) {
+                                0 -> " 보통"
+                                1 -> " 크게"
+                                else -> " 더크게"
+                            },
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface
                 )
@@ -296,6 +314,7 @@ private fun DiaTableContent(
                         ) { dia ->
                             DiaTableRow(
                                 dia = dia,
+                                fontScale = fontScale,
                                 isClickable = state.isEditMode && state.isServerOffice,
                                 onClick = { onDiaClick(dia) }
                             )
@@ -371,9 +390,12 @@ private fun HeaderCell(text: String, weight: Float) {
 @Composable
 private fun DiaTableRow(
     dia: Dia,
+    fontScale: Float = 1f,
     isClickable: Boolean = false,
     onClick: () -> Unit = {}
 ) {
+	val baseSize = 12.sp * fontScale
+	val idSize = 12.sp * fontScale
 	// Column을 사용하여 내용 행(Row)과 구분선(Divider)을 수직으로 배치
 	Column(
 		modifier = Modifier
@@ -409,7 +431,7 @@ private fun DiaTableRow(
 				) {
 					Text(
 						text = dia.diaId,
-						fontSize = 12.sp,
+						fontSize = idSize,
 						// 배경색 위에 올라가는 텍스트 색상 (onPrimaryContainer)
 						color = MaterialTheme.colorScheme.onPrimaryContainer,
 						textAlign = TextAlign.Center,
@@ -428,7 +450,7 @@ private fun DiaTableRow(
 				modifier = Modifier
 					.weight(0.9f),
 					//.background(Color.LightGray.copy(0.5f)),
-				fontSize = 12.sp,
+				fontSize = baseSize,
 
 				// 일반 텍스트 색상
 				color = MaterialTheme.colorScheme.onSurface,
@@ -447,7 +469,7 @@ private fun DiaTableRow(
 			) {
 				Text(
 					text = dia.firstTime ?: "-",
-					fontSize = 12.sp,
+					fontSize = baseSize,
 					color = MaterialTheme.colorScheme.onSurface,
 
 					style = TextStyle(
@@ -465,7 +487,7 @@ private fun DiaTableRow(
 			Text(
 				text = dia.secondTime ?: "-",
 				modifier = Modifier.weight(2.5f),
-				fontSize = 12.sp,
+				fontSize = baseSize,
 				color = MaterialTheme.colorScheme.onSurface,
 				textAlign = TextAlign.Start,
 				style = TextStyle(
