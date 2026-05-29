@@ -98,6 +98,13 @@ sealed interface Route : NavKey {
 	data class OfficeWebsite(val url: String, val officeName: String) : Route
 
 	@Serializable
+	data class SubwayPosition(
+		val myTrainNo: String,
+		val line: Int,
+		val officeName: String
+	) : Route
+
+	@Serializable
 	data object OfficeWebsiteTab : Route
 
 	@Serializable

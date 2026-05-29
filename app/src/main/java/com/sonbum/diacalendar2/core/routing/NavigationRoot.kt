@@ -42,6 +42,7 @@ import com.sonbum.diacalendar2.presentation.menu.MenuScreen
 import android.content.Intent
 import com.sonbum.diacalendar2.presentation.officewebsite.OfficeWebsiteActivity
 import com.sonbum.diacalendar2.presentation.officewebsite.OfficeWebsiteScreen
+import com.sonbum.diacalendar2.presentation.subway.SubwayPositionScreen
 import com.sonbum.diacalendar2.presentation.coworker.CoworkerScreen
 import com.sonbum.diacalendar2.presentation.coworker.CoworkerGroupScreen
 import com.sonbum.diacalendar2.presentation.coworker.CoworkerEditScreen
@@ -149,6 +150,9 @@ fun NavigationRoot(
 						}
 						appContext.startActivity(intent)
 					},
+					onNavigateToSubway = { trainNo, line, officeName ->
+						topLevelBackStack.add(Route.SubwayPosition(trainNo, line, officeName))
+					},
 					openEventDialogOnStart = key.openEventDialog
 				)
 
@@ -170,6 +174,20 @@ fun NavigationRoot(
 			entry<Route.OfficeWebsite> { key ->
 				OfficeWebsiteScreen(
 					url = key.url,
+					officeName = key.officeName,
+					onBack = {
+						if (topLevelBackStack.size > 1) {
+							topLevelBackStack.removeAt(topLevelBackStack.lastIndex)
+						}
+					}
+				)
+			}
+
+			// 실시간 지하철 열차 위치 화면
+			entry<Route.SubwayPosition> { key ->
+				SubwayPositionScreen(
+					myTrainNo = key.myTrainNo,
+					line = key.line,
 					officeName = key.officeName,
 					onBack = {
 						if (topLevelBackStack.size > 1) {

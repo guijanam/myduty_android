@@ -33,6 +33,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AddCircleOutline
+import androidx.compose.material.icons.filled.Tram
 import androidx.compose.material.icons.filled.BeachAccess
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CheckCircle
@@ -110,6 +111,7 @@ import com.sonbum.diacalendar2.data.local.OfficeWebsiteRegistry
 import com.sonbum.diacalendar2.domain.model.CalendarEvent
 import com.sonbum.diacalendar2.domain.model.DeviceCalendar
 import com.sonbum.diacalendar2.domain.model.Dia
+import com.sonbum.diacalendar2.domain.util.SubwayTrainParser
 import com.sonbum.diacalendar2.domain.model.Memo
 import com.sonbum.diacalendar2.domain.model.ShiftSwapRecord
 import com.sonbum.diacalendar2.domain.model.VacationType
@@ -168,6 +170,7 @@ fun DateDetailScreen(
 	onEditMemo: (String) -> Unit,
 	onNavigateToMenu: () -> Unit = {},
 	onNavigateToOfficeWebsite: (String, String) -> Unit = { _, _ -> },
+	onNavigateToSubway: (String, Int, String) -> Unit = { _, _, _ -> },
 	openEventDialogOnStart: Boolean = false,
 	modifier: Modifier = Modifier,
 	viewModel: DateDetailViewModel = koinViewModel(),
@@ -372,7 +375,9 @@ fun DateDetailScreen(
 						    shiftInputRecord = state.shiftInputRecord,
 						    isHolidayWork = state.effectiveShiftName != null &&
 						        state.holidayWorkShifts.contains(state.effectiveShiftName) &&
-						        (isHoliday || isSaturday || isSunday)
+						        (isHoliday || isSaturday || isSunday),
+						    officeName = state.officeName,
+						    onNavigateToSubway = onNavigateToSubway
 					    )
 				    }
 			    //}
@@ -834,7 +839,9 @@ fun WorkTimeCard(
     lateHolidayRecord: LateHolidayRecord? = null,
     onLateHolidayClick: () -> Unit = {},
     shiftInputRecord: ShiftInputRecord? = null,
-    isHolidayWork: Boolean = false
+    isHolidayWork: Boolean = false,
+    officeName: String? = null,
+    onNavigateToSubway: (String, Int, String) -> Unit = { _, _, _ -> }
 ) {
     val hasVacation = vacationRecord != null
     val hasSwap = shiftSwapRecord != null
@@ -1035,8 +1042,18 @@ fun WorkTimeCard(
                 Spacer(modifier = Modifier.height(8.dp))
                 Column(
                     modifier = Modifier
-						.graphicsLayer { alpha = shiftContentAlpha }
+						.graphicsLayer { alpha = shiftContentAlpha },
+	                verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    // 출근 카드
+                    val sectionCardColors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f)
+                    )
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = sectionCardColors
+                    ) {
+                    Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
                     // 출근 시간
 					Row(
 						modifier = Modifier
@@ -1308,33 +1325,52 @@ fun WorkTimeCard(
 						Spacer(modifier = Modifier.weight(1f))
 
 					}
+                    } // 출근 Column
+                    } // 출근 Card
 
-	                Row(
-		                modifier = Modifier
-			                .fillMaxWidth(),
-		                verticalAlignment = Alignment.CenterVertically
-
-	                ) {
-		                // 전반
-		                if (!dia.firstTime.isNullOrBlank()) {
-			                ShiftInfoRow(label = "전반", value = dia.firstTime)
+	                // 전반 카드: 열번 + 시간 + 실시간 위치 버튼
+	                if (!dia.numTr1.isNullOrBlank() || !dia.firstTime.isNullOrBlank()) {
+		                Card(
+			                modifier = Modifier.fillMaxWidth(),
+			                colors = sectionCardColors
+		                ) {
+			                Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+				                if (!dia.numTr1.isNullOrBlank()) {
+					                TrainNumberRow(
+						                label = "전반",
+						                numTr = dia.numTr1,
+						                officeName = officeName,
+						                onNavigateToSubway = onNavigateToSubway
+					                )
+				                }
+				                if (!dia.firstTime.isNullOrBlank()) {
+					                ShiftInfoRow(label = "전반", value = dia.firstTime)
+				                }
+			                }
 		                }
 	                }
 
-	                Row(
-		                modifier = Modifier
-			                .fillMaxWidth(),
-		                verticalAlignment = Alignment.CenterVertically
-
-	                ) {
-		                // 후반
-		                if (!dia.secondTime.isNullOrBlank()) {
-			                ShiftInfoRow(label = "후반", value = dia.secondTime)
+	                // 후반 카드: 열번 + 시간 + 실시간 위치 버튼
+	                if (!dia.numTr2.isNullOrBlank() || !dia.secondTime.isNullOrBlank()) {
+		                Card(
+			                modifier = Modifier.fillMaxWidth(),
+			                colors = sectionCardColors
+		                ) {
+			                Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+				                if (!dia.numTr2.isNullOrBlank()) {
+					                TrainNumberRow(
+						                label = "후반",
+						                numTr = dia.numTr2,
+						                officeName = officeName,
+						                onNavigateToSubway = onNavigateToSubway
+					                )
+				                }
+				                if (!dia.secondTime.isNullOrBlank()) {
+					                ShiftInfoRow(label = "후반", value = dia.secondTime)
+				                }
+			                }
 		                }
 	                }
-
-
-
 
                 }
             }
@@ -1387,6 +1423,54 @@ private fun TrNumRow(label: String, value: String) {
 			fontWeight = FontWeight.SemiBold,
 			color = MaterialTheme.colorScheme.onPrimaryContainer
 		)
+	}
+}
+
+/**
+ * 열번(numTr 원본) 표시 + 오른쪽 끝 실시간 위치 버튼.
+ * 첫 토큰이 숫자(=호선 파싱 가능)이고 officeName이 있을 때만 tram 버튼 노출.
+ */
+@Composable
+private fun TrainNumberRow(
+	label: String,
+	numTr: String,
+	officeName: String?,
+	onNavigateToSubway: (String, Int, String) -> Unit
+) {
+	Row(
+		modifier = Modifier
+			.fillMaxWidth()
+			.padding(vertical = 2.dp),
+		verticalAlignment = Alignment.CenterVertically
+	) {
+		Text(
+			text = label,
+			style = MaterialTheme.typography.labelLarge,
+			color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+			modifier = Modifier.width(40.dp)
+		)
+		Text(
+			text = numTr,
+			style = MaterialTheme.typography.bodyMedium,
+			fontWeight = FontWeight.SemiBold,
+			color = MaterialTheme.colorScheme.onPrimaryContainer
+		)
+		Spacer(modifier = Modifier.weight(1f))
+
+		val myTrainNo = SubwayTrainParser.firstToken(numTr)
+		val line = myTrainNo?.let { SubwayTrainParser.line(it) }
+		if (myTrainNo != null && line != null && !officeName.isNullOrBlank()) {
+			IconButton(
+				onClick = { onNavigateToSubway(myTrainNo, line, officeName) },
+				modifier = Modifier.size(32.dp)
+			) {
+				Icon(
+					imageVector = Icons.Filled.Tram,
+					contentDescription = "실시간 열차 위치",
+					tint = MaterialTheme.colorScheme.primary
+				)
+			}
+		}
 	}
 }
 

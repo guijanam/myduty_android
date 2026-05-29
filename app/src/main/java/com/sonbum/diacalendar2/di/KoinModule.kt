@@ -11,8 +11,13 @@ import com.sonbum.diacalendar2.data.local.datastore.MenuPreferences
 import com.sonbum.diacalendar2.data.local.datastore.OnboardingPreferences
 import com.sonbum.diacalendar2.data.local.datastore.TextSizePreferences
 import com.sonbum.diacalendar2.data.local.datastore.ThemePreferences
+import com.sonbum.diacalendar2.data.remote.SubwayApiConfig
 import com.sonbum.diacalendar2.data.remote.SupabaseConfig
+import com.sonbum.diacalendar2.data.remote.api.SubwayApi
 import com.sonbum.diacalendar2.data.remote.api.SupabaseApi
+import com.sonbum.diacalendar2.data.repository.SubwayRepositoryImpl
+import com.sonbum.diacalendar2.domain.repository.SubwayRepository
+import com.sonbum.diacalendar2.presentation.subway.SubwayPositionViewModel
 import com.sonbum.diacalendar2.data.repository.DeviceCalendarRepositoryImpl
 import com.sonbum.diacalendar2.data.repository.DiaRepositoryImpl
 import com.sonbum.diacalendar2.data.repository.HolidayRepositoryImpl
@@ -220,6 +225,7 @@ val repositoryModule = module {
     single<HolidayRepository> { HolidayRepositoryImpl(get(), get()) }
     single<OfficeRepository> { OfficeRepositoryImpl(get(), get(), get()) }
     single<DiaRepository> { DiaRepositoryImpl(get(), get(), get()) }
+    single<SubwayRepository> { SubwayRepositoryImpl(get(named("subwayApi"))) }
     single<ShiftRepository> { ShiftRepositoryImpl(get(), get()) }
     single<VacationTypeRepository> { VacationTypeRepositoryImpl(get()) }
     single<VacationRecordRepository> { VacationRecordRepositoryImpl(get()) }
@@ -273,6 +279,7 @@ val repositoryModule = module {
  */
 val viewModelModule = module {
     viewModelOf(::HomeViewModel)
+    viewModelOf(::SubwayPositionViewModel)
     viewModel { DateDetailViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), androidContext()) }
     viewModel { MemoEditViewModel(get(), get(), androidContext()) }
     viewModelOf(::CalendarSelectionViewModel)
@@ -395,6 +402,19 @@ val networkModule = module {
 
     single<SupabaseMenuApi>(named("menuApi")) {
         get<Retrofit>(named("menuRetrofit")).create(SupabaseMenuApi::class.java)
+    }
+
+    // 서울 지하철 실시간 위치용 Retrofit (외부 HTTP 엔드포인트)
+    single(named("subwayRetrofit")) {
+        Retrofit.Builder()
+            .baseUrl(SubwayApiConfig.BASE_URL)
+            .client(get())
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+    }
+
+    single<SubwayApi>(named("subwayApi")) {
+        get<Retrofit>(named("subwayRetrofit")).create(SubwayApi::class.java)
     }
 }
 
