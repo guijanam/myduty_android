@@ -56,6 +56,7 @@ class MainActivity : ComponentActivity() {
 	private val themePreferences: ThemePreferences by inject()
 	private lateinit var inAppUpdateManager: InAppUpdateManager
 	private var adShownOnColdStart = false
+	private var updateCheckRequested = false
 
 	private val updateLauncher = registerForActivityResult(
 		ActivityResultContracts.StartIntentSenderForResult()
@@ -92,9 +93,8 @@ class MainActivity : ComponentActivity() {
 		// In-App Update 초기화
 		inAppUpdateManager = InAppUpdateManager(this)
 		inAppUpdateManager.registerUpdateLauncher(updateLauncher)
-
-		// 업데이트 확인 (IMMEDIATE = 강제 업데이트)
-		inAppUpdateManager.checkForUpdate(forceImmediate = true)
+		// 업데이트 확인은 onResume에서 수행 (onCreate 시점엔 아직 RESUMED 상태가 아니라
+		// checkForUpdate의 isActivityResumed() 가드에 걸려 동작하지 않음)
 
 		// 앱 최초 실행 시 알림 권한 요청 (Android 13+)
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -226,9 +226,16 @@ class MainActivity : ComponentActivity() {
 
 	override fun onResume() {
 		super.onResume()
-		// IMMEDIATE 업데이트가 중단된 경우 다시 시작
 		if (::inAppUpdateManager.isInitialized) {
-			inAppUpdateManager.checkUpdateOnResume()
+			if (!updateCheckRequested) {
+				// 콜드 스타트 1회: 업데이트 확인 및 강제(IMMEDIATE) 업데이트 시작
+				// onCreate가 아닌 onResume에서 호출해야 RESUMED 상태라 정상 동작함
+				updateCheckRequested = true
+				inAppUpdateManager.checkForUpdate(forceImmediate = true)
+			} else {
+				// IMMEDIATE 업데이트가 중단된 경우 다시 시작
+				inAppUpdateManager.checkUpdateOnResume()
+			}
 		}
 
 		// 설정 화면에서 돌아왔을 때 권한 재확인
