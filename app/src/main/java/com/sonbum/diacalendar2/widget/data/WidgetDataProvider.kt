@@ -26,6 +26,15 @@ data class WidgetDayData(
     val isHoliday: Boolean
 )
 
+/** 알람용: 날짜별 유효교번과 3시각(출근/전반/후반) */
+data class EffectiveShiftTimes(
+    val date: LocalDate,
+    val effectiveShiftName: String?,
+    val workTime: String?,    // 출근
+    val firstTime: String?,   // 전반사업
+    val secondTime: String?   // 후반사업
+)
+
 class WidgetDataProvider(
     private val shiftScheduleDao: ShiftScheduleDao,
     private val shiftSwapRecordDao: ShiftSwapRecordDao,
@@ -104,13 +113,63 @@ class WidgetDataProvider(
         }
     }
 
+    /**
+     * 알람용: 주어진 날짜들의 유효교번 + 3시각을 계산한다.
+     * 유효교번 우선순위(지휴>충당>지근>교체>원래)와 workTime 해석을 위젯과 동일하게 재사용한다.
+     */
+    suspend fun loadEffectiveShiftTimes(dates: List<LocalDate>): List<EffectiveShiftTimes> {
+        val config = userShiftConfigDao.getConfigOnce()
+        val holidayDates = holidayDao.getAllHolidayDatesOnce().mapNotNull { str ->
+            try { LocalDate.parse(str) } catch (_: Exception) { null }
+        }.toSet()
+        val isLocalOffice = config != null && config.officeCode < 0
+        val officeName = config?.officeName
+
+        return dates.map { date ->
+            val dateStr = date.toString()
+            val originalShift = shiftScheduleDao.getScheduleByDate(dateStr)?.shiftName
+            val swap = shiftSwapRecordDao.getByDate(dateStr)
+            val shiftInput = shiftInputRecordDao.getByDate(dateStr)
+            val lateWork = lateWorkRecordDao.getByDateOnce(dateStr)
+            val lateHoliday = lateHolidayRecordDao.getByDateOnce(dateStr)
+
+            val effectiveName = when {
+                lateHoliday != null -> lateHoliday.lateHolidayName
+                shiftInput != null -> shiftInput.targetShiftName
+                lateWork != null -> lateWork.lateWorkName
+                swap != null -> swap.swappedShiftName
+                else -> originalShift
+            }
+
+            val dia = if (effectiveName != null && officeName != null) {
+                resolveDia(effectiveName, date, officeName, isLocalOffice, holidayDates)
+            } else null
+
+            EffectiveShiftTimes(
+                date = date,
+                effectiveShiftName = effectiveName,
+                workTime = dia?.workTime,
+                firstTime = dia?.firstTime,
+                secondTime = dia?.secondTime
+            )
+        }
+    }
+
     private suspend fun resolveWorkTime(
         shiftName: String,
         date: LocalDate,
         officeName: String,
         isLocalOffice: Boolean,
         holidayDates: Set<LocalDate>
-    ): String? {
+    ): String? = resolveDia(shiftName, date, officeName, isLocalOffice, holidayDates)?.workTime
+
+    private suspend fun resolveDia(
+        shiftName: String,
+        date: LocalDate,
+        officeName: String,
+        isLocalOffice: Boolean,
+        holidayDates: Set<LocalDate>
+    ): Dia? {
         val typeName = DayTypeResolver.resolveTypeName(date, holidayDates)
         val fallbackTypes = DayTypeResolver.getFallbackTypeNames(typeName)
 
@@ -160,6 +219,6 @@ class WidgetDataProvider(
             }
         }
 
-        return dia?.workTime
+        return dia
     }
 }

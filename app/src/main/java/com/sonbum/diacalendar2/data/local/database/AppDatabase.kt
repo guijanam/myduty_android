@@ -52,6 +52,8 @@ import com.sonbum.diacalendar2.data.local.entity.CoworkerEntity
 import com.sonbum.diacalendar2.data.local.entity.CoworkerGroupEntity
 import com.sonbum.diacalendar2.data.local.entity.AnniversaryEntity
 import com.sonbum.diacalendar2.data.local.dao.AnniversaryDao
+import com.sonbum.diacalendar2.data.local.entity.ScheduledAlarmEntity
+import com.sonbum.diacalendar2.data.local.dao.ScheduledAlarmDao
 
 @Database(
     entities = [
@@ -78,9 +80,10 @@ import com.sonbum.diacalendar2.data.local.dao.AnniversaryDao
         DiaEditBackupEntity::class,
         CoworkerEntity::class,
         CoworkerGroupEntity::class,
-        AnniversaryEntity::class
+        AnniversaryEntity::class,
+        ScheduledAlarmEntity::class
     ],
-    version = 26,
+    version = 27,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -108,6 +111,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun coworkerDao(): CoworkerDao
     abstract fun coworkerGroupDao(): CoworkerGroupDao
     abstract fun anniversaryDao(): AnniversaryDao
+    abstract fun scheduledAlarmDao(): ScheduledAlarmDao
 
     companion object {
         // 버전 2 → 3: holidays 테이블에 isUserCreated 컬럼 추가
@@ -486,6 +490,24 @@ abstract class AppDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE vacation_types ADD COLUMN grantDate TEXT NOT NULL DEFAULT ''")
                 db.execSQL("ALTER TABLE vacation_types ADD COLUMN expiryDate TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
+        // 버전 26 → 27: 예정 근무 알람 테이블 추가
+        val MIGRATION_26_27 = object : Migration(26, 27) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS scheduled_alarms (
+                        id INTEGER PRIMARY KEY NOT NULL,
+                        date TEXT NOT NULL,
+                        slot INTEGER NOT NULL,
+                        shiftName TEXT NOT NULL,
+                        timeText TEXT NOT NULL,
+                        triggerAtMillis INTEGER NOT NULL,
+                        dismissed INTEGER NOT NULL DEFAULT 0
+                    )
+                """)
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_scheduled_alarms_date_slot ON scheduled_alarms(date, slot)")
             }
         }
 

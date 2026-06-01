@@ -13,6 +13,7 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"
         tools:ignore="ForegroundServicesPolicy" />
     <uses-permission android:name="android.permission.PERMISSION_GRANTED" />
@@ -98,6 +99,18 @@
                     android:pathPrefix="/callback" />
             </intent-filter>
         </activity>
+
+        <!-- 풀스크린 근무 알람: 잠금화면 위로 화면을 깨우고 전체를 덮음 -->
+        <activity
+            android:name=".presentation.alarm.AlarmRingActivity"
+            android:exported="false"
+            android:launchMode="singleInstance"
+            android:excludeFromRecents="true"
+            android:showOnLockScreen="true"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:taskAffinity="${applicationId}.alarmring"
+            android:theme="@style/Theme.DiaCalendar2" />
 
         <receiver
             android:name=".core.notification.AlarmReceiver"

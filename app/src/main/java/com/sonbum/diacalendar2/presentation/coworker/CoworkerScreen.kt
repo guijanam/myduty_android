@@ -641,7 +641,7 @@ private fun CoworkerDayCell(
         // 날짜 (14dp)
         Box(modifier = Modifier.height(14.dp), contentAlignment = Alignment.Center) {
             Text(
-                text = date.dayOfMonth.toString(),
+                text = "${date.dayOfMonth}일",
                 style = MaterialTheme.typography.labelSmall,
                 fontSize = 10.sp,
                 fontWeight = if (isToday) FontWeight.ExtraBold else FontWeight.Normal,

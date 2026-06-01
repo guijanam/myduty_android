@@ -151,6 +151,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.material.icons.filled.DeviceThermostat
 import androidx.compose.material.icons.filled.HolidayVillage
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.RadioButton
@@ -189,6 +190,7 @@ fun HomeScreen(
 	onNavigateToDiaTable: () -> Unit = {},
 	onNavigateToVacationSetting: () -> Unit = {},
 	onNavigateToTextSizeSettings: () -> Unit = {},
+	onNavigateToWorkAlarmSettings: () -> Unit = {},
 	textSizes: CalendarTextSizes = CalendarTextSizes.DEFAULT,
 	onBackup: () -> Unit = {},
 	onRestore: () -> Unit = {},
@@ -264,6 +266,7 @@ fun HomeScreen(
 							DrawerItem.SETTINGS -> showThemeDialog = true
 							DrawerItem.VACATION -> onNavigateToVacationSetting()
 							DrawerItem.TEXT_SIZE -> onNavigateToTextSizeSettings()
+							DrawerItem.WORK_ALARM -> onNavigateToWorkAlarmSettings()
 							DrawerItem.BACKUP -> onBackup()
 							DrawerItem.RESTORE -> onRestore()
 							DrawerItem.MENU_UPLOAD -> {
@@ -646,7 +649,7 @@ private fun ExpandableFab(
 }
 
 private enum class DrawerItem {
-	CALENDAR, ANNIVERSARY, SHIFT, HOLIDAY_REFRESH, SETTINGS, VACATION, TEXT_SIZE, BACKUP, RESTORE, MENU_UPLOAD
+	CALENDAR, ANNIVERSARY, SHIFT, HOLIDAY_REFRESH, SETTINGS, VACATION, TEXT_SIZE, WORK_ALARM, BACKUP, RESTORE, MENU_UPLOAD
 }
 
 @Composable
@@ -817,6 +820,14 @@ private fun HomeDrawerContent(
 				label = { Text("텍스트 크기 설정") },
 				selected = false,
 				onClick = { onItemClick(DrawerItem.TEXT_SIZE) },
+				modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+			)
+
+			NavigationDrawerItem(
+				icon = { Icon(Icons.Default.Notifications, contentDescription = null) },
+				label = { Text("근무 알람") },
+				selected = false,
+				onClick = { onItemClick(DrawerItem.WORK_ALARM) },
 				modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
 			)
 

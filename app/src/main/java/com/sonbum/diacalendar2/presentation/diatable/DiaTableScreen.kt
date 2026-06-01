@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -32,6 +33,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -461,6 +463,14 @@ private fun DiaTableRow(
 				),
 				maxLines = 1
 			)
+			VerticalDivider(
+				modifier = Modifier
+					.height(18.dp) // 원하는 높이 지정 (부모 높이에 맞추려면 fillMaxHeight())
+					.padding(horizontal = 1.dp), // 좌우 여백으로 간격 조절
+				thickness = 2.dp, // 선의 두께
+				color = MaterialTheme.colorScheme.outlineVariant // 선의 색상
+			)
+
 
 			// --- 3. 첫 번째 시간대 (firstTime) ---
 			Row(
@@ -482,6 +492,15 @@ private fun DiaTableRow(
 				)
 
 			}
+
+            // --- 세로 구분선 추가 ---
+            VerticalDivider(
+                modifier = Modifier
+                    .height(18.dp) // 원하는 높이 지정 (부모 높이에 맞추려면 fillMaxHeight())
+                    .padding(horizontal = 1.dp), // 좌우 여백으로 간격 조절
+                thickness = 2.dp, // 선의 두께
+                color = MaterialTheme.colorScheme.outlineVariant // 선의 색상
+            )
 
 			// --- 4. 두 번째 시간대 (secondTime) ---
 			Text(

@@ -534,6 +534,7 @@ class ShiftSelectionViewModel(
 
                 _state.update { it.copy(isSaving = false) }
                 WidgetUpdater.updateAll(appContext)
+                com.sonbum.diacalendar2.core.notification.ShiftReminderWorker.enqueue(appContext)
                 _event.emit(ShiftSelectionEvent.ShowMessage("${officeName}의 근무 설정이 완료되었습니다. (${scheduleCount}일)"))
                 _event.emit(ShiftSelectionEvent.SaveSuccess)
 

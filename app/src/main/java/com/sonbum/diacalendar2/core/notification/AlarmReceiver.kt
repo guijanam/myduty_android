@@ -25,8 +25,17 @@ class AlarmReceiver : BroadcastReceiver(), KoinComponent {
             AlarmScheduler.TYPE_SHIFT -> {
                 val shiftName = intent.getStringExtra(AlarmScheduler.EXTRA_SHIFT_NAME) ?: return
                 val dateString = intent.getStringExtra(AlarmScheduler.EXTRA_DATE_STRING) ?: return
+                val slot = intent.getIntExtra(AlarmScheduler.EXTRA_SLOT, AlarmScheduler.SLOT_COMMUTE)
+                val fullScreen = intent.getBooleanExtra(AlarmScheduler.EXTRA_FULL_SCREEN, true)
+                val sound = intent.getBooleanExtra(AlarmScheduler.EXTRA_SOUND, true)
+                val vibrate = intent.getBooleanExtra(AlarmScheduler.EXTRA_VIBRATE, true)
+                val snoozeMinutes = intent.getIntExtra(AlarmScheduler.EXTRA_SNOOZE_MINUTES, 5)
 
-                notificationHelper.showShiftNotification(shiftName, dateString)
+                if (fullScreen) {
+                    notificationHelper.showShiftAlarm(shiftName, dateString, slot, sound, vibrate, snoozeMinutes)
+                } else {
+                    notificationHelper.showShiftNotificationSimple(shiftName, dateString, slot)
+                }
             }
         }
     }

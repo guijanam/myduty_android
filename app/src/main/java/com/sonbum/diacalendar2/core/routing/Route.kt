@@ -65,6 +65,12 @@ sealed interface Route : NavKey {
 	data object TextSizeSettings : Route
 
 	@Serializable
+	data object WorkAlarmSettings : Route
+
+	@Serializable
+	data object ScheduledAlarmList : Route
+
+	@Serializable
 	data object Auth : Route
 
 	@Serializable

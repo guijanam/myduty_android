@@ -28,6 +28,7 @@ fun HomeRoot(
 	onNavigateToDiaTable: () -> Unit = {},
 	onNavigateToVacationSetting: () -> Unit = {},
 	onNavigateToTextSizeSettings: () -> Unit = {},
+	onNavigateToWorkAlarmSettings: () -> Unit = {},
 	modifier: Modifier,
 	viewModel: HomeViewModel = koinViewModel()
 ) {
@@ -117,6 +118,7 @@ fun HomeRoot(
 		onNavigateToDiaTable = onNavigateToDiaTable,
 		onNavigateToVacationSetting = onNavigateToVacationSetting,
 		onNavigateToTextSizeSettings = onNavigateToTextSizeSettings,
+		onNavigateToWorkAlarmSettings = onNavigateToWorkAlarmSettings,
 		textSizes = textSizes,
 		onBackup = {
 			// 파일 이름에 현재 날짜/시간 포함

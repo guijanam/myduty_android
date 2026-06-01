@@ -87,6 +87,7 @@ import com.sonbum.diacalendar2.presentation.customshift.CustomShiftListViewModel
 import com.sonbum.diacalendar2.presentation.customshift.CustomShiftEditViewModel
 import com.sonbum.diacalendar2.presentation.shift.ShiftSelectionViewModel
 import com.sonbum.diacalendar2.presentation.textsize.TextSizeSettingsViewModel
+import com.sonbum.diacalendar2.presentation.alarm.WorkAlarmSettingsViewModel
 import com.sonbum.diacalendar2.presentation.vacation.VacationSettingViewModel
 import com.sonbum.diacalendar2.presentation.auth.AuthViewModel
 import com.sonbum.diacalendar2.presentation.main.MainViewModel
@@ -165,7 +166,8 @@ val databaseModule = module {
                 AppDatabase.MIGRATION_22_23,
                 AppDatabase.MIGRATION_23_24,
                 AppDatabase.MIGRATION_24_25,
-                AppDatabase.MIGRATION_25_26
+                AppDatabase.MIGRATION_25_26,
+                AppDatabase.MIGRATION_26_27
             )
             .fallbackToDestructiveMigration()
             .build()
@@ -194,6 +196,12 @@ val databaseModule = module {
     single { get<AppDatabase>().coworkerDao() }
     single { get<AppDatabase>().coworkerGroupDao() }
     single { get<AppDatabase>().anniversaryDao() }
+    single { get<AppDatabase>().scheduledAlarmDao() }
+    single {
+        com.sonbum.diacalendar2.widget.data.WidgetDataProvider(
+            get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()
+        )
+    }
 }
 
 /**
@@ -292,6 +300,8 @@ val viewModelModule = module {
     viewModelOf(::LocalDiaListViewModel)
     viewModelOf(::LocalDiaEditViewModel)
     viewModelOf(::TextSizeSettingsViewModel)
+    viewModel { WorkAlarmSettingsViewModel(get(), androidContext()) }
+    viewModel { com.sonbum.diacalendar2.presentation.alarm.ScheduledAlarmListViewModel(get(), get(), androidContext()) }
     viewModelOf(::CustomShiftListViewModel)
     viewModelOf(::CustomShiftEditViewModel)
     viewModelOf(::MainViewModel)

@@ -37,6 +37,7 @@ import com.sonbum.diacalendar2.domain.repository.AnniversaryRepository
 import com.sonbum.diacalendar2.data.local.OfficeWebsiteRegistry
 import com.sonbum.diacalendar2.domain.util.DayTypeResolver
 import com.sonbum.diacalendar2.widget.WidgetUpdater
+import com.sonbum.diacalendar2.core.notification.ShiftReminderWorker
 import android.content.Context
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -328,6 +329,12 @@ class DateDetailViewModel(
         }
     }
 
+    /** 교체/충당/근태 등 유효교번이 바뀌는 변경 후: 위젯 갱신 + 근무 알람 재등록 */
+    private fun refreshAfterShiftChange() {
+        WidgetUpdater.updateAll(appContext)
+        ShiftReminderWorker.enqueue(appContext)
+    }
+
     fun toggleMemoComplete(memo: Memo) {
         viewModelScope.launch {
             memoRepository.updateMemo(memo.copy(isCompleted = !memo.isCompleted))
@@ -500,7 +507,7 @@ class DateDetailViewModel(
                     shiftRepository.getScheduleByDate(date)?.shiftName
                 }
             )
-            WidgetUpdater.updateAll(appContext)
+            refreshAfterShiftChange()
         }
     }
 
@@ -508,7 +515,7 @@ class DateDetailViewModel(
         viewModelScope.launch {
             val record = _state.value.shiftSwapRecord ?: return@launch
             shiftSwapRecordRepository.deleteByGroupId(record.groupId)
-            WidgetUpdater.updateAll(appContext)
+            refreshAfterShiftChange()
         }
     }
 
@@ -540,14 +547,14 @@ class DateDetailViewModel(
                 lateWorkName = lateWorkType.name,
                 shortName = lateWorkType.shortName
             )
-            WidgetUpdater.updateAll(appContext)
+            refreshAfterShiftChange()
         }
     }
 
     fun deleteLateWork() {
         viewModelScope.launch {
             lateWorkRecordRepository.deleteByDate(_state.value.date)
-            WidgetUpdater.updateAll(appContext)
+            refreshAfterShiftChange()
         }
     }
 
@@ -579,14 +586,14 @@ class DateDetailViewModel(
                 lateHolidayName = lateHolidayType.name,
                 shortName = lateHolidayType.shortName
             )
-            WidgetUpdater.updateAll(appContext)
+            refreshAfterShiftChange()
         }
     }
 
     fun deleteLateHoliday() {
         viewModelScope.launch {
             lateHolidayRecordRepository.deleteByDate(_state.value.date)
-            WidgetUpdater.updateAll(appContext)
+            refreshAfterShiftChange()
         }
     }
 
@@ -651,7 +658,7 @@ class DateDetailViewModel(
                     shortName = typeToUse.shortName
                 )
             }
-            WidgetUpdater.updateAll(appContext)
+            refreshAfterShiftChange()
         }
     }
 
@@ -682,7 +689,7 @@ class DateDetailViewModel(
                     shortName = typeToUse.shortName
                 )
             }
-            WidgetUpdater.updateAll(appContext)
+            refreshAfterShiftChange()
         }
     }
 
@@ -721,7 +728,7 @@ class DateDetailViewModel(
                     shiftRepository.getScheduleByDate(date)?.shiftName
                 }
             )
-            WidgetUpdater.updateAll(appContext)
+            refreshAfterShiftChange()
         }
     }
 
@@ -729,7 +736,7 @@ class DateDetailViewModel(
         viewModelScope.launch {
             val record = _state.value.shiftInputRecord ?: return@launch
             shiftInputRecordRepository.deleteByGroupId(record.groupId)
-            WidgetUpdater.updateAll(appContext)
+            refreshAfterShiftChange()
         }
     }
 
