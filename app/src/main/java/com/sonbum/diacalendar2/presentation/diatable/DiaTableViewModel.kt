@@ -8,11 +8,14 @@ import com.sonbum.diacalendar2.domain.repository.DiaRepository
 import com.sonbum.diacalendar2.domain.repository.LocalDiaRepository
 import com.sonbum.diacalendar2.domain.repository.OfficeRepository
 import com.sonbum.diacalendar2.domain.repository.ShiftRepository
+import com.sonbum.diacalendar2.data.local.datastore.TextSizePreferences
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 data class DiaTableState(
@@ -40,7 +43,8 @@ class DiaTableViewModel(
     private val diaRepository: DiaRepository,
     private val localDiaRepository: LocalDiaRepository,
     private val shiftRepository: ShiftRepository,
-    private val officeRepository: OfficeRepository
+    private val officeRepository: OfficeRepository,
+    private val textSizePreferences: TextSizePreferences
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(DiaTableState())
@@ -48,6 +52,14 @@ class DiaTableViewModel(
 
     private val _event = MutableSharedFlow<DiaTableEvent>()
     val event = _event.asSharedFlow()
+
+    /** 근무표 글자 크기 단계 인덱스 (저장된 값, 앱 재실행 후 유지) */
+    val fontScaleIndex: StateFlow<Int> = textSizePreferences.diaTableFontScaleIndex
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    fun setFontScaleIndex(index: Int) {
+        viewModelScope.launch { textSizePreferences.saveDiaTableFontScaleIndex(index) }
+    }
 
     companion object {
         val CATEGORY_ORDER = listOf(

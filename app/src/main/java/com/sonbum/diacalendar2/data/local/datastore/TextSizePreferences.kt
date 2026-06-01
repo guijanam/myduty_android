@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -51,6 +52,16 @@ class TextSizePreferences(private val context: Context) {
         private val EVENT_FONT_SIZE = floatPreferencesKey("event_font_size")
         private val MEMO_FONT_SIZE = floatPreferencesKey("memo_font_size")
         private val CREW_PATTERN_FONT_SIZE = floatPreferencesKey("crew_pattern_font_size")
+        // 근무표 화면 글자 크기 단계 인덱스 (0=보통, 1=크게, 2=더크게)
+        private val DIA_TABLE_FONT_SCALE_INDEX = intPreferencesKey("dia_table_font_scale_index")
+    }
+
+    /** 근무표 화면 글자 크기 단계 인덱스 (앱 재실행 후에도 유지) */
+    val diaTableFontScaleIndex: Flow<Int> = context.textSizeDataStore.data
+        .map { it[DIA_TABLE_FONT_SCALE_INDEX] ?: 0 }
+
+    suspend fun saveDiaTableFontScaleIndex(index: Int) {
+        context.textSizeDataStore.edit { it[DIA_TABLE_FONT_SCALE_INDEX] = index }
     }
 
     /**

@@ -32,6 +32,13 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.DisposableEffect
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -74,6 +81,7 @@ fun WorkAlarmSettingsScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             ExactAlarmWarning(context)
+            OverlayPermissionWarning(context)
 
             AlarmSlotCard(
                 title = "출근 알람",
@@ -178,12 +186,27 @@ private fun ToggleRow(label: String, checked: Boolean, onChange: (Boolean) -> Un
     }
 }
 
-/** Android 12+ 정확 알람 권한이 꺼져 있으면 안내 + 설정 이동 */
+/** Android 12+ 정확 알람 권한이 꺼져 있으면 안내 + 설정 이동 (복귀 시 재확인) */
 @Composable
 private fun ExactAlarmWarning(context: Context) {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
     val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-    if (alarmManager.canScheduleExactAlarms()) return
+
+    var canSchedule by remember { mutableStateOf(alarmManager.canScheduleExactAlarms()) }
+
+    // 설정 화면 갔다 돌아올 때 권한 재확인
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                canSchedule = alarmManager.canScheduleExactAlarms()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    if (canSchedule) return
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp)) {
@@ -203,6 +226,54 @@ private fun ExactAlarmWarning(context: Context) {
                     Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
                         data = Uri.parse("package:${context.packageName}")
                     }
+                )
+            }) { Text("권한 설정 열기") }
+        }
+    }
+}
+
+/**
+ * "다른 앱 위에 표시"(overlay) 권한이 꺼져 있으면 안내 + 바로 그 설정으로 이동.
+ * 이 권한이 있어야 잠금/꺼진 화면 위로 풀스크린 알람이 확실히 뜬다.
+ * 설정에서 켜고 돌아오면 lifecycle(onResume)로 재확인해 카드가 자동으로 사라진다.
+ */
+@Composable
+private fun OverlayPermissionWarning(context: Context) {
+    var canDraw by remember { mutableStateOf(Settings.canDrawOverlays(context)) }
+
+    // 설정 화면 갔다 돌아올 때 권한 재확인
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                canDraw = Settings.canDrawOverlays(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    if (canDraw) return
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp)) {
+            Text(
+                "‘다른 앱 위에 표시’ 권한이 필요합니다",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.error
+            )
+            Text(
+                "이 권한이 있어야 화면이 꺼져 있거나 잠겨 있어도 알람이 전체 화면으로 뜹니다.",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            TextButton(onClick = {
+                context.startActivity(
+                    Intent(
+                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        Uri.parse("package:${context.packageName}")
+                    )
                 )
             }) { Text("권한 설정 열기") }
         }

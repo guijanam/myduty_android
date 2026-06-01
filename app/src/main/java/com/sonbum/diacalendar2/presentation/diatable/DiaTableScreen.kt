@@ -82,6 +82,7 @@ fun DiaTableScreen(
     viewModel: DiaTableViewModel = koinViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val fontScaleIndex by viewModel.fontScaleIndex.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(Unit) {
@@ -100,6 +101,8 @@ fun DiaTableScreen(
     DiaTableContent(
         state = state,
         snackbarHostState = snackbarHostState,
+        fontScaleIndex = fontScaleIndex,
+        onFontScaleIndexChange = viewModel::setFontScaleIndex,
         onBack = onBack,
         onCategorySelect = viewModel::selectCategory,
         onToggleEditMode = viewModel::toggleEditMode,
@@ -121,6 +124,8 @@ fun DiaTableScreen(
 private fun DiaTableContent(
     state: DiaTableState,
     snackbarHostState: SnackbarHostState,
+    fontScaleIndex: Int,
+    onFontScaleIndexChange: (Int) -> Unit,
     onBack: () -> Unit,
     onCategorySelect: (Int) -> Unit,
     onToggleEditMode: () -> Unit,
@@ -131,10 +136,10 @@ private fun DiaTableContent(
 ) {
     var showRestoreDialog by remember { mutableStateOf(false) }
 
-    // 글자 크기 배율 (노안 사용자용) - 1.0 → 1.3 → 1.6 순환
+    // 글자 크기 배율 (노안 사용자용) - 1.0 → 1.3 → 1.6 순환. 인덱스는 DataStore에 저장됨
     val fontScaleSteps = listOf(1.0f, 1.3f, 1.6f)
-    var fontScaleIndex by remember { mutableStateOf(0) }
-    val fontScale = fontScaleSteps[fontScaleIndex]
+    val safeIndex = fontScaleIndex.coerceIn(0, fontScaleSteps.lastIndex)
+    val fontScale = fontScaleSteps[safeIndex]
 
     if (showRestoreDialog) {
         AlertDialog(
@@ -179,7 +184,7 @@ private fun DiaTableContent(
                     // 글자 크기 조절 (노안 사용자용) - 탭하면 보통 → 크게 → 더크게 순환
                     TextButton(
                         onClick = {
-                            fontScaleIndex = (fontScaleIndex + 1) % fontScaleSteps.size
+                            onFontScaleIndexChange((safeIndex + 1) % fontScaleSteps.size)
                         }
                     ) {
                         Icon(
@@ -188,7 +193,7 @@ private fun DiaTableContent(
                             modifier = Modifier.size(20.dp)
                         )
                         Text(
-                            text = when (fontScaleIndex) {
+                            text = when (safeIndex) {
                                 0 -> " 보통"
                                 1 -> " 크게"
                                 else -> " 더크게"
