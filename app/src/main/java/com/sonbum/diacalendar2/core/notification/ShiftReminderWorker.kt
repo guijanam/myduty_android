@@ -67,11 +67,10 @@ class ShiftReminderWorker(
             return Result.success()
         }
 
+        // 출근(workTime) 알람만 관리. 전반/후반사업은 DateDetailScreen에서 시스템 시계 앱으로 처리.
         val times = widgetDataProvider.loadEffectiveShiftTimes(dates)
         for (t in times) {
             applySlot(t, AlarmScheduler.SLOT_COMMUTE, t.workTime, prefs.commuteEnabled, prefs.commuteMinutesBefore, prefs)
-            applySlot(t, AlarmScheduler.SLOT_FIRST, t.firstTime, prefs.firstEnabled, prefs.firstMinutesBefore, prefs)
-            applySlot(t, AlarmScheduler.SLOT_SECOND, t.secondTime, prefs.secondEnabled, prefs.secondMinutesBefore, prefs)
         }
 
         return Result.success()
@@ -140,21 +139,30 @@ class ShiftReminderWorker(
 
     private suspend fun clearAllInWindow(dates: List<LocalDate>) {
         for (date in dates) {
-            for (slot in intArrayOf(
-                AlarmScheduler.SLOT_COMMUTE, AlarmScheduler.SLOT_FIRST, AlarmScheduler.SLOT_SECOND
-            )) {
-                alarmScheduler.cancelShiftAlarm(date.toString(), slot)
-                scheduledAlarmDao.delete(date.toString(), slot)
-            }
+            alarmScheduler.cancelShiftAlarm(date.toString(), AlarmScheduler.SLOT_COMMUTE)
+            scheduledAlarmDao.delete(date.toString(), AlarmScheduler.SLOT_COMMUTE)
         }
     }
 
+    /**
+     * 시각 추출.
+     * - workTime: "06:00", "20:08" → 그대로
+     * - firstTime/secondTime: "🔴08:52-10:47", "홍11:10-14:50", "09:26-12:28"
+     *   → 색상 이모지/문자·범위(-종료시각)를 무시하고 **맨 앞 시작 시각**만 사용
+     * 문자열 어디든 처음 등장하는 H:mm/HH:mm 을 뽑는다.
+     */
     private fun parseTime(value: String?): LocalTime? {
         if (value.isNullOrBlank()) return null
+        val match = TIME_REGEX.find(value) ?: return null
+        val hour = match.groupValues[1].toIntOrNull() ?: return null
+        val minute = match.groupValues[2].toIntOrNull() ?: return null
+        if (hour !in 0..23 || minute !in 0..59) return null
         return try {
-            LocalTime.parse(value.trim(), HHMM)
+            LocalTime.of(hour, minute)
         } catch (e: Exception) {
             null
         }
     }
 }
+
+private val TIME_REGEX = Regex("""(\d{1,2}):(\d{2})""")

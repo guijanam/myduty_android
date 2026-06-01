@@ -18,7 +18,8 @@ data class ScheduledAlarmUi(
     val slot: Int,
     val slotLabel: String,
     val shiftName: String,
-    val timeText: String,
+    val timeText: String,       // 근무 시각 (HH:mm)
+    val alarmTimeText: String,  // 실제 알람이 울릴 시각 (분전 적용, HH:mm)
     val enabled: Boolean        // !dismissed
 )
 
@@ -59,6 +60,13 @@ class ScheduledAlarmListViewModel(
         },
         shiftName = shiftName,
         timeText = timeText,
+        alarmTimeText = formatAlarmTime(triggerAtMillis),
         enabled = !dismissed
     )
+
+    private fun formatAlarmTime(millis: Long): String =
+        java.time.Instant.ofEpochMilli(millis)
+            .atZone(java.time.ZoneId.systemDefault())
+            .toLocalTime()
+            .format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
 }

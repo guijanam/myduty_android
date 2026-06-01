@@ -69,6 +69,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.FilterChip
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -127,6 +130,7 @@ import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.automirrored.rounded.Note
 import androidx.compose.material.icons.filled.Close
@@ -1344,7 +1348,7 @@ fun WorkTimeCard(
 					                )
 				                }
 				                if (!dia.firstTime.isNullOrBlank()) {
-					                ShiftInfoRow(label = "전반", value = dia.firstTime)
+					                ShiftAlarmRow(label = "전반", value = dia.firstTime)
 				                }
 			                }
 		                }
@@ -1366,7 +1370,7 @@ fun WorkTimeCard(
 					                )
 				                }
 				                if (!dia.secondTime.isNullOrBlank()) {
-					                ShiftInfoRow(label = "후반", value = dia.secondTime)
+					                ShiftAlarmRow(label = "후반", value = dia.secondTime)
 				                }
 			                }
 		                }
@@ -1376,6 +1380,157 @@ fun WorkTimeCard(
             }
         }
     }
+}
+
+/**
+ * 전반/후반 시각 + 시계 앱 알람 버튼.
+ * 시각 문자열(예: "🔴08:52-10:47")에서 시작 시각을 추출하고,
+ * "N분/시간 전" 프리셋 또는 직접 입력으로 알람 시각을 정해 시스템 시계 앱으로 넘긴다.
+ */
+@Composable
+private fun ShiftAlarmRow(label: String, value: String) {
+    var showDialog by remember { mutableStateOf(false) }
+    val start = remember(value) {
+        com.sonbum.diacalendar2.core.util.ShiftTimeUtils.extractStartTime(value)
+    }
+
+    Row(
+        modifier = Modifier.padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.Start,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+            modifier = Modifier.width(40.dp)
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onPrimaryContainer
+        )
+        if (start != null) {
+            IconButton(onClick = { showDialog = true }) {
+                Icon(
+                    imageVector = Icons.Default.Alarm,
+                    contentDescription = "${label} 알람 설정",
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
+        }
+    }
+
+    if (showDialog && start != null) {
+        ShiftAlarmBeforeDialog(
+            label = label,
+            start = start,
+            onDismiss = { showDialog = false }
+        )
+    }
+}
+
+/** "N분/시간 전" 프리셋 + 직접 입력으로 알람 시각을 정하는 다이얼로그 */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ShiftAlarmBeforeDialog(
+    label: String,
+    start: Pair<Int, Int>,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    // (표시명, 분) 프리셋
+    val presets = listOf(
+        "10분 전" to 10,
+        "20분 전" to 20,
+        "30분 전" to 30,
+        "1시간 전" to 60,
+        "1시간 30분 전" to 90,
+        "1시간 45분 전" to 105
+    )
+    var selectedMinutes by remember { mutableStateOf(30) }
+    var customHour by remember { mutableStateOf("") }
+    var customMinute by remember { mutableStateOf("") }
+
+    // 직접 입력값이 있으면 그것을, 없으면 선택된 프리셋을 사용
+    val customTotal = run {
+        val h = customHour.toIntOrNull() ?: 0
+        val m = customMinute.toIntOrNull() ?: 0
+        if (customHour.isBlank() && customMinute.isBlank()) null else h * 60 + m
+    }
+    val effectiveMinutes = customTotal ?: selectedMinutes
+    val alarmTime = com.sonbum.diacalendar2.core.util.ShiftTimeUtils.minusMinutes(start, effectiveMinutes)
+    val alarmText = "%02d:%02d".format(alarmTime.first, alarmTime.second)
+    val startText = "%02d:%02d".format(start.first, start.second)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("${label} 알람 설정") },
+        text = {
+            Column {
+                Text(
+                    "근무 시각 $startText 기준",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(8.dp))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    presets.forEach { (name, minutes) ->
+                        FilterChip(
+                            selected = customTotal == null && selectedMinutes == minutes,
+                            onClick = {
+                                selectedMinutes = minutes
+                                customHour = ""; customMinute = ""
+                            },
+                            label = { Text(name) }
+                        )
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+                Text("직접 입력", style = MaterialTheme.typography.bodyMedium)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = customHour,
+                        onValueChange = { if (it.length <= 2 && it.all(Char::isDigit)) customHour = it },
+                        label = { Text("시간") },
+                        singleLine = true,
+                        modifier = Modifier.width(90.dp)
+                    )
+                    Text("  시간  ", style = MaterialTheme.typography.bodyMedium)
+                    OutlinedTextField(
+                        value = customMinute,
+                        onValueChange = { if (it.length <= 2 && it.all(Char::isDigit)) customMinute = it },
+                        label = { Text("분") },
+                        singleLine = true,
+                        modifier = Modifier.width(90.dp)
+                    )
+                    Text("  분 전", style = MaterialTheme.typography.bodyMedium)
+                }
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    "알람: $alarmText  (${effectiveMinutes}분 전)",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                com.sonbum.diacalendar2.core.util.ShiftTimeUtils.setClockAlarm(
+                    context = context,
+                    hour = alarmTime.first,
+                    minute = alarmTime.second,
+                    label = "$label 근무 ${effectiveMinutes}분 전"
+                )
+                onDismiss()
+            }) { Text("시계 앱에 등록") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("취소") }
+        }
+    )
 }
 
 @Composable

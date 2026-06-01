@@ -77,27 +77,11 @@ fun WorkAlarmSettingsScreen(
 
             AlarmSlotCard(
                 title = "출근 알람",
-                subtitle = "출근 시각(workTime) 기준",
+                subtitle = "출근 시각 기준",
                 enabled = s.commuteEnabled,
                 minutesBefore = s.commuteMinutesBefore,
                 onToggle = { viewModel.setCommute(it, s.commuteMinutesBefore) },
                 onMinutes = { viewModel.setCommute(s.commuteEnabled, it) }
-            )
-            AlarmSlotCard(
-                title = "전반사업 알람",
-                subtitle = "전반 작업 시각(firstTime) 기준",
-                enabled = s.firstEnabled,
-                minutesBefore = s.firstMinutesBefore,
-                onToggle = { viewModel.setFirst(it, s.firstMinutesBefore) },
-                onMinutes = { viewModel.setFirst(s.firstEnabled, it) }
-            )
-            AlarmSlotCard(
-                title = "후반사업 알람",
-                subtitle = "후반 작업 시각(secondTime) 기준",
-                enabled = s.secondEnabled,
-                minutesBefore = s.secondMinutesBefore,
-                onToggle = { viewModel.setSecond(it, s.secondMinutesBefore) },
-                onMinutes = { viewModel.setSecond(s.secondEnabled, it) }
             )
 
             IntensityCard(
@@ -108,7 +92,8 @@ fun WorkAlarmSettingsScreen(
             )
 
             Text(
-                text = "비번·휴무처럼 해당 시각이 없는 근무는 자동으로 건너뜁니다.",
+                text = "비번·휴무처럼 출근 시각이 없는 근무는 자동으로 건너뜁니다.\n" +
+                    "전반·후반사업 알람은 날짜 상세에서 시계 앱 알람으로 설정할 수 있습니다.",
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

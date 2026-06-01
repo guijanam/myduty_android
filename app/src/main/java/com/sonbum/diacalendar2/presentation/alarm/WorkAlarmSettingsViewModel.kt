@@ -27,14 +27,6 @@ class WorkAlarmSettingsViewModel(
         prefs.setCommute(enabled, minutesBefore)
     }
 
-    fun setFirst(enabled: Boolean, minutesBefore: Int) = save {
-        prefs.setFirst(enabled, minutesBefore)
-    }
-
-    fun setSecond(enabled: Boolean, minutesBefore: Int) = save {
-        prefs.setSecond(enabled, minutesBefore)
-    }
-
     fun setIntensity(fullScreen: Boolean, sound: Boolean, vibrate: Boolean) = save {
         prefs.setIntensity(fullScreen, sound, vibrate)
     }

@@ -107,12 +107,12 @@ private fun AlarmRow(alarm: ScheduledAlarmUi, onToggle: (Boolean) -> Unit) {
         ) {
             Column {
                 Text(
-                    text = "${alarm.timeText}  ·  ${alarm.slotLabel}",
-                    fontSize = 16.sp,
+                    text = "${alarm.alarmTimeText}  알람",
+                    fontSize = 18.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "근무: ${alarm.shiftName}",
+                    text = "${alarm.slotLabel} ${alarm.timeText}  ·  근무: ${alarm.shiftName}",
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
