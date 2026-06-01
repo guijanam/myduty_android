@@ -474,6 +474,7 @@ class DateDetailViewModel(
                 shortName = vacationType.shortName
             )
             WidgetUpdater.updateAll(appContext)
+            ShiftReminderWorker.enqueue(appContext)
         }
     }
 
@@ -481,6 +482,7 @@ class DateDetailViewModel(
         viewModelScope.launch {
             vacationRecordRepository.deleteByDate(_state.value.date)
             WidgetUpdater.updateAll(appContext)
+            ShiftReminderWorker.enqueue(appContext)
         }
     }
 

@@ -81,7 +81,8 @@ class WeekWidget : GlanceAppWidget() {
                 localDiaDao = koin.get(),
                 memoDao = koin.get(),
                 holidayDao = koin.get(),
-                deviceCalendarRepository = koin.get()
+                deviceCalendarRepository = koin.get(),
+                vacationRecordDao = koin.get()
             )
             val today = LocalDate.now(ZoneId.of("Asia/Seoul"))
             val weekDates = (0L..6L).map { today.plusDays(it) }
@@ -234,7 +235,7 @@ private fun WeekShiftRow(dayDataList: List<WidgetDayData>, scaleFactor: Float) {
                 text = shiftName,
                 style = TextStyle(
                     fontWeight = FontWeight.Medium,
-                    color = getShiftTextColor(shiftName),
+                    color = getShiftTextColor(shiftName, data.isSwap, data.shiftInputColorHex, data.isVacation),
                     fontSize = (12 * scaleFactor).sp,
                     textAlign = TextAlign.Center
                 )

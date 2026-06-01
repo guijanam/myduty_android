@@ -199,7 +199,7 @@ val databaseModule = module {
     single { get<AppDatabase>().scheduledAlarmDao() }
     single {
         com.sonbum.diacalendar2.widget.data.WidgetDataProvider(
-            get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()
+            get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()
         )
     }
 }

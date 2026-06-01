@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.core.graphics.toColorInt
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.datastore.preferences.core.Preferences
@@ -96,7 +97,8 @@ class DayWidget : GlanceAppWidget() {
                 localDiaDao = koin.get(),
                 memoDao = koin.get(),
                 holidayDao = koin.get(),
-                deviceCalendarRepository = koin.get()
+                deviceCalendarRepository = koin.get(),
+                vacationRecordDao = koin.get()
             )
             val today = LocalDate.now(ZoneId.of("Asia/Seoul"))
             val tomorrow = today.plusDays(1)
@@ -166,7 +168,7 @@ private fun DaySection(
             DateRow(data, isSmallMode, scaleFactor)
             Spacer(modifier = GlanceModifier.height(if (isSmallMode) 0.dp else (2 * scaleFactor).dp))
             WorkTimeRow(data.workTime, isSmallMode, scaleFactor)
-            ShiftNameRow(data.effectiveShiftName, isSmallMode, scaleFactor)
+            ShiftNameRow(data, isSmallMode, scaleFactor)
         }
 
         Column(
@@ -241,8 +243,8 @@ private fun WorkTimeRow(workTime: String?, isSmallMode: Boolean, scaleFactor: Fl
 }
 
 @Composable
-private fun ShiftNameRow(shiftName: String?, isSmallMode: Boolean, scaleFactor: Float) {
-    if (shiftName == null) return
+private fun ShiftNameRow(data: WidgetDayData, isSmallMode: Boolean, scaleFactor: Float) {
+    val shiftName = data.effectiveShiftName ?: return
     val baseSize = if (isSmallMode) 15 else 16
 
     Text(
@@ -250,7 +252,7 @@ private fun ShiftNameRow(shiftName: String?, isSmallMode: Boolean, scaleFactor: 
         text = shiftName,
         style = TextStyle(
             fontWeight = FontWeight.Bold,
-            color = getShiftTextColor(shiftName),
+            color = getShiftTextColor(shiftName, data.isSwap, data.shiftInputColorHex, data.isVacation),
             fontSize = (baseSize * scaleFactor).sp,
             textAlign = TextAlign.Center
         )
@@ -319,4 +321,32 @@ internal fun getShiftTextColor(turn: String): ColorProvider {
         turn.contains("지근") -> GlanceTheme.colors.primary
         else -> GlanceTheme.colors.onBackground
     }
+}
+
+/**
+ * 근태/교체/충당으로 바뀐 날은 그 색을 글자색으로 우선 적용한다.
+ * - 근태(휴가): 빨간색
+ * - 충당: shiftInputColorHex(예: "#4CAF50") 색
+ * - 교체: 주황색
+ * - 그 외: 교번 이름 기반 기본 색([getShiftTextColor])
+ */
+@SuppressLint("RestrictedApi")
+@Composable
+internal fun getShiftTextColor(
+    turn: String,
+    isSwap: Boolean,
+    shiftInputColorHex: String?,
+    isVacation: Boolean = false
+): ColorProvider {
+    if (isVacation) return GlanceTheme.colors.error
+    if (shiftInputColorHex != null) {
+        val color = try {
+            Color(shiftInputColorHex.toColorInt())
+        } catch (_: Exception) {
+            null
+        }
+        if (color != null) return ColorProvider(color)
+    }
+    if (isSwap) return ColorProvider(Color(0xFFFF9800))
+    return getShiftTextColor(turn)
 }

@@ -10,6 +10,7 @@ import com.sonbum.diacalendar2.data.local.dao.ShiftInputRecordDao
 import com.sonbum.diacalendar2.data.local.dao.ShiftScheduleDao
 import com.sonbum.diacalendar2.data.local.dao.ShiftSwapRecordDao
 import com.sonbum.diacalendar2.data.local.dao.UserShiftConfigDao
+import com.sonbum.diacalendar2.data.local.dao.VacationRecordDao
 import com.sonbum.diacalendar2.domain.model.Dia
 import com.sonbum.diacalendar2.domain.repository.DeviceCalendarRepository
 import com.sonbum.diacalendar2.domain.util.DayTypeResolver
@@ -23,7 +24,13 @@ data class WidgetDayData(
     val memoTitles: List<String>,
     val calendarEventTitles: List<String>,
     val isToday: Boolean,
-    val isHoliday: Boolean
+    val isHoliday: Boolean,
+    /** 교번교체로 바뀐 날(글자색 주황색 표시용) */
+    val isSwap: Boolean = false,
+    /** 충당으로 바뀐 날의 색상 HEX(예: "#4CAF50"). 충당이 아니면 null */
+    val shiftInputColorHex: String? = null,
+    /** 근태(휴가)인 날(글자색 빨간색 표시용) */
+    val isVacation: Boolean = false
 )
 
 /** 알람용: 날짜별 유효교번과 3시각(출근/전반/후반) */
@@ -46,7 +53,8 @@ class WidgetDataProvider(
     private val localDiaDao: LocalDiaDao,
     private val memoDao: MemoDao,
     private val holidayDao: HolidayDao,
-    private val deviceCalendarRepository: DeviceCalendarRepository
+    private val deviceCalendarRepository: DeviceCalendarRepository,
+    private val vacationRecordDao: VacationRecordDao
 ) {
     suspend fun loadDayDataList(dates: List<LocalDate>): List<WidgetDayData> {
         val config = userShiftConfigDao.getConfigOnce()
@@ -71,9 +79,11 @@ class WidgetDataProvider(
             val shiftInput = shiftInputRecordDao.getByDate(dateStr)
             val lateWork = lateWorkRecordDao.getByDateOnce(dateStr)
             val lateHoliday = lateHolidayRecordDao.getByDateOnce(dateStr)
+            val vacation = vacationRecordDao.getByDate(dateStr)
 
-            // 3. Apply priority: 지휴 > 충당 > 지근 > 교번교체 > 원래 교번
+            // 3. Apply priority: 근태(휴가) > 지휴 > 충당 > 지근 > 교번교체 > 원래 교번
             val effectiveName = when {
+                vacation != null -> vacation.shortName
                 lateHoliday != null -> lateHoliday.lateHolidayName
                 shiftInput != null -> shiftInput.targetShiftName
                 lateWork != null -> lateWork.lateWorkName
@@ -81,8 +91,8 @@ class WidgetDataProvider(
                 else -> originalShift
             }
 
-            // 4. Resolve workTime from Dia
-            val workTime = if (effectiveName != null && officeName != null) {
+            // 4. Resolve workTime from Dia (휴가일은 출근 시각 없음)
+            val workTime = if (vacation == null && effectiveName != null && officeName != null) {
                 resolveWorkTime(effectiveName, date, officeName, isLocalOffice, holidayDates)
             } else null
 
@@ -101,6 +111,13 @@ class WidgetDataProvider(
             // 7. Check holiday
             val isHoliday = date in holidayDates || date.dayOfWeek == DayOfWeek.SUNDAY
 
+            // 8. 글자색 힌트: 충당/교체로 바뀐 날 (휴가/지휴/지근이 더 우선이면 색 힌트 없음)
+            val shiftInputColorHex = if (vacation == null && lateHoliday == null && shiftInput != null) {
+                shiftInput.colorHex
+            } else null
+            val isSwap = vacation == null && lateHoliday == null &&
+                shiftInput == null && lateWork == null && swap != null
+
             WidgetDayData(
                 date = date,
                 effectiveShiftName = effectiveName,
@@ -108,7 +125,10 @@ class WidgetDataProvider(
                 memoTitles = memoTitles,
                 calendarEventTitles = calendarEventTitles,
                 isToday = date == today,
-                isHoliday = isHoliday
+                isHoliday = isHoliday,
+                isSwap = isSwap,
+                shiftInputColorHex = shiftInputColorHex,
+                isVacation = vacation != null
             )
         }
     }
@@ -132,8 +152,10 @@ class WidgetDataProvider(
             val shiftInput = shiftInputRecordDao.getByDate(dateStr)
             val lateWork = lateWorkRecordDao.getByDateOnce(dateStr)
             val lateHoliday = lateHolidayRecordDao.getByDateOnce(dateStr)
+            val vacation = vacationRecordDao.getByDate(dateStr)
 
             val effectiveName = when {
+                vacation != null -> vacation.shortName
                 lateHoliday != null -> lateHoliday.lateHolidayName
                 shiftInput != null -> shiftInput.targetShiftName
                 lateWork != null -> lateWork.lateWorkName
@@ -141,7 +163,8 @@ class WidgetDataProvider(
                 else -> originalShift
             }
 
-            val dia = if (effectiveName != null && officeName != null) {
+            // 휴가일은 출근 시각이 없어 알람이 해제되도록 Dia 조회를 건너뛴다.
+            val dia = if (vacation == null && effectiveName != null && officeName != null) {
                 resolveDia(effectiveName, date, officeName, isLocalOffice, holidayDates)
             } else null
 
