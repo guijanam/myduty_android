@@ -69,10 +69,13 @@ class DayWidget : GlanceAppWidget() {
             val size = LocalSize.current
             // 너비/높이를 모두 고려해 글자 크기를 비례 조절한다.
             // 기준 크기(300 x 200dp)를 1.0으로 두고, 작아지면 줄이고 커지면 키운다.
+            // 세로를 더 작게 줄여도 글자는 너무 작아지지 않도록 너비 비중을 크게 둔다.
             val widthScale = size.width.value / 300f
             val heightScale = size.height.value / 200f
-            val scaleFactor = minOf(widthScale, heightScale).coerceIn(0.6f, 2.0f)
-            val isSmallMode = size.width < 200.dp || size.height < 130.dp
+            // 높이가 줄어도 글자가 크게 작아지지 않게 너비 기준을 우선하고,
+            // 하한을 높여 작은 위젯에서도 글자가 충분히 크게 보이도록 한다.
+            val scaleFactor = (widthScale * 0.7f + heightScale * 0.3f).coerceIn(0.85f, 2.0f)
+            val isSmallMode = size.width < 200.dp || size.height < 110.dp
 
             GlanceTheme {
                 DayWidgetContent(
@@ -225,7 +228,7 @@ private fun DateRow(data: WidgetDayData, isSmallMode: Boolean, scaleFactor: Floa
 
 @Composable
 private fun WorkTimeRow(workTime: String?, isSmallMode: Boolean, scaleFactor: Float) {
-    val baseSize = if (isSmallMode) 18 else 20
+    val baseSize = if (isSmallMode) 22 else 24
     Text(
         modifier = GlanceModifier.fillMaxWidth(),
         text = workTime ?: "",
@@ -241,7 +244,7 @@ private fun WorkTimeRow(workTime: String?, isSmallMode: Boolean, scaleFactor: Fl
 @Composable
 private fun ShiftNameRow(data: WidgetDayData, isSmallMode: Boolean, scaleFactor: Float) {
     val shiftName = data.effectiveShiftName ?: return
-    val baseSize = if (isSmallMode) 15 else 16
+    val baseSize = if (isSmallMode) 18 else 20
 
     Text(
         modifier = GlanceModifier.fillMaxWidth(),

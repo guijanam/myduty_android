@@ -16,14 +16,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material.Text
 import androidx.wear.compose.material.TimeText
 import androidx.wear.tooling.preview.devices.WearDevices
-import com.sonbum.diacalendar2.R
 import com.sonbum.diacalendar2.presentation.theme.DiaCalendar2Theme
 
 class MainActivity : ComponentActivity() {
@@ -35,13 +33,13 @@ class MainActivity : ComponentActivity() {
 		setTheme(android.R.style.Theme_DeviceDefault)
 
 		setContent {
-			WearApp("Android")
+			WearApp()
 		}
 	}
 }
 
 @Composable
-fun WearApp(greetingName: String) {
+fun WearApp() {
 	DiaCalendar2Theme {
 		Box(
 			modifier = Modifier
@@ -50,23 +48,23 @@ fun WearApp(greetingName: String) {
 			contentAlignment = Alignment.Center
 		) {
 			TimeText()
-			Greeting(greetingName = greetingName)
+			Guidance()
 		}
 	}
 }
 
 @Composable
-fun Greeting(greetingName: String) {
+fun Guidance() {
 	Text(
 		modifier = Modifier.fillMaxWidth(),
 		textAlign = TextAlign.Center,
 		color = MaterialTheme.colors.primary,
-		text = stringResource(R.string.hello_world, greetingName)
+		text = "DiaCalendar\n\n타일을 추가해서\n사용하세요\n\n폰 앱 연결 필요"
 	)
 }
 
 @Preview(device = WearDevices.SMALL_ROUND, showSystemUi = true)
 @Composable
 fun DefaultPreview() {
-	WearApp("Preview Android")
+	WearApp()
 }
