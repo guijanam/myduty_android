@@ -30,9 +30,7 @@ import androidx.glance.text.TextAlign
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import android.util.Log
-import androidx.glance.ImageProvider
 import com.sonbum.diacalendar2.MainActivity
-import com.sonbum.diacalendar2.R
 import com.sonbum.diacalendar2.widget.data.WidgetDataProvider
 import com.sonbum.diacalendar2.widget.data.WidgetDayData
 import kotlinx.coroutines.Dispatchers
@@ -137,16 +135,10 @@ private fun WeekDayRow(dayDataList: List<WidgetDayData>, scaleFactor: Float) {
 //            } else {
 //                Color.LightGray
 //            }
-	        // 2. Text에 적용할 Modifier를 조건에 따라 조립 (이름을 textModifier로 변경!)
-	        val textModifier = GlanceModifier.defaultWeight().let { baseModifier ->
-		        if (data.isToday) {
-			        // 오늘일 때는 우리가 만든 쨍한 블루(#00FFF0 -> #0083FE) 그라데이션 XML 적용!
-			        baseModifier.background(ImageProvider(R.drawable.widget_gradient_bg))
-		        } else {
-			        // 오늘이 아닐 때는 반투명 밝은 회색 적용
-			        baseModifier.background(Color.LightGray.copy(alpha = 0.3f))
-		        }
-	        }
+	        // 모든 날짜에 동일한 배경 적용 (오늘 강조 배경 제거 - 항상 첫 칸이 오늘)
+	        val textModifier = GlanceModifier
+		        .defaultWeight()
+		        .background(Color.LightGray.copy(alpha = 0.3f))
 
             val dateText = "${data.date.dayOfMonth}(${data.date.format(WEEK_DAY_FORMATTER)})"
 

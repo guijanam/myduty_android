@@ -6,6 +6,8 @@ import com.sonbum.diacalendar2.data.remote.dto.SubwayPositionDto
 import com.sonbum.diacalendar2.domain.repository.DiaRepository
 import com.sonbum.diacalendar2.domain.repository.SubwayRepository
 import com.sonbum.diacalendar2.domain.util.SubwayTrainParser
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
@@ -25,8 +27,12 @@ data class SubwayPositionState(
     val myTrainNo: String = "",
     val line: Int = 0,
     val trains: List<SubwayTrainUi> = emptyList(),
-    val notRunning: Boolean = false
+    val notRunning: Boolean = false,
+    /** 다음 자동 갱신까지 남은 초 */
+    val secondsUntilRefresh: Int = AUTO_REFRESH_SECONDS
 )
+
+const val AUTO_REFRESH_SECONDS = 10
 
 class SubwayPositionViewModel(
     private val subwayRepository: SubwayRepository,
@@ -36,17 +42,66 @@ class SubwayPositionViewModel(
     private val _state = MutableStateFlow(SubwayPositionState())
     val state = _state.asStateFlow()
 
+    private var autoRefreshJob: Job? = null
+    private var loadJob: Job? = null
+
+    /** 화면 진입 시 1회 호출: 조회 대상 파라미터를 보관한다. */
     fun initialize(myTrainNo: String, line: Int, officeName: String) {
         _state.update { it.copy(myTrainNo = myTrainNo, line = line) }
-        load(myTrainNo, line, officeName)
+        this.myTrainNo = myTrainNo
+        this.line = line
+        this.officeName = officeName
     }
 
-    fun refresh(myTrainNo: String, line: Int, officeName: String) =
-        load(myTrainNo, line, officeName)
+    private var myTrainNo: String = ""
+    private var line: Int = 0
+    private var officeName: String = ""
 
-    private fun load(myTrainNo: String, line: Int, officeName: String) {
-        viewModelScope.launch {
-            _state.update { it.copy(isLoading = true, errorMessage = null) }
+    /** 화면이 보일 때: 즉시 조회 + 자동 갱신 루프 시작. */
+    fun start() {
+        load(myTrainNo, line, officeName)
+        startAutoRefresh(myTrainNo, line, officeName)
+    }
+
+    /** 화면이 가려질 때: 진행 중인 조회와 자동 갱신을 모두 중단. */
+    fun stop() {
+        autoRefreshJob?.cancel()
+        autoRefreshJob = null
+        loadJob?.cancel()
+        loadJob = null
+    }
+
+    /** 사용자가 직접 새로고침: 전체 로딩 표시 + 카운트다운 리셋. */
+    fun refresh(myTrainNo: String, line: Int, officeName: String) {
+        load(myTrainNo, line, officeName)
+        startAutoRefresh(myTrainNo, line, officeName)
+    }
+
+    /** 10초마다 카운트다운 후 조용히 갱신하는 루프. */
+    private fun startAutoRefresh(myTrainNo: String, line: Int, officeName: String) {
+        autoRefreshJob?.cancel()
+        autoRefreshJob = viewModelScope.launch {
+            while (true) {
+                for (remaining in AUTO_REFRESH_SECONDS downTo 1) {
+                    _state.update { it.copy(secondsUntilRefresh = remaining) }
+                    delay(1000)
+                }
+                load(myTrainNo, line, officeName, silent = true)
+            }
+        }
+    }
+
+    private fun load(myTrainNo: String, line: Int, officeName: String, silent: Boolean = false) {
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
+            // 자동 갱신(silent)은 전체 로딩 스피너를 띄우지 않고 기존 목록을 유지한다.
+            _state.update {
+                it.copy(
+                    isLoading = if (silent) it.isLoading else true,
+                    errorMessage = null,
+                    secondsUntilRefresh = AUTO_REFRESH_SECONDS
+                )
+            }
 
             // 2호선 홀수 교대 보조: 내 열번이 홀수면 전 열번도 조회.
             val prevTrainNo: String? =
@@ -60,8 +115,13 @@ class SubwayPositionViewModel(
                     }
                 },
                 onFailure = { e ->
-                    _state.update {
-                        it.copy(isLoading = false, errorMessage = e.message ?: "조회 실패")
+                    // 자동 갱신 실패는 기존 목록을 유지하고 에러 화면으로 전환하지 않는다.
+                    if (silent) {
+                        _state.update { it.copy(isLoading = false) }
+                    } else {
+                        _state.update {
+                            it.copy(isLoading = false, errorMessage = e.message ?: "조회 실패")
+                        }
                     }
                 }
             )

@@ -12,6 +12,7 @@ import com.sonbum.diacalendar2.domain.repository.CustomShiftRepository
 import com.sonbum.diacalendar2.domain.repository.LocalOfficeRepository
 import com.sonbum.diacalendar2.domain.repository.OfficeRepository
 import com.sonbum.diacalendar2.domain.repository.ShiftRepository
+import com.sonbum.diacalendar2.domain.repository.SubShiftRepository
 import com.sonbum.diacalendar2.widget.WidgetUpdater
 import android.content.Context
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -71,6 +72,7 @@ class ShiftSelectionViewModel(
     private val shiftRepository: ShiftRepository,
     private val localOfficeRepository: LocalOfficeRepository,
     private val customShiftRepository: CustomShiftRepository,
+    private val subShiftRepository: SubShiftRepository,
     private val appContext: Context
 ) : ViewModel() {
 
@@ -80,10 +82,24 @@ class ShiftSelectionViewModel(
     private val _event = MutableSharedFlow<ShiftSelectionEvent>()
     val event: SharedFlow<ShiftSelectionEvent> = _event.asSharedFlow()
 
+    /** sub 근무(보조 교번) 모드 여부. 화면 진입 시 setSubShiftMode()로 설정한다. */
+    var isSubShift: Boolean = false
+        private set
+
     init {
         loadOffices()
         loadLocalOffices()
         loadCustomShifts()
+        loadExistingConfig()
+    }
+
+    /**
+     * sub 근무 모드를 설정한다. 메인/ sub 는 동일 화면을 공유하며 저장소만 분리된다.
+     * 화면 진입 시 한 번 호출되며, 모드가 켜지면 기존 설정을 sub 저장소에서 다시 읽는다.
+     */
+    fun setSubShiftMode(subShift: Boolean) {
+        if (isSubShift == subShift) return
+        isSubShift = subShift
         loadExistingConfig()
     }
 
@@ -108,7 +124,11 @@ class ShiftSelectionViewModel(
 
     private fun loadExistingConfig() {
         viewModelScope.launch {
-            val existingConfig = shiftRepository.getUserConfigOnce()
+            val existingConfig = if (isSubShift) {
+                subShiftRepository.getConfigOnce()
+            } else {
+                shiftRepository.getUserConfigOnce()
+            }
             if (existingConfig != null) {
                 Log.d(TAG, "loadExistingConfig() - 기존 설정 발견: ${existingConfig.officeName}")
                 // 기존 설정이 있으면 UI에 반영
@@ -479,16 +499,20 @@ class ShiftSelectionViewModel(
 
             try {
                 // 1. 시작 날짜 이후 기존 스케줄만 삭제 (이전 근무 순서는 보존)
-                val existingScheduleCount = shiftRepository.getScheduleCount()
+                val existingScheduleCount = if (isSubShift) subShiftRepository.getScheduleCount() else shiftRepository.getScheduleCount()
                 Log.d(TAG, "기존 저장된 스케줄 개수: $existingScheduleCount")
                 if (existingScheduleCount > 0) {
                     Log.d(TAG, "시작 날짜(${_state.value.startDate}) 이후 스케줄 삭제 중...")
-                    shiftRepository.deleteSchedulesFromDate(_state.value.startDate)
+                    if (isSubShift) {
+                        subShiftRepository.deleteSchedulesFromDate(_state.value.startDate)
+                    } else {
+                        shiftRepository.deleteSchedulesFromDate(_state.value.startDate)
+                    }
                     Log.d(TAG, "시작 날짜 이후 스케줄 삭제 완료 (이전 스케줄 보존)")
                 }
 
-                // 2. 서버 승무소만 Supabase에서 데이터 가져오기
-                if (!isCustomShift && officeCode >= 0) {
+                // 2. 서버 승무소만 Supabase에서 데이터 가져오기 (sub 근무는 근무순서만 필요하므로 건너뜀)
+                if (!isSubShift && !isCustomShift && officeCode >= 0) {
                     val existingDiaCount = diaRepository.getDiaCount()
                     Log.d(TAG, "기존 저장된 근무표 개수: $existingDiaCount")
 
@@ -518,18 +542,33 @@ class ShiftSelectionViewModel(
                     todayShiftIndex = todayShiftIndex,
                     referenceDate = _state.value.referenceDate
                 )
-                shiftRepository.saveUserConfig(userConfig)
+                if (isSubShift) {
+                    subShiftRepository.saveConfig(userConfig)
+                } else {
+                    shiftRepository.saveUserConfig(userConfig)
+                }
                 Log.d(TAG, "사용자 설정 저장 완료")
 
                 // 4. 3년치 스케줄 생성
-                val scheduleCount = shiftRepository.generateAndSaveSchedules(
-                    shiftPattern = shiftPattern,
-                    startDate = _state.value.startDate,
-                    todayShift = todayShift,
-                    referenceDate = _state.value.referenceDate,
-                    years = 3,
-                    todayShiftIndex = todayShiftIndex
-                )
+                val scheduleCount = if (isSubShift) {
+                    subShiftRepository.generateAndSaveSchedules(
+                        shiftPattern = shiftPattern,
+                        startDate = _state.value.startDate,
+                        todayShift = todayShift,
+                        referenceDate = _state.value.referenceDate,
+                        years = 3,
+                        todayShiftIndex = todayShiftIndex
+                    )
+                } else {
+                    shiftRepository.generateAndSaveSchedules(
+                        shiftPattern = shiftPattern,
+                        startDate = _state.value.startDate,
+                        todayShift = todayShift,
+                        referenceDate = _state.value.referenceDate,
+                        years = 3,
+                        todayShiftIndex = todayShiftIndex
+                    )
+                }
                 Log.d(TAG, "3년치 스케줄 $scheduleCount 개 생성 완료")
 
                 _state.update { it.copy(isSaving = false) }
@@ -562,8 +601,13 @@ class ShiftSelectionViewModel(
         viewModelScope.launch {
             _state.update { it.copy(showDeleteConfirmDialog = false, isDeleting = true) }
             try {
-                shiftRepository.deleteAllSchedules()
-                shiftRepository.deleteUserConfig()
+                if (isSubShift) {
+                    subShiftRepository.deleteAllSchedules()
+                    subShiftRepository.deleteConfig()
+                } else {
+                    shiftRepository.deleteAllSchedules()
+                    shiftRepository.deleteUserConfig()
+                }
                 Log.d(TAG, "deleteAllShiftData() - 근무 스케줄 및 설정 삭제 완료")
 
                 _state.update {

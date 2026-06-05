@@ -35,6 +35,9 @@ sealed interface Route : NavKey {
 	data object ShiftSelection : Route
 
 	@Serializable
+	data object SubShiftSelection : Route
+
+	@Serializable
 	data class RecipeDetail(val recipeId: Int) : Route
 
 	@Serializable

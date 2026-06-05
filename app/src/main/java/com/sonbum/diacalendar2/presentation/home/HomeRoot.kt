@@ -23,6 +23,7 @@ fun HomeRoot(
 	onNavigateToCalendarSelection: () -> Unit = {},
 	onNavigateToAnniversary: () -> Unit = {},
 	onNavigateToShiftSelection: () -> Unit = {},
+	onNavigateToSubShiftSelection: () -> Unit = {},
 	onNavigateToAddMemo: (String) -> Unit = {},
 	onNavigateToAddEvent: (String) -> Unit = {},
 	onNavigateToDiaTable: () -> Unit = {},
@@ -38,6 +39,7 @@ fun HomeRoot(
 	val showCrewPattern by viewModel.showCrewPattern.collectAsStateWithLifecycle()
 	val crewPattern by viewModel.crewPattern.collectAsStateWithLifecycle()
 	val crewPatternStartDate by viewModel.crewPatternStartDate.collectAsStateWithLifecycle()
+	val showSubShift by viewModel.showSubShift.collectAsStateWithLifecycle()
 	val lifecycleOwner = LocalLifecycleOwner.current
 	val context = LocalContext.current
 
@@ -93,6 +95,8 @@ fun HomeRoot(
 		holidayMap = state.holidayMap,
 		anniversaryMap = state.anniversaryMap,
 		shiftScheduleMap = state.shiftScheduleMap,
+		subShiftScheduleMap = state.subShiftScheduleMap,
+		showSubShift = showSubShift,
 		swapDates = state.swapDates,
 		shiftInputMap = state.shiftInputMap,
 		holidayWorkShifts = state.holidayWorkShifts,
@@ -106,6 +110,8 @@ fun HomeRoot(
 		onNavigateToCalendarSelection = onNavigateToCalendarSelection,
 		onNavigateToAnniversary = onNavigateToAnniversary,
 		onNavigateToShiftSelection = onNavigateToShiftSelection,
+		onNavigateToSubShiftSelection = onNavigateToSubShiftSelection,
+		onToggleSubShift = viewModel::toggleShowSubShift,
 		onAddMemo = { date ->
 			onNavigateToAddMemo(date.toString())
 		},

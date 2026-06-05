@@ -38,9 +38,7 @@ import androidx.glance.text.TextAlign
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import android.util.Log
-import androidx.glance.ImageProvider
 import com.sonbum.diacalendar2.MainActivity
-import com.sonbum.diacalendar2.R
 import com.sonbum.diacalendar2.widget.data.WidgetDataProvider
 import com.sonbum.diacalendar2.widget.data.WidgetDayData
 import kotlinx.coroutines.Dispatchers
@@ -69,8 +67,12 @@ class DayWidget : GlanceAppWidget() {
             val dayDataList = loadDataBlocking()
 
             val size = LocalSize.current
-            val scaleFactor = (size.width.value / 300f).coerceIn(1.0f, 2.0f)
-            val isSmallMode = size.width < 200.dp
+            // 너비/높이를 모두 고려해 글자 크기를 비례 조절한다.
+            // 기준 크기(300 x 200dp)를 1.0으로 두고, 작아지면 줄이고 커지면 키운다.
+            val widthScale = size.width.value / 300f
+            val heightScale = size.height.value / 200f
+            val scaleFactor = minOf(widthScale, heightScale).coerceIn(0.6f, 2.0f)
+            val isSmallMode = size.width < 200.dp || size.height < 130.dp
 
             GlanceTheme {
                 DayWidgetContent(
@@ -196,16 +198,10 @@ private fun DateRow(data: WidgetDayData, isSmallMode: Boolean, scaleFactor: Floa
 //    } else {
 //        Color.LightGray.copy(alpha = 0.3f)
 //    }
-	// 2. 배경 Modifier를 조건에 따라 다르게 조립합니다.
-	val rowModifier = GlanceModifier.fillMaxWidth().let { baseModifier ->
-		if (data.isToday) {
-			// 오늘일 때는 우리가 만든 민트색 그라데이션 XML 적용!
-			baseModifier.background(ImageProvider(R.drawable.widget_gradient_bg))
-		} else {
-			// 오늘이 아닐 때는 기존의 반투명 밝은 회색 적용
-			baseModifier.background(Color.LightGray.copy(alpha = 0.3f))
-		}
-	}
+	// 모든 날짜에 동일한 배경 적용 (오늘 강조 배경 제거 - 항상 첫 칸이 오늘)
+	val rowModifier = GlanceModifier
+		.fillMaxWidth()
+		.background(Color.LightGray.copy(alpha = 0.3f))
 
     val baseSize = if (isSmallMode) 10 else 16
 
@@ -293,15 +289,16 @@ private fun MemoAndEventColumn(data: WidgetDayData, isSmallMode: Boolean, scaleF
                     maxLines = if (isSmallMode) 1 else 2
                 )
                 if (index < minOf(allItems.size - 1, maxVisible - 1)) {
-                    Spacer(modifier = GlanceModifier.height(if (isSmallMode) 1.dp else 2.dp))
+                    Spacer(modifier = GlanceModifier.height((if (isSmallMode) 1f else 2f * scaleFactor).dp))
                 }
             }
 
             if (allItems.size > maxVisible) {
+                val moreBaseSize = if (isSmallMode) 9 else 12
                 Text(
                     text = "외 ${allItems.size - maxVisible}개",
                     style = TextStyle(
-                        fontSize = if (isSmallMode) 9.sp else 12.sp,
+                        fontSize = (moreBaseSize * scaleFactor).sp,
                         color = GlanceTheme.colors.onBackground,
                         textAlign = TextAlign.Start
                     )

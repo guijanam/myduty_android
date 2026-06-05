@@ -99,9 +99,15 @@ fun ShiftSelectionScreen(
     onBack: () -> Unit,
     onNavigateToLocalOfficeList: () -> Unit = {},
     onNavigateToCustomShiftList: () -> Unit = {},
+    isSubShift: Boolean = false,
     modifier: Modifier = Modifier,
     viewModel: ShiftSelectionViewModel = koinViewModel()
 ) {
+    // sub 근무 모드 설정 (저장소 분리). 화면별로 별도 ViewModel 인스턴스가 생성됨.
+    LaunchedEffect(isSubShift) {
+        viewModel.setSubShiftMode(isSubShift)
+    }
+
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var showDatePicker by remember { mutableStateOf(false) }
@@ -130,7 +136,7 @@ fun ShiftSelectionScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "내근무 설정",
+                        text = if (isSubShift) "sub 근무 설정" else "내근무 설정",
                         style = MaterialTheme.typography.titleMedium
                     )
                 },

@@ -22,4 +22,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "DiaCalendar2"
 include(":app")
- 
+include(":wear")
+include(":diacalendar2")

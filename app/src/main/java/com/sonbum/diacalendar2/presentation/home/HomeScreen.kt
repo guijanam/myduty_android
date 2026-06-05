@@ -169,6 +169,8 @@ fun HomeScreen(
 	holidayMap: Map<LocalDate, String> = emptyMap(),
 	anniversaryMap: Map<LocalDate, String> = emptyMap(),
 	shiftScheduleMap: Map<LocalDate, String> = emptyMap(),
+	subShiftScheduleMap: Map<LocalDate, String> = emptyMap(),
+	showSubShift: Boolean = true,
 	swapDates: Set<LocalDate> = emptySet(),
 	shiftInputMap: Map<LocalDate, ShiftInputInfo> = emptyMap(), // date -> ShiftInputInfo
 	holidayWorkShifts: List<String> = emptyList(),
@@ -182,6 +184,8 @@ fun HomeScreen(
 	onNavigateToCalendarSelection: () -> Unit = {},
 	onNavigateToAnniversary: () -> Unit = {},
 	onNavigateToShiftSelection: () -> Unit = {},
+	onNavigateToSubShiftSelection: () -> Unit = {},
+	onToggleSubShift: (Boolean) -> Unit = {},
 	onAddMemo: (LocalDate) -> Unit = {},
 	onAddEvent: (LocalDate) -> Unit = {},
 	currentThemeMode: ThemeMode = ThemeMode.SYSTEM,
@@ -253,6 +257,8 @@ fun HomeScreen(
 				isRefreshingHolidays = isRefreshingHolidays,
 				showCrewPattern = showCrewPattern,
 				onToggleCrewPattern = onToggleCrewPattern,
+				showSubShift = showSubShift,
+				onToggleSubShift = onToggleSubShift,
 				officeName = officeName,
 				onItemClick = { item ->
 
@@ -262,6 +268,7 @@ fun HomeScreen(
 							DrawerItem.CALENDAR -> onNavigateToCalendarSelection()
 							DrawerItem.ANNIVERSARY -> onNavigateToAnniversary()
 							DrawerItem.SHIFT -> onNavigateToShiftSelection()
+							DrawerItem.SUB_SHIFT -> onNavigateToSubShiftSelection()
 							DrawerItem.HOLIDAY_REFRESH -> onRefreshHolidays()
 							DrawerItem.SETTINGS -> showThemeDialog = true
 							DrawerItem.VACATION -> onNavigateToVacationSetting()
@@ -365,6 +372,7 @@ fun HomeScreen(
 					val holidayName = holidayMap[day.date]
 					val anniversaryName = anniversaryMap[day.date]
 					val shiftName = shiftScheduleMap[day.date]
+					val subShiftName = if (showSubShift) subShiftScheduleMap[day.date] else null
 					val vacationShortName = vacationMap[day.date]
 					val shiftInputInfo = shiftInputMap[day.date]
 					// 근무조 패턴 계산
@@ -384,6 +392,7 @@ fun HomeScreen(
 						holidayName = holidayName,
 						anniversaryName = anniversaryName,
 						shiftName = shiftName,
+						subShiftName = subShiftName,
 						swapDates = swapDates,
 						shiftInputInfo = shiftInputInfo?.let { it.shortName to it.colorHex },
 						holidayWorkShifts = holidayWorkShifts,
@@ -649,7 +658,7 @@ private fun ExpandableFab(
 }
 
 private enum class DrawerItem {
-	CALENDAR, ANNIVERSARY, SHIFT, HOLIDAY_REFRESH, SETTINGS, VACATION, TEXT_SIZE, WORK_ALARM, BACKUP, RESTORE, MENU_UPLOAD
+	CALENDAR, ANNIVERSARY, SHIFT, SUB_SHIFT, HOLIDAY_REFRESH, SETTINGS, VACATION, TEXT_SIZE, WORK_ALARM, BACKUP, RESTORE, MENU_UPLOAD
 }
 
 @Composable
@@ -657,6 +666,8 @@ private fun HomeDrawerContent(
 	isRefreshingHolidays: Boolean = false,
 	showCrewPattern: Boolean = false,
 	onToggleCrewPattern: (Boolean) -> Unit = {},
+	showSubShift: Boolean = true,
+	onToggleSubShift: (Boolean) -> Unit = {},
 	officeName: String? = null,
 	onItemClick: (DrawerItem) -> Unit
 ) {
@@ -793,6 +804,35 @@ private fun HomeDrawerContent(
 				label = { Text("내근무 생성") },
 				selected = false,
 				onClick = { onItemClick(DrawerItem.SHIFT) },
+				modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+			)
+
+			NavigationDrawerItem(
+				icon = { Icon(Icons.Default.Work, contentDescription = null) },
+				label = { Text("sub 근무 생성") },
+				selected = false,
+				onClick = { onItemClick(DrawerItem.SUB_SHIFT) },
+				modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+			)
+
+			NavigationDrawerItem(
+				icon = { Icon(Icons.Default.Work, contentDescription = null) },
+				label = {
+					Row(
+						modifier = Modifier.fillMaxWidth(),
+						horizontalArrangement = Arrangement.SpaceBetween,
+						verticalAlignment = Alignment.CenterVertically
+					) {
+						Text("sub 근무 표시")
+						Switch(
+							checked = showSubShift,
+							onCheckedChange = onToggleSubShift,
+							modifier = Modifier.height(24.dp)
+						)
+					}
+				},
+				selected = false,
+				onClick = { onToggleSubShift(!showSubShift) },
 				modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
 			)
 
@@ -1083,6 +1123,7 @@ private fun Day(
 	holidayName: String? = null,
 	anniversaryName: String? = null,
 	shiftName: String? = null,
+	subShiftName: String? = null,
 	swapDates: Set<LocalDate> = emptySet(),
 	shiftInputInfo: Pair<String, String>? = null, // (shortName, colorHex) for 충당
 	holidayWorkShifts: List<String> = emptyList(),
@@ -1242,6 +1283,22 @@ private fun Day(
 						fontSize = textSizes.shiftFontSize
 					)
 				}
+			}
+		}
+
+		// sub 근무(보조 교번) 표시 - 메인 근무 아래, 절반 크기. 값이 있을 때만 공간 차지
+		if (day.position == DayPosition.MonthDate && subShiftName != null) {
+			Row(
+				modifier = Modifier
+					.fillMaxWidth()
+					.padding(all = 0.dp),
+				verticalAlignment = Alignment.CenterVertically,
+				horizontalArrangement = Arrangement.Center
+			) {
+				ShiftBadge(
+					shiftName = subShiftName,
+					fontSize = (textSizes.shiftFontSize / 2f).coerceAtLeast(8f)
+				)
 			}
 		}
 

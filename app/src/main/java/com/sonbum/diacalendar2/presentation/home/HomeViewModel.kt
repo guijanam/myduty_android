@@ -13,6 +13,7 @@ import com.sonbum.diacalendar2.domain.repository.DeviceCalendarRepository
 import com.sonbum.diacalendar2.domain.repository.HolidayRepository
 import com.sonbum.diacalendar2.domain.repository.MemoRepository
 import com.sonbum.diacalendar2.domain.repository.ShiftRepository
+import com.sonbum.diacalendar2.domain.repository.SubShiftRepository
 import com.sonbum.diacalendar2.domain.repository.ShiftSwapRecordRepository
 import com.sonbum.diacalendar2.domain.repository.VacationRecordRepository
 import com.sonbum.diacalendar2.domain.repository.LateWorkRecordRepository
@@ -52,6 +53,7 @@ data class HomeCalendarState(
     val vacationMap: Map<LocalDate, String> = emptyMap(),
     val isRefreshingHolidays: Boolean = false,
     val shiftPattern: List<String> = emptyList(),
+    val subShiftScheduleMap: Map<LocalDate, String> = emptyMap(),
     val swapDates: Set<LocalDate> = emptySet(),
     val shiftInputMap: Map<LocalDate, ShiftInputInfo> = emptyMap(), // date -> ShiftInputInfo
     val holidayWorkShifts: List<String> = emptyList(),
@@ -67,6 +69,7 @@ class HomeViewModel(
     private val textSizePreferences: TextSizePreferences,
     private val holidayRepository: HolidayRepository,
     private val shiftRepository: ShiftRepository,
+    private val subShiftRepository: SubShiftRepository,
     private val vacationRecordRepository: VacationRecordRepository,
     private val shiftSwapRecordRepository: ShiftSwapRecordRepository,
     private val lateWorkRecordRepository: LateWorkRecordRepository,
@@ -99,6 +102,9 @@ class HomeViewModel(
     val crewPatternStartDate = crewPatternPreferences.crewPatternStartDate
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), java.time.LocalDate.of(2026, 2, 1))
 
+    val showSubShift = crewPatternPreferences.showSubShift
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
     // 현재 캘린더에 표시 중인 연도 (HomeScreen에서 갱신) - init 이전에 초기화 필요
     private val _visibleYear = MutableStateFlow(LocalDate.now().year)
 
@@ -109,8 +115,23 @@ class HomeViewModel(
         observeHolidays()
         observeShiftSchedules()
         observeVacationRecords()
+        observeSubShiftSchedules()
         loadShiftPattern()
         observeAnniversaries()
+    }
+
+    private fun observeSubShiftSchedules() {
+        viewModelScope.launch {
+            subShiftRepository.getScheduleMap().collect { map ->
+                _state.update { it.copy(subShiftScheduleMap = map) }
+            }
+        }
+    }
+
+    fun toggleShowSubShift(show: Boolean) {
+        viewModelScope.launch {
+            crewPatternPreferences.saveShowSubShift(show)
+        }
     }
 
     private fun loadAllMemos() {

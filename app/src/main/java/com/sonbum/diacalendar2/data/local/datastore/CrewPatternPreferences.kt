@@ -22,6 +22,18 @@ class CrewPatternPreferences(private val context: Context) {
         private val SHOW_CREW_PATTERN = booleanPreferencesKey("show_crew_pattern")
         private val CREW_PATTERN = stringPreferencesKey("crew_pattern")
         private val CREW_PATTERN_START_DATE = stringPreferencesKey("crew_pattern_start_date")
+        private val SHOW_SUB_SHIFT = booleanPreferencesKey("show_sub_shift")
+    }
+
+    val showSubShift: Flow<Boolean> = context.crewPatternDataStore.data
+        .map { preferences ->
+            preferences[SHOW_SUB_SHIFT] ?: true
+        }
+
+    suspend fun saveShowSubShift(show: Boolean) {
+        context.crewPatternDataStore.edit { preferences ->
+            preferences[SHOW_SUB_SHIFT] = show
+        }
     }
 
     val showCrewPattern: Flow<Boolean> = context.crewPatternDataStore.data

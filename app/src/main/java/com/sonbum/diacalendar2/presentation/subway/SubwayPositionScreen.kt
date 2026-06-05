@@ -27,8 +27,12 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -55,6 +59,23 @@ fun SubwayPositionScreen(
         viewModel.initialize(myTrainNo, line, officeName)
     }
 
+    // 화면이 보일 때(ON_RESUME)만 조회/자동 갱신, 가려지면(ON_PAUSE) 중단한다.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_RESUME -> viewModel.start()
+                Lifecycle.Event.ON_PAUSE -> viewModel.stop()
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            viewModel.stop()
+        }
+    }
+
     Scaffold(
         modifier = modifier,
         topBar = {
@@ -66,8 +87,15 @@ fun SubwayPositionScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { viewModel.refresh(myTrainNo, line, officeName) }) {
-                        Icon(Icons.Filled.Refresh, contentDescription = "새로고침")
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "${state.secondsUntilRefresh}초 후 갱신",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        IconButton(onClick = { viewModel.refresh(myTrainNo, line, officeName) }) {
+                            Icon(Icons.Filled.Refresh, contentDescription = "새로고침")
+                        }
                     }
                 }
             )
@@ -84,7 +112,7 @@ fun SubwayPositionScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    text = "위치 정보는 선택한 날짜와 무관하게 현재 시각 기준입니다.",
+                    text = "위치 정보는 선택한 날짜와 무관하게 현재 시각 기준이며, 10초마다 자동 갱신됩니다.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSecondaryContainer,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
@@ -123,6 +151,13 @@ fun SubwayPositionScreen(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(top = 4.dp)
+                            )
+                            Text(
+                                "차량기지에서 막 출고했거나 본선 진입 전인 열차는 " +
+                                        "실시간 위치에 아직 표시되지 않을 수 있습니다.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = 8.dp)
                             )
                         }
                     }

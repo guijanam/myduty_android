@@ -12,6 +12,8 @@ import com.sonbum.diacalendar2.data.local.dao.MemoDao
 import com.sonbum.diacalendar2.data.local.dao.OfficeDao
 import com.sonbum.diacalendar2.data.local.dao.ShiftScheduleDao
 import com.sonbum.diacalendar2.data.local.dao.ShiftSwapRecordDao
+import com.sonbum.diacalendar2.data.local.dao.SubShiftConfigDao
+import com.sonbum.diacalendar2.data.local.dao.SubShiftScheduleDao
 import com.sonbum.diacalendar2.data.local.dao.UserShiftConfigDao
 import com.sonbum.diacalendar2.data.local.dao.VacationRecordDao
 import com.sonbum.diacalendar2.data.local.dao.VacationTypeDao
@@ -30,6 +32,8 @@ import com.sonbum.diacalendar2.data.local.entity.MemoEntity
 import com.sonbum.diacalendar2.data.local.entity.OfficeEntity
 import com.sonbum.diacalendar2.data.local.entity.ShiftScheduleEntity
 import com.sonbum.diacalendar2.data.local.entity.ShiftSwapRecordEntity
+import com.sonbum.diacalendar2.data.local.entity.SubShiftConfigEntity
+import com.sonbum.diacalendar2.data.local.entity.SubShiftScheduleEntity
 import com.sonbum.diacalendar2.data.local.entity.UserShiftConfigEntity
 import com.sonbum.diacalendar2.data.local.entity.VacationRecordEntity
 import com.sonbum.diacalendar2.data.local.entity.VacationTypeEntity
@@ -81,9 +85,11 @@ import com.sonbum.diacalendar2.data.local.dao.ScheduledAlarmDao
         CoworkerEntity::class,
         CoworkerGroupEntity::class,
         AnniversaryEntity::class,
-        ScheduledAlarmEntity::class
+        ScheduledAlarmEntity::class,
+        SubShiftConfigEntity::class,
+        SubShiftScheduleEntity::class
     ],
-    version = 27,
+    version = 28,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -112,6 +118,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun coworkerGroupDao(): CoworkerGroupDao
     abstract fun anniversaryDao(): AnniversaryDao
     abstract fun scheduledAlarmDao(): ScheduledAlarmDao
+    abstract fun subShiftConfigDao(): SubShiftConfigDao
+    abstract fun subShiftScheduleDao(): SubShiftScheduleDao
 
     companion object {
         // 버전 2 → 3: holidays 테이블에 isUserCreated 컬럼 추가
@@ -508,6 +516,34 @@ abstract class AppDatabase : RoomDatabase() {
                     )
                 """)
                 db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_scheduled_alarms_date_slot ON scheduled_alarms(date, slot)")
+            }
+        }
+
+        // 버전 27 → 28: sub 근무(보조 교번) 테이블 2개 추가
+        val MIGRATION_27_28 = object : Migration(27, 28) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS sub_shift_config (
+                        id INTEGER PRIMARY KEY NOT NULL,
+                        officeCode INTEGER NOT NULL,
+                        officeName TEXT NOT NULL,
+                        position TEXT NOT NULL,
+                        shiftPattern TEXT NOT NULL,
+                        startDate TEXT NOT NULL,
+                        todayShift TEXT NOT NULL,
+                        todayShiftIndex INTEGER,
+                        referenceDate TEXT NOT NULL DEFAULT '',
+                        createdAt INTEGER NOT NULL
+                    )
+                """)
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS sub_shift_schedules (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        date TEXT NOT NULL,
+                        shiftName TEXT NOT NULL
+                    )
+                """)
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_sub_shift_schedules_date ON sub_shift_schedules(date)")
             }
         }
 

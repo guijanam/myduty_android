@@ -167,7 +167,8 @@ val databaseModule = module {
                 AppDatabase.MIGRATION_23_24,
                 AppDatabase.MIGRATION_24_25,
                 AppDatabase.MIGRATION_25_26,
-                AppDatabase.MIGRATION_26_27
+                AppDatabase.MIGRATION_26_27,
+                AppDatabase.MIGRATION_27_28
             )
             .fallbackToDestructiveMigration()
             .build()
@@ -197,6 +198,8 @@ val databaseModule = module {
     single { get<AppDatabase>().coworkerGroupDao() }
     single { get<AppDatabase>().anniversaryDao() }
     single { get<AppDatabase>().scheduledAlarmDao() }
+    single { get<AppDatabase>().subShiftConfigDao() }
+    single { get<AppDatabase>().subShiftScheduleDao() }
     single {
         com.sonbum.diacalendar2.widget.data.WidgetDataProvider(
             get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()
@@ -235,6 +238,9 @@ val repositoryModule = module {
     single<DiaRepository> { DiaRepositoryImpl(get(), get(), get()) }
     single<SubwayRepository> { SubwayRepositoryImpl(get(named("subwayApi"))) }
     single<ShiftRepository> { ShiftRepositoryImpl(get(), get()) }
+    single<com.sonbum.diacalendar2.domain.repository.SubShiftRepository> {
+        com.sonbum.diacalendar2.data.repository.SubShiftRepositoryImpl(get(), get())
+    }
     single<VacationTypeRepository> { VacationTypeRepositoryImpl(get()) }
     single<VacationRecordRepository> { VacationRecordRepositoryImpl(get()) }
     single<LocalOfficeRepository> { LocalOfficeRepositoryImpl(get()) }
@@ -292,7 +298,7 @@ val viewModelModule = module {
     viewModel { MemoEditViewModel(get(), get(), androidContext()) }
     viewModelOf(::CalendarSelectionViewModel)
     viewModel { ProfileViewModel(get(), get(), get(), get(), get(), androidContext()) }
-    viewModel { ShiftSelectionViewModel(get(), get(), get(), get(), get(), androidContext()) }
+    viewModel { ShiftSelectionViewModel(get(), get(), get(), get(), get(), get(), androidContext()) }
     viewModelOf(::DiaTableViewModel)
     viewModelOf(::VacationSettingViewModel)
     viewModelOf(::LocalOfficeListViewModel)

@@ -262,6 +262,24 @@ fun NavigationRoot(
 				)
 			}
 
+			// sub 근무(보조 교번) 설정 화면 - 동일 화면을 sub 모드로 재사용
+			entry<Route.SubShiftSelection> {
+				ShiftSelectionScreen(
+					isSubShift = true,
+					onBack = {
+						if (topLevelBackStack.size > 1) {
+							topLevelBackStack.removeAt(topLevelBackStack.lastIndex)
+						}
+					},
+					onNavigateToLocalOfficeList = {
+						topLevelBackStack.add(Route.LocalOfficeList)
+					},
+					onNavigateToCustomShiftList = {
+						topLevelBackStack.add(Route.CustomShiftList)
+					}
+				)
+			}
+
 			// 근무표 화면
 			entry<Route.DiaTable> {
 				DiaTableScreen(
@@ -575,6 +593,9 @@ fun NavigationRoot(
 									},
 									onNavigateToShiftSelection = {
 										topLevelBackStack.add(Route.ShiftSelection)
+									},
+									onNavigateToSubShiftSelection = {
+										topLevelBackStack.add(Route.SubShiftSelection)
 									},
 									onNavigateToAddMemo = { dateString ->
 										topLevelBackStack.add(Route.MemoEdit(dateString, null))

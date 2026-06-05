@@ -33,7 +33,7 @@ android {
 		applicationId = "com.sonbum.diacalendar2"
 		minSdk = 29
 		targetSdk = 36
-		versionCode = 50
+		versionCode = 51
 		versionName = "4.2"
 
 		testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -137,8 +137,8 @@ dependencies {
 	implementation("androidx.work:work-runtime-ktx:2.11.2")
 
 	// ✅ Wearable Data Layer 추가
-//	implementation("com.google.android.gms:play-services-wearable:19.0.0")
-//	implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.2")
+	implementation("com.google.android.gms:play-services-wearable:20.0.1")
+	implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.11.0")
 
 	// Room (버전 카탈로그 사용)
 	implementation(libs.androidx.room.runtime)
