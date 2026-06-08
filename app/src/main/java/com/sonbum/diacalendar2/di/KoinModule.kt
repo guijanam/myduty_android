@@ -294,7 +294,7 @@ val repositoryModule = module {
 val viewModelModule = module {
     viewModelOf(::HomeViewModel)
     viewModelOf(::SubwayPositionViewModel)
-    viewModel { DateDetailViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), androidContext()) }
+    viewModel { DateDetailViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), androidContext()) }
     viewModel { MemoEditViewModel(get(), get(), androidContext()) }
     viewModelOf(::CalendarSelectionViewModel)
     viewModel { ProfileViewModel(get(), get(), get(), get(), get(), androidContext()) }
