@@ -39,32 +39,28 @@ class DiaCalendarTileService : TileService() {
 		requestParams: RequestBuilders.TileRequest
 	): ListenableFuture<TileBuilders.Tile> {
 
-		// 구독 상태 확인
-		val isPremium = sharedPrefs.getBoolean("isPremium", false)
-
 		// 데이터 수신 여부 확인 (한번이라도 폰에서 데이터를 받았는지)
 		val hasReceivedData = sharedPrefs.getBoolean("hasReceivedData", false)
 
-		val shiftData = ShiftData(
-			date = sharedPrefs.getString("date", "-") ?: "-",
-			turn = sharedPrefs.getString("turn", "-") ?: "-",
-			worktime = sharedPrefs.getString("worktime", "-") ?: "-",
-			firsttime = sharedPrefs.getString("firsttime", "") ?: "",
-			secondtime = sharedPrefs.getString("secondtime", "") ?: "",
-			tableName = sharedPrefs.getString("tableName", "") ?: "",
-			numtr1 = sharedPrefs.getString("numtr1", "") ?: "",
-			numtr2 = sharedPrefs.getString("numtr2", "") ?: "",
-		)
-
-		// 레이아웃 결정 로직
-		val layout = when {
-			// 폰에서 데이터를 받은 적이 없으면 → 데모 모드
-			!hasReceivedData -> createDemoLayout()
-			// 비구독자 → 프리미엄 안내
-			!isPremium -> createPremiumRequiredLayout()
-			// 구독자 → 실제 데이터
-			else -> createShiftLayout(shiftData)
+		// 폰에서 데이터를 받았으면 실제 데이터, 아니면 오늘 날짜 기반 샘플 데이터
+		val shiftData = if (hasReceivedData) {
+			ShiftData(
+				date = sharedPrefs.getString("date", "-") ?: "-",
+				turn = sharedPrefs.getString("turn", "-") ?: "-",
+				worktime = sharedPrefs.getString("worktime", "-") ?: "-",
+				firsttime = sharedPrefs.getString("firsttime", "") ?: "",
+				secondtime = sharedPrefs.getString("secondtime", "") ?: "",
+				tableName = sharedPrefs.getString("tableName", "") ?: "",
+				numtr1 = sharedPrefs.getString("numtr1", "") ?: "",
+				numtr2 = sharedPrefs.getString("numtr2", "") ?: "",
+			)
+		} else {
+			ShiftData.sample()
 		}
+
+		// 항상 실제 동작하는 교번 화면을 표시한다.
+		// (프리미엄/연결 게이트로 빈 화면을 보여주지 않는다 — 리뷰어/사용자가 기능을 바로 확인 가능)
+		val layout = createShiftLayout(shiftData)
 
 		return Futures.immediateFuture(
 			TileBuilders.Tile.Builder()
@@ -87,195 +83,7 @@ class DiaCalendarTileService : TileService() {
 		)
 	}
 
-	// 데모 모드 레이아웃 (폰 연결 전 표시)
-	private fun createDemoLayout(): LayoutElement {
-		val demoData = ShiftData(
-			date = "예시 화면",
-			turn = "1",
-			worktime = "07:00",
-			firsttime = "06:00-14:00",
-			secondtime = "17:00-18:00",
-			tableName = "평일",
-			numtr1 = "2222",
-			numtr2 = "3333"
-		)
-
-		return Column.Builder()
-			.setWidth(expand())
-			.setHeight(expand())
-			.setHorizontalAlignment(HORIZONTAL_ALIGN_CENTER)
-			.setModifiers(
-				Modifiers.Builder()
-					.setBackground(
-						Background.Builder()
-							.setColor(argb(0xFF1A1A2E.toInt()))
-							.build()
-					)
-					.setPadding(
-						Padding.Builder()
-							.setAll(dp(12f))
-							.build()
-					)
-					.build()
-			)
-			.addContent(
-				Text.Builder()
-					.setText("미리보기")
-					.setFontStyle(
-						FontStyle.Builder()
-							.setSize(sp(10f))
-							.setColor(argb(0xFFFFD700.toInt()))
-							.build()
-					)
-					.build()
-			)
-			.addContent(
-				Text.Builder()
-					.setText(demoData.date)
-					.setFontStyle(
-						FontStyle.Builder()
-							.setSize(sp(14f))
-							.setColor(argb(0xFFB0B0B0.toInt()))
-							.build()
-					)
-					.build()
-			)
-			.addContent(
-				Text.Builder()
-					.setText("Dia: ${demoData.turn}")
-					.setFontStyle(
-						FontStyle.Builder()
-							.setSize(sp(18f))
-							.setWeight(FONT_WEIGHT_BOLD)
-							.setColor(argb(0xFFFFFFFF.toInt()))
-							.build()
-					)
-					.setModifiers(
-						Modifiers.Builder()
-							.setPadding(Padding.Builder().setTop(dp(2f)).build())
-							.build()
-					)
-					.build()
-			)
-			.addContent(
-				Text.Builder()
-					.setText("${demoData.worktime} (${demoData.tableName})")
-					.setFontStyle(
-						FontStyle.Builder()
-							.setSize(sp(17f))
-							.setWeight(FONT_WEIGHT_BOLD)
-							.setColor(argb(0xFF4FC3F7.toInt()))
-							.build()
-					)
-					.setModifiers(
-						Modifiers.Builder()
-							.setPadding(Padding.Builder().setTop(dp(2f)).build())
-							.build()
-					)
-					.build()
-			)
-			.addContent(
-				Text.Builder()
-					.setText("전반: ${demoData.firsttime}")
-					.setFontStyle(
-						FontStyle.Builder()
-							.setSize(sp(13f))
-							.setColor(argb(0xFF81C784.toInt()))
-							.build()
-					)
-					.setModifiers(
-						Modifiers.Builder()
-							.setPadding(Padding.Builder().setTop(dp(2f)).build())
-							.build()
-					)
-					.build()
-			)
-			.addContent(
-				Text.Builder()
-					.setText("폰 앱 연결 필요")
-					.setFontStyle(
-						FontStyle.Builder()
-							.setSize(sp(10f))
-							.setColor(argb(0xFF808080.toInt()))
-							.build()
-					)
-					.setModifiers(
-						Modifiers.Builder()
-							.setPadding(Padding.Builder().setTop(dp(6f)).build())
-							.build()
-					)
-					.build()
-			)
-			.build()
-	}
-
-	// 비구독자용 레이아웃
-	private fun createPremiumRequiredLayout(): LayoutElement {
-		return Column.Builder()
-			.setWidth(expand())
-			.setHeight(expand())
-			.setHorizontalAlignment(HORIZONTAL_ALIGN_CENTER)
-			.setModifiers(
-				Modifiers.Builder()
-					.setBackground(
-						Background.Builder()
-							.setColor(argb(0xFF1A1A2E.toInt()))
-							.build()
-					)
-					.setPadding(
-						Padding.Builder()
-							.setAll(dp(16f))
-							.build()
-					)
-					.build()
-			)
-			.addContent(
-				Text.Builder()
-					.setText("👑")
-					.setFontStyle(
-						FontStyle.Builder()
-							.setSize(sp(32f))
-							.build()
-					)
-					.build()
-			)
-			.addContent(
-				Text.Builder()
-					.setText("프리미엄 전용")
-					.setFontStyle(
-						FontStyle.Builder()
-							.setSize(sp(16f))
-							.setWeight(FONT_WEIGHT_BOLD)
-							.setColor(argb(0xFFFFD700.toInt()))
-							.build()
-					)
-					.setModifiers(
-						Modifiers.Builder()
-							.setPadding(Padding.Builder().setTop(dp(12f)).build())
-							.build()
-					)
-					.build()
-			)
-			.addContent(
-				Text.Builder()
-					.setText("구독 후 이용 가능")
-					.setFontStyle(
-						FontStyle.Builder()
-							.setSize(sp(12f))
-							.setColor(argb(0xFFB0B0B0.toInt()))
-							.build()
-					)
-					.setModifiers(
-						Modifiers.Builder()
-							.setPadding(Padding.Builder().setTop(dp(8f)).build())
-							.build()
-					)
-					.build()
-			)
-			.build()
-	}
-
-	// 구독자용 레이아웃
+	// 교번 표시 레이아웃
 	private fun createShiftLayout(data: ShiftData): LayoutElement {
 		return Column.Builder()
 			.setWidth(expand())
@@ -452,4 +260,26 @@ data class ShiftData(
 	val tableName: String,
 	val numtr1: String,
 	val numtr2: String
-)
+) {
+	companion object {
+		/**
+		 * 폰에서 아직 데이터를 받지 않았을 때 보여줄 오늘 날짜 기반 샘플 교번.
+		 * 타일/앱이 빈 화면이 아니라 실제 동작하는 모습으로 보이도록 한다.
+		 */
+		fun sample(): ShiftData {
+			val today = java.time.LocalDate.now()
+			val dateFormat = java.time.format.DateTimeFormatter
+				.ofPattern("M/d (E)", java.util.Locale.KOREAN)
+			return ShiftData(
+				date = today.format(dateFormat),
+				turn = "1",
+				worktime = "주간",
+				firsttime = "06:00-14:00",
+				secondtime = "17:00-18:00",
+				tableName = "평일",
+				numtr1 = "K2122",
+				numtr2 = "K3133"
+			)
+		}
+	}
+}
