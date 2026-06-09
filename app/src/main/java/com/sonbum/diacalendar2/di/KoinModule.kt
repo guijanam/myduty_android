@@ -237,7 +237,7 @@ val repositoryModule = module {
     single<OfficeRepository> { OfficeRepositoryImpl(get(), get(), get()) }
     single<DiaRepository> { DiaRepositoryImpl(get(), get(), get()) }
     single<SubwayRepository> { SubwayRepositoryImpl(get(named("subwayApi"))) }
-    single<ShiftRepository> { ShiftRepositoryImpl(get(), get()) }
+    single<ShiftRepository> { ShiftRepositoryImpl(get(), get(), get(), get()) }
     single<com.sonbum.diacalendar2.domain.repository.SubShiftRepository> {
         com.sonbum.diacalendar2.data.repository.SubShiftRepositoryImpl(get(), get())
     }

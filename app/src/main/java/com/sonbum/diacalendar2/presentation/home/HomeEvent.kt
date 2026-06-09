@@ -5,4 +5,5 @@ sealed interface HomeEvent {
 	data class NavigateToDateDetail(val date: String) : HomeEvent
 	data class ShowMessage(val message: String) : HomeEvent
 	data object BackupRestored : HomeEvent
+	data object ShiftRefreshed : HomeEvent
 }

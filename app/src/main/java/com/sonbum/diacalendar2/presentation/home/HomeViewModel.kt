@@ -52,6 +52,7 @@ data class HomeCalendarState(
     val shiftScheduleMap: Map<LocalDate, String> = emptyMap(),
     val vacationMap: Map<LocalDate, String> = emptyMap(),
     val isRefreshingHolidays: Boolean = false,
+    val isRefreshingShifts: Boolean = false,
     val shiftPattern: List<String> = emptyList(),
     val subShiftScheduleMap: Map<LocalDate, String> = emptyMap(),
     val swapDates: Set<LocalDate> = emptySet(),
@@ -289,6 +290,21 @@ class HomeViewModel(
                 _event.emit(HomeEvent.ShowMessage("공휴일 정보가 갱신되었습니다 (${result.getOrNull()}개)"))
             } else {
                 _event.emit(HomeEvent.ShowMessage("공휴일 갱신 실패: ${result.exceptionOrNull()?.message}"))
+            }
+        }
+    }
+
+    fun refreshShiftSchedule() {
+        viewModelScope.launch {
+            _state.update { it.copy(isRefreshingShifts = true) }
+            val result = shiftRepository.refreshScheduleFromServer()
+            _state.update { it.copy(isRefreshingShifts = false) }
+
+            if (result.isSuccess) {
+                _event.emit(HomeEvent.ShowMessage("근무표가 갱신되었습니다 (${result.getOrNull()}일)"))
+                _event.emit(HomeEvent.ShiftRefreshed)
+            } else {
+                _event.emit(HomeEvent.ShowMessage("근무표 갱신 실패: ${result.exceptionOrNull()?.message}"))
             }
         }
     }

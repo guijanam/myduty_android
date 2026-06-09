@@ -176,6 +176,7 @@ fun HomeScreen(
 	holidayWorkShifts: List<String> = emptyList(),
 	vacationMap: Map<LocalDate, String> = emptyMap(),
 	isRefreshingHolidays: Boolean = false,
+	isRefreshingShifts: Boolean = false,
 	shiftPattern: List<String> = emptyList(),
 	isCustomShift: Boolean = false,
 	officeName: String? = null,
@@ -191,6 +192,7 @@ fun HomeScreen(
 	currentThemeMode: ThemeMode = ThemeMode.SYSTEM,
 	onThemeModeChange: (ThemeMode) -> Unit = {},
 	onRefreshHolidays: () -> Unit = {},
+	onRefreshShiftSchedule: () -> Unit = {},
 	onNavigateToDiaTable: () -> Unit = {},
 	onNavigateToVacationSetting: () -> Unit = {},
 	onNavigateToTextSizeSettings: () -> Unit = {},
@@ -255,6 +257,7 @@ fun HomeScreen(
 		drawerContent = {
 			HomeDrawerContent(
 				isRefreshingHolidays = isRefreshingHolidays,
+				isRefreshingShifts = isRefreshingShifts,
 				showCrewPattern = showCrewPattern,
 				onToggleCrewPattern = onToggleCrewPattern,
 				showSubShift = showSubShift,
@@ -270,6 +273,7 @@ fun HomeScreen(
 							DrawerItem.SHIFT -> onNavigateToShiftSelection()
 							DrawerItem.SUB_SHIFT -> onNavigateToSubShiftSelection()
 							DrawerItem.HOLIDAY_REFRESH -> onRefreshHolidays()
+							DrawerItem.SHIFT_REFRESH -> onRefreshShiftSchedule()
 							DrawerItem.SETTINGS -> showThemeDialog = true
 							DrawerItem.VACATION -> onNavigateToVacationSetting()
 							DrawerItem.TEXT_SIZE -> onNavigateToTextSizeSettings()
@@ -658,12 +662,13 @@ private fun ExpandableFab(
 }
 
 private enum class DrawerItem {
-	CALENDAR, ANNIVERSARY, SHIFT, SUB_SHIFT, HOLIDAY_REFRESH, SETTINGS, VACATION, TEXT_SIZE, WORK_ALARM, BACKUP, RESTORE, MENU_UPLOAD
+	CALENDAR, ANNIVERSARY, SHIFT, SUB_SHIFT, HOLIDAY_REFRESH, SHIFT_REFRESH, SETTINGS, VACATION, TEXT_SIZE, WORK_ALARM, BACKUP, RESTORE, MENU_UPLOAD
 }
 
 @Composable
 private fun HomeDrawerContent(
 	isRefreshingHolidays: Boolean = false,
+	isRefreshingShifts: Boolean = false,
 	showCrewPattern: Boolean = false,
 	onToggleCrewPattern: (Boolean) -> Unit = {},
 	showSubShift: Boolean = true,
@@ -800,12 +805,34 @@ private fun HomeDrawerContent(
 			)
 
 			NavigationDrawerItem(
+				icon = {
+					if (isRefreshingShifts) {
+						CircularProgressIndicator(
+							modifier = Modifier.size(24.dp),
+							strokeWidth = 2.dp
+						)
+					} else {
+						Icon(Icons.Default.Refresh, contentDescription = null)
+					}
+				},
+				label = { Text(if (isRefreshingShifts) "근무표 갱신 중..." else "근무표 갱신") },
+				selected = false,
+				onClick = { if (!isRefreshingShifts) onItemClick(DrawerItem.SHIFT_REFRESH) },
+				modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+			)
+
+			NavigationDrawerItem(
 				icon = { Icon(Icons.Default.Work, contentDescription = null) },
 				label = { Text("내근무 생성") },
 				selected = false,
 				onClick = { onItemClick(DrawerItem.SHIFT) },
 				modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
 			)
+
+
+
+
+			HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
 			NavigationDrawerItem(
 				icon = { Icon(Icons.Default.Work, contentDescription = null) },
@@ -835,9 +862,6 @@ private fun HomeDrawerContent(
 				onClick = { onToggleSubShift(!showSubShift) },
 				modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
 			)
-
-
-			HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
 			NavigationDrawerItem(
 				icon = { Icon(Icons.Default.DeviceThermostat, contentDescription = null) },
