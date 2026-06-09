@@ -4,6 +4,15 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!--
+      앱은 광고/광고 ID를 사용하지 않는다(구독 결제 모델).
+      GMS 라이브러리가 transitive 하게 AD_ID 권한을 추가하더라도
+      병합 시 제거해 Play Console 광고 ID 선언(사용=아니오)과 일치시킨다.
+    -->
+    <uses-permission
+        android:name="com.google.android.gms.permission.AD_ID"
+        tools:node="remove" />
     <uses-permission android:name="android.permission.GET_ACCOUNTS" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -23,10 +32,6 @@
     <!-- 화면 관련 -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
-
-    <!-- ✅ 광고 ID 권한 추가 (AdMob 사용 시 필수) -->
-    <uses-permission android:name="com.google.android.gms.permission.AD_ID"
-        tools:ignore="AdvertisingIdPolicy" />
 
     <!-- 결제 -->
     <uses-permission android:name="com.android.vending.BILLING" />
@@ -63,11 +68,6 @@
         android:usesCleartextTraffic="true"
         android:supportsRtl="true"
         android:theme="@style/Theme.DiaCalendar2">
-
-        <!-- AdMob 메타데이터 -->
-        <meta-data
-            android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="@string/admob_app_id" />
 
         <activity
             android:name=".presentation.officewebsite.OfficeWebsiteActivity"
