@@ -5,13 +5,12 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <!--
-      워치 앱은 광고/분석 SDK를 사용하지 않으므로 광고 ID를 사용하지 않는다.
-      Play Console 광고 ID 선언과 일치하도록 AD_ID 권한을 명시적으로 제거 선언한다.
-      (의존성이 transitive 하게 추가하더라도 병합 시 제거됨)
+      폰 앱과 동일 패키지로 묶여 있고 폰 앱이 광고 ID(AdMob)를 사용하므로,
+      Play Console 광고 ID 선언(사용=예)과 모든 아티팩트의 매니페스트가
+      일치하도록 워치 아티팩트에도 AD_ID 권한을 명시적으로 선언한다.
+      (워치 자체는 광고 SDK가 없어 실제 광고 ID 접근은 발생하지 않음)
     -->
-    <uses-permission
-        android:name="com.google.android.gms.permission.AD_ID"
-        tools:node="remove" />
+    <uses-permission android:name="com.google.android.gms.permission.AD_ID" />
 
     <uses-feature android:name="android.hardware.type.watch" />
 
