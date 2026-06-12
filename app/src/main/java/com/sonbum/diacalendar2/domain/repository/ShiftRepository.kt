@@ -29,4 +29,10 @@ interface ShiftRepository {
     suspend fun deleteAllSchedules()
     suspend fun deleteSchedulesFromDate(fromDate: LocalDate)
     suspend fun getScheduleCount(): Int
+
+    /**
+     * 저장된 근무 설정으로 서버에서 최신 근무표(dia) + 패턴을 다시 받아와
+     * 시작 날짜 이후 스케줄을 재생성한다. 성공 시 생성된 스케줄 개수 반환.
+     */
+    suspend fun refreshScheduleFromServer(): Result<Int>
 }

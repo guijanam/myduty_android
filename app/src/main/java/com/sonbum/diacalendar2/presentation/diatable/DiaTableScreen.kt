@@ -459,8 +459,8 @@ private fun DiaTableRow(
 					//.background(Color.LightGray.copy(0.5f)),
 				fontSize = baseSize,
 
-				// 일반 텍스트 색상
-				color = MaterialTheme.colorScheme.onSurface,
+				// 출근시간 색상 (primary)
+				color = MaterialTheme.colorScheme.primary,
 				textAlign = TextAlign.Start,
 				style = TextStyle(
 					platformStyle = PlatformTextStyle(includeFontPadding = false),
@@ -512,7 +512,7 @@ private fun DiaTableRow(
 				text = dia.secondTime ?: "-",
 				modifier = Modifier.weight(2.5f),
 				fontSize = baseSize,
-				color = MaterialTheme.colorScheme.onSurface,
+				color = MaterialTheme.colorScheme.tertiary,
 				textAlign = TextAlign.Start,
 				style = TextStyle(
 					platformStyle = PlatformTextStyle(includeFontPadding = false),

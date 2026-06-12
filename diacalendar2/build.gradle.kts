@@ -46,6 +46,19 @@ kotlin {
 
 dependencies {
 	implementation(libs.play.services.wearable)
+
+	// Wear OS Tiles
+	implementation("androidx.wear.tiles:tiles:1.5.0")
+	implementation("androidx.wear.protolayout:protolayout:1.3.0")
+	implementation("androidx.wear.protolayout:protolayout-material:1.3.0")
+	implementation("androidx.wear.protolayout:protolayout-expression:1.3.0")
+
+	// Guava (ListenableFuture)
+	implementation("com.google.guava:guava:33.5.0-android")
+
+	// Coroutines (play-services await)
+	implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.2")
+
 	implementation(platform(libs.androidx.compose.bom))
 	implementation(libs.androidx.compose.ui)
 	implementation(libs.androidx.compose.ui.graphics)

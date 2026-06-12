@@ -33,8 +33,8 @@ android {
 		applicationId = "com.sonbum.diacalendar2"
 		minSdk = 29
 		targetSdk = 36
-		versionCode = 51
-		versionName = "4.2"
+		versionCode = 53
+		versionName = "4.3"
 
 		testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -116,12 +116,9 @@ dependencies {
 	// EncryptedSharedPreferences
 	implementation("androidx.security:security-crypto:1.1.0")
 
-	// AdMob
-	implementation("com.google.android.gms:play-services-ads:25.2.0")
-
 	//결제시스템
-	implementation("com.revenuecat.purchases:purchases:10.6.1")
-	implementation("com.revenuecat.purchases:purchases-ui:10.6.1")
+	implementation("com.revenuecat.purchases:purchases:10.7.0")
+	implementation("com.revenuecat.purchases:purchases-ui:10.7.0")
 
 
 	// Google Credential Manager (Google Sign-In)

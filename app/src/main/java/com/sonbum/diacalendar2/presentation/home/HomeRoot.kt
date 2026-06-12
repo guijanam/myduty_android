@@ -1,6 +1,8 @@
 package com.sonbum.diacalendar2.presentation.home
 
 import android.widget.Toast
+import com.sonbum.diacalendar2.core.notification.ShiftReminderWorker
+import com.sonbum.diacalendar2.widget.WidgetUpdater
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
@@ -84,6 +86,11 @@ fun HomeRoot(
 					// 복원 후 앱 데이터 새로고침
 					viewModel.refreshCalendarEvents()
 				}
+				is HomeEvent.ShiftRefreshed -> {
+					// 근무표 갱신 후 위젯/근무 알람 갱신
+					WidgetUpdater.updateAll(context)
+					ShiftReminderWorker.enqueue(context)
+				}
 			}
 		}
 	}
@@ -102,6 +109,7 @@ fun HomeRoot(
 		holidayWorkShifts = state.holidayWorkShifts,
 		vacationMap = state.vacationMap,
 		isRefreshingHolidays = state.isRefreshingHolidays,
+		isRefreshingShifts = state.isRefreshingShifts,
 		shiftPattern = state.shiftPattern,
 		isCustomShift = state.isCustomShift,
 		officeName = state.officeName,
@@ -121,6 +129,7 @@ fun HomeRoot(
 		currentThemeMode = themeMode,
 		onThemeModeChange = viewModel::setThemeMode,
 		onRefreshHolidays = viewModel::refreshHolidays,
+		onRefreshShiftSchedule = viewModel::refreshShiftSchedule,
 		onNavigateToDiaTable = onNavigateToDiaTable,
 		onNavigateToVacationSetting = onNavigateToVacationSetting,
 		onNavigateToTextSizeSettings = onNavigateToTextSizeSettings,

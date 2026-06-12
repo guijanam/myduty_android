@@ -50,6 +50,9 @@ import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -185,6 +188,9 @@ fun DateDetailScreen(
     var showEventDialog by remember { mutableStateOf(false) }
     var editingEvent by remember { mutableStateOf<CalendarEvent?>(null) }
     var showDeleteConfirm by remember { mutableStateOf<CalendarEvent?>(null) }
+
+    // 메모 스와이프 삭제 확인 대상
+    var memoPendingDelete by remember { mutableStateOf<Memo?>(null) }
 
     // 공휴일 편집 다이얼로그 상태
     var showHolidayDialog by remember { mutableStateOf(false) }
@@ -502,21 +508,59 @@ fun DateDetailScreen(
 						    label = "elevation"
 					    )
 
-					    ReorderableMemoCard(
-						    memo = memo,
-						    isDragging = isDragging,
-						    elevation = elevation,
-						    onClick = { onEditMemo(memo.objectId) },
-						    onToggleComplete = { viewModel.toggleMemoComplete(memo) },
-						    modifier = Modifier.draggableHandle(
-							    onDragStarted = {
-								    hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-							    },
-							    onDragStopped = {
-								    hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+					    val dismissState = rememberSwipeToDismissBoxState(
+						    confirmValueChange = { value ->
+							    if (value == SwipeToDismissBoxValue.EndToStart) {
+								    memoPendingDelete = memo
 							    }
-						    )
+							    // 실제 삭제는 확인창을 거치므로 항상 dismiss를 막는다
+							    false
+						    }
 					    )
+
+					    // 확인창이 닫히면(취소/삭제) 스와이프 위치를 원위치로 복원
+					    LaunchedEffect(memoPendingDelete) {
+						    if (memoPendingDelete?.objectId != memo.objectId) {
+							    dismissState.reset()
+						    }
+					    }
+
+					    SwipeToDismissBox(
+						    state = dismissState,
+						    enableDismissFromStartToEnd = false,
+						    enableDismissFromEndToStart = true,
+						    backgroundContent = {
+							    Box(
+								    modifier = Modifier
+									    .fillMaxSize()
+									    .background(MaterialTheme.colorScheme.errorContainer)
+									    .padding(horizontal = 24.dp),
+								    contentAlignment = Alignment.CenterEnd
+							    ) {
+								    Icon(
+									    imageVector = Icons.Default.Delete,
+									    contentDescription = "삭제",
+									    tint = MaterialTheme.colorScheme.onErrorContainer
+								    )
+							    }
+						    }
+					    ) {
+						    ReorderableMemoCard(
+							    memo = memo,
+							    isDragging = isDragging,
+							    elevation = elevation,
+							    onClick = { onEditMemo(memo.objectId) },
+							    onToggleComplete = { viewModel.toggleMemoComplete(memo) },
+							    modifier = Modifier.draggableHandle(
+								    onDragStarted = {
+									    hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+								    },
+								    onDragStopped = {
+									    hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+								    }
+							    )
+						    )
+					    }
 				    }
 			    }
 		    }//LazyColumn End
@@ -718,6 +762,30 @@ fun DateDetailScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirm = null }) {
+                    Text("취소")
+                }
+            }
+        )
+    }
+
+    // 메모 스와이프 삭제 확인 다이얼로그
+    memoPendingDelete?.let { memo ->
+        AlertDialog(
+            onDismissRequest = { memoPendingDelete = null },
+            title = { Text("메모 삭제") },
+            text = { Text("\"${memo.title}\"을(를) 삭제하시겠습니까?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.deleteMemo(memo)
+                        memoPendingDelete = null
+                    }
+                ) {
+                    Text("삭제", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { memoPendingDelete = null }) {
                     Text("취소")
                 }
             }

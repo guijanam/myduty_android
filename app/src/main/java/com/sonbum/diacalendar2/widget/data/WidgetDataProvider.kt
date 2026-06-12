@@ -39,7 +39,10 @@ data class EffectiveShiftTimes(
     val effectiveShiftName: String?,
     val workTime: String?,    // 출근
     val firstTime: String?,   // 전반사업
-    val secondTime: String?   // 후반사업
+    val secondTime: String?,  // 후반사업
+    val numTr1: String? = null,   // 전반열번
+    val numTr2: String? = null,   // 후반열번
+    val typeName: String? = null  // 요일타입(평일/토요일/일요일 등)
 )
 
 class WidgetDataProvider(
@@ -173,7 +176,10 @@ class WidgetDataProvider(
                 effectiveShiftName = effectiveName,
                 workTime = dia?.workTime,
                 firstTime = dia?.firstTime,
-                secondTime = dia?.secondTime
+                secondTime = dia?.secondTime,
+                numTr1 = dia?.numTr1,
+                numTr2 = dia?.numTr2,
+                typeName = if (dia != null) DayTypeResolver.resolveTypeName(date, holidayDates) else null
             )
         }
     }

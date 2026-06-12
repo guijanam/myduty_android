@@ -2,6 +2,8 @@ package com.sonbum.diacalendar2.presentation.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.sonbum.diacalendar2.core.notification.AlarmScheduler
+import com.sonbum.diacalendar2.core.util.ImageUtils
 import com.sonbum.diacalendar2.domain.model.CalendarEvent
 import com.sonbum.diacalendar2.domain.model.DeviceCalendar
 import com.sonbum.diacalendar2.domain.model.Dia
@@ -103,6 +105,7 @@ class DateDetailViewModel(
     private val localOfficeRepository: LocalOfficeRepository,
     private val officeWebsiteRegistry: OfficeWebsiteRegistry,
     private val anniversaryRepository: AnniversaryRepository,
+    private val alarmScheduler: AlarmScheduler,
     private val appContext: Context
 ) : ViewModel() {
 
@@ -338,6 +341,16 @@ class DateDetailViewModel(
     fun toggleMemoComplete(memo: Memo) {
         viewModelScope.launch {
             memoRepository.updateMemo(memo.copy(isCompleted = !memo.isCompleted))
+            WidgetUpdater.updateAll(appContext)
+        }
+    }
+
+    fun deleteMemo(memo: Memo) {
+        viewModelScope.launch {
+            // 편집 화면 삭제와 동일하게 이미지 파일과 알람도 함께 정리한다
+            memo.imagePath?.let { ImageUtils.deleteImage(it) }
+            alarmScheduler.cancelMemoAlarm(memo.objectId)
+            memoRepository.deleteMemoById(memo.objectId)
             WidgetUpdater.updateAll(appContext)
         }
     }
