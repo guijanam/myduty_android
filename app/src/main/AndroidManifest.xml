@@ -77,6 +77,13 @@
             android:taskAffinity="${applicationId}.officewebsite" />
 
         <activity
+            android:name=".presentation.diatable.DiaTableActivity"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:label="근무표"
+            android:taskAffinity="${applicationId}.diatable" />
+
+        <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTask"

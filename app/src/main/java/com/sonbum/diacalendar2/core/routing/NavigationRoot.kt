@@ -19,7 +19,7 @@ import com.sonbum.diacalendar2.presentation.recipedetails.RecipeDetailsScreen
 import com.sonbum.diacalendar2.presentation.savedrecipes.SavedRecipesRoot
 import com.sonbum.diacalendar2.presentation.shift.ShiftSelectionScreen
 import com.sonbum.diacalendar2.presentation.signin.SignInScreen
-import com.sonbum.diacalendar2.presentation.diatable.DiaTableScreen
+import com.sonbum.diacalendar2.presentation.diatable.DiaTableActivity
 import com.sonbum.diacalendar2.presentation.localdia.LocalDiaEditScreen
 import com.sonbum.diacalendar2.presentation.localdia.LocalDiaListScreen
 import com.sonbum.diacalendar2.presentation.localoffice.LocalOfficeEditScreen
@@ -38,8 +38,6 @@ import com.sonbum.diacalendar2.presentation.community.CommunityScreen
 import com.sonbum.diacalendar2.presentation.board.PostDetailScreen
 import com.sonbum.diacalendar2.presentation.board.PostEditScreen
 import com.sonbum.diacalendar2.presentation.board.PostWriteScreen
-import com.sonbum.diacalendar2.presentation.diatable.ServerDiaEditScreen
-import com.sonbum.diacalendar2.presentation.diatable.ServerOfficeEditScreen
 import com.sonbum.diacalendar2.presentation.menu.MenuScreen
 import android.content.Intent
 import com.sonbum.diacalendar2.presentation.officewebsite.OfficeWebsiteActivity
@@ -276,47 +274,6 @@ fun NavigationRoot(
 					},
 					onNavigateToCustomShiftList = {
 						topLevelBackStack.add(Route.CustomShiftList)
-					}
-				)
-			}
-
-			// 근무표 화면
-			entry<Route.DiaTable> {
-				DiaTableScreen(
-					onBack = {
-						if (topLevelBackStack.size > 1) {
-							topLevelBackStack.removeAt(topLevelBackStack.lastIndex)
-						}
-					},
-					onNavigateToServerDiaEdit = { diaId ->
-						topLevelBackStack.add(Route.ServerDiaEdit(diaId))
-					},
-					onNavigateToServerOfficeEdit = { officeCode ->
-						topLevelBackStack.add(Route.ServerOfficeEdit(officeCode))
-					}
-				)
-			}
-
-			// 서버 근무표 편집
-			entry<Route.ServerDiaEdit> { key ->
-				ServerDiaEditScreen(
-					diaId = key.diaId,
-					onBack = {
-						if (topLevelBackStack.size > 1) {
-							topLevelBackStack.removeAt(topLevelBackStack.lastIndex)
-						}
-					}
-				)
-			}
-
-			// 서버 승무소 교번 패턴 편집
-			entry<Route.ServerOfficeEdit> { key ->
-				ServerOfficeEditScreen(
-					officeCode = key.officeCode,
-					onBack = {
-						if (topLevelBackStack.size > 1) {
-							topLevelBackStack.removeAt(topLevelBackStack.lastIndex)
-						}
 					}
 				)
 			}
@@ -604,7 +561,10 @@ fun NavigationRoot(
 										topLevelBackStack.add(Route.DateDetail(dateString, openEventDialog = true))
 									},
 									onNavigateToDiaTable = {
-										topLevelBackStack.add(Route.DiaTable)
+										val intent = Intent(appContext, DiaTableActivity::class.java).apply {
+											addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_NEW_TASK)
+										}
+										appContext.startActivity(intent)
 									},
 									onNavigateToVacationSetting = {
 										topLevelBackStack.add(Route.VacationSetting)
