@@ -28,6 +28,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.wear.compose.material.MaterialTheme
+import androidx.wear.compose.material.Scaffold
 import androidx.wear.compose.material.Text
 import androidx.wear.compose.material.TimeText
 import androidx.wear.tooling.preview.devices.WearDevices
@@ -36,11 +37,12 @@ import com.sonbum.diacalendar2.presentation.theme.DiaCalendar2Theme
 
 class MainActivity : ComponentActivity() {
 	override fun onCreate(savedInstanceState: Bundle?) {
+		// 스플래시 라이브러리가 종료 후 postSplashScreenTheme(Theme.DeviceDefault)를
+		// 자동 적용한다. 여기서 setTheme()를 다시 호출하면 스플래시가 조기 종료되어
+		// 브랜드 아이콘이 표시되지 않을 수 있으므로 호출하지 않는다.
 		installSplashScreen()
 
 		super.onCreate(savedInstanceState)
-
-		setTheme(android.R.style.Theme_DeviceDefault)
 
 		setContent {
 			WearApp()
@@ -75,14 +77,19 @@ fun WearApp() {
 	val (shiftData, hasReceivedData) = loadShiftData(context)
 
 	DiaCalendar2Theme {
-		Box(
-			modifier = Modifier
-				.fillMaxSize()
-				.background(MaterialTheme.colors.background),
-			contentAlignment = Alignment.Center
+		// 근무 확인 전용 화면 - 스크롤 없이 한 화면에 모두 표시 (시계 화면처럼 즉시 확인)
+		Scaffold(
+			modifier = Modifier.background(MaterialTheme.colors.background),
+			timeText = { TimeText() }
 		) {
-			TimeText()
-			ShiftCard(shiftData, isSample = !hasReceivedData)
+			Box(
+				modifier = Modifier
+					.fillMaxSize()
+					.background(MaterialTheme.colors.background),
+				contentAlignment = Alignment.Center
+			) {
+				ShiftCard(shiftData, isSample = !hasReceivedData)
+			}
 		}
 	}
 }
@@ -92,7 +99,7 @@ fun ShiftCard(data: ShiftData, isSample: Boolean) {
 	Column(
 		modifier = Modifier
 			.fillMaxWidth()
-			.padding(horizontal = 16.dp),
+			.padding(horizontal = 8.dp),
 		horizontalAlignment = Alignment.CenterHorizontally,
 		verticalArrangement = Arrangement.spacedBy(2.dp)
 	) {
@@ -151,7 +158,7 @@ fun ShiftCard(data: ShiftData, isSample: Boolean) {
 		}
 		if (isSample) {
 			Text(
-				text = "예시 · 폰 앱 연결 시 실제 표시",
+				text = "예시",
 				fontSize = 10.sp,
 				color = Color(0xFF808080),
 				textAlign = TextAlign.Center,

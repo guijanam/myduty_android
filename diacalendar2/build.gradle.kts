@@ -14,8 +14,8 @@ android {
 		applicationId = "com.sonbum.diacalendar2"
 		minSdk = 28
 		targetSdk = 36
-		versionCode = 1
-		versionName = "1.0"
+		versionCode = 1009
+		versionName = "1.2"
 
 	}
 
@@ -47,17 +47,20 @@ kotlin {
 dependencies {
 	implementation(libs.play.services.wearable)
 
+	// play-services-wearable가 transitive로 끌어오는 fragment:1.1.0 경고 해소
+	implementation("androidx.fragment:fragment:1.8.9")
+
 	// Wear OS Tiles
-	implementation("androidx.wear.tiles:tiles:1.5.0")
-	implementation("androidx.wear.protolayout:protolayout:1.3.0")
-	implementation("androidx.wear.protolayout:protolayout-material:1.3.0")
-	implementation("androidx.wear.protolayout:protolayout-expression:1.3.0")
+	implementation("androidx.wear.tiles:tiles:1.6.0")
+	implementation("androidx.wear.protolayout:protolayout:1.4.0")
+	implementation("androidx.wear.protolayout:protolayout-material:1.4.0")
+	implementation("androidx.wear.protolayout:protolayout-expression:1.4.0")
 
 	// Guava (ListenableFuture)
-	implementation("com.google.guava:guava:33.5.0-android")
+	implementation("com.google.guava:guava:33.6.0-android")
 
 	// Coroutines (play-services await)
-	implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.2")
+	implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.11.0")
 
 	implementation(platform(libs.androidx.compose.bom))
 	implementation(libs.androidx.compose.ui)

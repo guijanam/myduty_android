@@ -1,13 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Wear OS 스플래시 화면 아이콘.
-  검은 배경 위 중앙에 48x48dp 앱(브랜드) 아이콘을 표시한다.
-  실제 앱 런처 아이콘(foreground)을 그대로 사용해 브랜드와 일치시킨다.
+  Wear OS 스플래시 화면 아이콘 (Google Play 품질 가이드라인 대응).
+  windowSplashScreenAnimatedIcon 슬롯에 표시되는 드로어블.
+
+  ★ 실제 앱 로고("내근무" 캐릭터)를 사용한다.
+  ★ 원형 마스크 대응: splash_logo.png 는 실제 로고 둘레에 투명 여백을
+     넣어 정사각형 일러스트가 원 안에 내접하도록 만든 이미지다.
+     (windowSplashScreen 은 layer-list inset 을 무시하고 아이콘을 고정
+      크기로 스케일하므로, 여백을 이미지 자체에 포함시켜야 한다.)
 -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item
-        android:width="48dp"
-        android:height="48dp"
-        android:gravity="center"
-        android:drawable="@mipmap/ic_launcher_foreground" />
+    <item android:drawable="@drawable/splash_logo" />
 </layer-list>
