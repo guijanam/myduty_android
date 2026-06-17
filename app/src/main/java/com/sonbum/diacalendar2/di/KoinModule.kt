@@ -25,6 +25,8 @@ import com.sonbum.diacalendar2.data.repository.LocalDiaRepositoryImpl
 import com.sonbum.diacalendar2.data.repository.LocalOfficeRepositoryImpl
 import com.sonbum.diacalendar2.data.repository.MemoRepositoryImpl
 import com.sonbum.diacalendar2.domain.usecase.BackupRestoreUseCase
+import com.sonbum.diacalendar2.domain.usecase.EffectiveShiftUseCase
+import com.sonbum.diacalendar2.domain.usecase.ShiftCalendarSyncUseCase
 import com.sonbum.diacalendar2.data.repository.OfficeRepositoryImpl
 import com.sonbum.diacalendar2.data.repository.ShiftRepositoryImpl
 import com.sonbum.diacalendar2.data.repository.ShiftSwapRecordRepositoryImpl
@@ -278,6 +280,8 @@ val repositoryModule = module {
         )
     }
     singleOf(::BackupRestoreUseCase)
+    singleOf(::EffectiveShiftUseCase)
+    singleOf(::ShiftCalendarSyncUseCase)
     single<AuthRepository> { AuthRepositoryImpl(get(named("boardApi")), get()) }
     single<BoardRepository> { BoardRepositoryImpl(get(named("boardApi")), get()) }
     single<MenuRepository> { MenuRepositoryImpl(get(named("menuApi"))) }

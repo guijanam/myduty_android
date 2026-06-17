@@ -22,6 +22,7 @@ import com.sonbum.diacalendar2.domain.repository.OfficeRepository
 import com.sonbum.diacalendar2.domain.repository.ShiftInputRecordRepository
 import com.sonbum.diacalendar2.domain.repository.BackupRepository
 import com.sonbum.diacalendar2.domain.repository.AnniversaryRepository
+import com.sonbum.diacalendar2.domain.usecase.ShiftCalendarSyncUseCase
 import android.net.Uri
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -79,7 +80,8 @@ class HomeViewModel(
     private val officeRepository: OfficeRepository,
     private val backupRepository: BackupRepository,
     private val crewPatternPreferences: CrewPatternPreferences,
-    private val anniversaryRepository: AnniversaryRepository
+    private val anniversaryRepository: AnniversaryRepository,
+    private val shiftCalendarSyncUseCase: ShiftCalendarSyncUseCase
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(HomeCalendarState())
@@ -232,7 +234,21 @@ class HomeViewModel(
                         shiftInputMap = result.shiftInputDisplayMap
                     )
                 }
+                // 최종 근무가 바뀔 때마다 전용 캘린더에 동기화 (동기화 OFF면 내부에서 no-op)
+                triggerShiftCalendarSync()
             }
+        }
+    }
+
+    // 동기화 중복 실행 방지 (연속 변경 시 마지막 1회만 의미 있음)
+    private var syncJob: kotlinx.coroutines.Job? = null
+
+    private fun triggerShiftCalendarSync() {
+        syncJob?.cancel()
+        syncJob = viewModelScope.launch {
+            // 짧은 디바운스: 연속된 레이어 변경을 1회 동기화로 합침
+            kotlinx.coroutines.delay(800)
+            shiftCalendarSyncUseCase.sync()
         }
     }
 
