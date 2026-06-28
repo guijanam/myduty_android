@@ -67,6 +67,9 @@ data class DateDetailState(
     val shiftName: String? = null,
     val effectiveShiftName: String? = null,
     val shiftDia: Dia? = null,
+    // 전날에서 이어진 후반 근무 (다음날 전반 자리에 표시). null이면 이어진 근무 없음
+    val carryOverFirstTime: String? = null,   // 전날 dia.secondTime
+    val carryOverNumTr: String? = null,       // 전날 dia.numTr2
     val vacationRecord: VacationRecord? = null,
     val vacationTypes: List<VacationType> = emptyList(),
     val shiftSwapRecord: ShiftSwapRecord? = null,
@@ -222,17 +225,59 @@ class DateDetailViewModel(
         config: com.sonbum.diacalendar2.domain.model.UserShiftConfig? = null
     ) {
         val effectiveConfig = config ?: shiftRepository.getUserConfigOnce() ?: return
-        val isLocalOffice = effectiveConfig.officeCode < 0
+
+        // 근무명이 "~"로 끝나면 전날 야간 근무가 이어지는 날이다 (예: "59~").
+        // "~"를 떼고 자체 Dia를 조회한다 (보통 자체 Dia는 없음).
+        // "~"로 끝나는 날은 전날 야간 근무가 이어지는 날일 뿐, 그 날 자체의 근무는 없다.
+        // 따라서 자체 Dia는 조회하지 않고(null), 전날 후반만 표시한다.
+        val isCarryOverDay = shiftName.endsWith("~")
+        val dia = if (isCarryOverDay) null else fetchDia(shiftName, date, effectiveConfig)
+
+        // 전날 야간 근무의 후반(secondTime)을 이 날에 표시한다.
+        // 조건: 이 날 근무명이 "~"로 끝남(이어지는 날) AND 전날 typeName이 cross-day.
+        var carryOverFirstTime: String? = null
+        var carryOverNumTr: String? = null
+        if (isCarryOverDay) {
+            val prevDate = date.minusDays(1)
+            val prevShiftName = shiftRepository.getScheduleByDate(prevDate)?.shiftName
+            if (!prevShiftName.isNullOrBlank()) {
+                val prevDia = fetchDia(prevShiftName.removeSuffix("~"), prevDate, effectiveConfig)
+                if (prevDia != null && DayTypeResolver.isCrossDayType(prevDia.typeName)) {
+                    carryOverFirstTime = prevDia.secondTime
+                    carryOverNumTr = prevDia.numTr2
+                }
+            }
+        }
+
+        _state.update {
+            it.copy(
+                shiftDia = dia,
+                carryOverFirstTime = carryOverFirstTime,
+                carryOverNumTr = carryOverNumTr
+            )
+        }
+    }
+
+    /**
+     * shiftName + 날짜 기준으로 Dia를 조회한다.
+     * 날짜로 typeName을 계산하고 fallback 순서대로 로컬/서버 DB에서 조회한다.
+     */
+    private suspend fun fetchDia(
+        shiftName: String,
+        date: LocalDate,
+        config: com.sonbum.diacalendar2.domain.model.UserShiftConfig
+    ): Dia? {
+        val isLocalOffice = config.officeCode < 0
 
         val holidayDates = holidayRepository.getHolidayDates().first()
         val typeName = DayTypeResolver.resolveTypeName(date, holidayDates)
         val fallbackTypes = DayTypeResolver.getFallbackTypeNames(typeName)
 
-        val dia = if (isLocalOffice) {
+        return if (isLocalOffice) {
             var localDia: LocalDia? = null
             for (type in fallbackTypes) {
                 localDia = localDiaRepository.getLocalDiaByDiaIdAndOfficeAndType(
-                    shiftName, effectiveConfig.officeName, type
+                    shiftName, config.officeName, type
                 )
                 if (localDia != null) break
             }
@@ -241,14 +286,12 @@ class DateDetailViewModel(
             var result: Dia? = null
             for (type in fallbackTypes) {
                 result = diaRepository.getDiaByDiaIdAndOfficeAndType(
-                    shiftName, effectiveConfig.officeName, type
+                    shiftName, config.officeName, type
                 )
                 if (result != null) break
             }
             result
         }
-
-        _state.update { it.copy(shiftDia = dia) }
     }
 
     private fun LocalDia.toDia(): Dia = Dia(
@@ -638,7 +681,9 @@ class DateDetailViewModel(
             if (effectiveName != null) {
                 loadDiaForShift(effectiveName, state.date)
             } else {
-                _state.update { it.copy(shiftDia = null) }
+                _state.update {
+                    it.copy(shiftDia = null, carryOverFirstTime = null, carryOverNumTr = null)
+                }
             }
         }
     }

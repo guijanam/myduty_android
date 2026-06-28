@@ -375,6 +375,8 @@ fun DateDetailScreen(
 						    shiftName = state.effectiveShiftName ?: state.shiftName ?: "",
 						    originalShiftName = state.shiftName ?: "",
 						    dia = state.shiftDia,
+						    carryOverFirstTime = state.carryOverFirstTime,
+						    carryOverNumTr = state.carryOverNumTr,
 						    vacationRecord = state.vacationRecord,
 						    onVacationClick = { showVacationDialog = true },
 						    shiftSwapRecord = state.shiftSwapRecord,
@@ -529,21 +531,7 @@ fun DateDetailScreen(
 						    state = dismissState,
 						    enableDismissFromStartToEnd = false,
 						    enableDismissFromEndToStart = true,
-						    backgroundContent = {
-							    Box(
-								    modifier = Modifier
-									    .fillMaxSize()
-									    .background(MaterialTheme.colorScheme.errorContainer)
-									    .padding(horizontal = 24.dp),
-								    contentAlignment = Alignment.CenterEnd
-							    ) {
-								    Icon(
-									    imageVector = Icons.Default.Delete,
-									    contentDescription = "삭제",
-									    tint = MaterialTheme.colorScheme.onErrorContainer
-								    )
-							    }
-						    }
+						    backgroundContent = {}
 					    ) {
 						    ReorderableMemoCard(
 							    memo = memo,
@@ -903,6 +891,8 @@ fun WorkTimeCard(
     shiftName: String,
     originalShiftName: String = shiftName,
     dia: Dia?,
+    carryOverFirstTime: String? = null,
+    carryOverNumTr: String? = null,
     vacationRecord: com.sonbum.diacalendar2.domain.model.VacationRecord? = null,
     onVacationClick: () -> Unit = {},
     shiftSwapRecord: ShiftSwapRecord? = null,
@@ -1106,6 +1096,35 @@ fun WorkTimeCard(
                             fontWeight = FontWeight.Bold,
                             style = MaterialTheme.typography.bodyLarge
                         )
+                    }
+                }
+            }
+
+            // 전날 야간 근무가 이어지는 날(예: "59~")은 자체 Dia가 없으므로,
+            // 전날에서 이어진 후반 근무만 표시한다.
+            if (dia == null && (!carryOverNumTr.isNullOrBlank() || !carryOverFirstTime.isNullOrBlank())) {
+                Spacer(modifier = Modifier.height(8.dp))
+                val sectionCardColors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f)
+                )
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .graphicsLayer { alpha = shiftContentAlpha },
+                    colors = sectionCardColors
+                ) {
+                    Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                        if (!carryOverNumTr.isNullOrBlank()) {
+                            TrainNumberRow(
+                                label = "후반",
+                                numTr = carryOverNumTr,
+                                officeName = officeName,
+                                onNavigateToSubway = onNavigateToSubway
+                            )
+                        }
+                        if (!carryOverFirstTime.isNullOrBlank()) {
+                            ShiftAlarmRow(label = "후반", value = carryOverFirstTime)
+                        }
                     }
                 }
             }
