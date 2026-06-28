@@ -166,19 +166,39 @@ class WidgetDataProvider(
                 else -> originalShift
             }
 
+            // "~"로 끝나는 날(예: "59~")은 전날 야간 근무가 이어지는 날이다.
+            // 그 날 자체 근무는 없으므로 자체 Dia를 조회하지 않고,
+            // 전날 cross-day 근무의 후반(secondTime/numTr2)만 표시한다.
+            val isCarryOverDay = effectiveName?.endsWith("~") == true
+
             // 휴가일은 출근 시각이 없어 알람이 해제되도록 Dia 조회를 건너뛴다.
-            val dia = if (vacation == null && effectiveName != null && officeName != null) {
+            val dia = if (vacation == null && !isCarryOverDay && effectiveName != null && officeName != null) {
                 resolveDia(effectiveName, date, officeName, isLocalOffice, holidayDates)
             } else null
+
+            // 전날 후반 carryover (이 날이 "~"일 때만)
+            var carryOverSecondTime: String? = null
+            var carryOverNumTr2: String? = null
+            if (isCarryOverDay && vacation == null && officeName != null) {
+                val prevDate = date.minusDays(1)
+                val prevShift = shiftScheduleDao.getScheduleByDate(prevDate.toString())?.shiftName
+                if (!prevShift.isNullOrBlank()) {
+                    val prevDia = resolveDia(prevShift.removeSuffix("~"), prevDate, officeName, isLocalOffice, holidayDates)
+                    if (prevDia != null && DayTypeResolver.isCrossDayType(prevDia.typeName)) {
+                        carryOverSecondTime = prevDia.secondTime
+                        carryOverNumTr2 = prevDia.numTr2
+                    }
+                }
+            }
 
             EffectiveShiftTimes(
                 date = date,
                 effectiveShiftName = effectiveName,
                 workTime = dia?.workTime,
                 firstTime = dia?.firstTime,
-                secondTime = dia?.secondTime,
+                secondTime = dia?.secondTime ?: carryOverSecondTime,
                 numTr1 = dia?.numTr1,
-                numTr2 = dia?.numTr2,
+                numTr2 = dia?.numTr2 ?: carryOverNumTr2,
                 typeName = if (dia != null) DayTypeResolver.resolveTypeName(date, holidayDates) else null
             )
         }
