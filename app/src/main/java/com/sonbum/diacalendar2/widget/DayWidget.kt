@@ -125,14 +125,16 @@ private fun DayWidgetContent(
     scaleFactor: Float,
     isSmallMode: Boolean
 ) {
-    Column(
+    // 주간 위젯처럼 오늘(앞)/내일(뒤)을 좌우 두 칸으로 배치한다.
+    // 각 칸은 세로로: 날짜 → worktime → 근무 → 이벤트/메모 순서.
+    Row(
         modifier = GlanceModifier
             .fillMaxSize()
             .background(GlanceTheme.colors.background)
             .padding(vertical = (1 * scaleFactor).dp, horizontal = (2 * scaleFactor).dp)
             .clickable(actionStartActivity<MainActivity>())
     ) {
-        Box(modifier = GlanceModifier.defaultWeight()) {
+        Box(modifier = GlanceModifier.defaultWeight().fillMaxHeight()) {
             if (todayData != null) {
                 DaySection(todayData, scaleFactor, isSmallMode)
             }
@@ -140,12 +142,12 @@ private fun DayWidgetContent(
 
         Box(
             modifier = GlanceModifier
-                .fillMaxWidth()
-                .height(0.5.dp)
+                .width(0.5.dp)
+                .fillMaxHeight()
                 .background(ColorProvider(Color.Gray.copy(alpha = 0.5f)))
         ) {}
 
-        Box(modifier = GlanceModifier.defaultWeight()) {
+        Box(modifier = GlanceModifier.defaultWeight().fillMaxHeight()) {
             if (tomorrowData != null) {
                 DaySection(tomorrowData, scaleFactor, isSmallMode)
             }
@@ -159,27 +161,19 @@ private fun DaySection(
     scaleFactor: Float,
     isSmallMode: Boolean
 ) {
-    Row(
-        modifier = GlanceModifier.fillMaxSize(),
-        verticalAlignment = Alignment.CenterVertically
+    Column(
+        modifier = GlanceModifier
+            .fillMaxSize()
+            .padding(horizontal = (2 * scaleFactor).dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalAlignment = Alignment.Top
     ) {
-        Column(
-            modifier = GlanceModifier
-                .width(if (isSmallMode) (70 * scaleFactor).dp else (100 * scaleFactor).dp)
-                .fillMaxHeight(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalAlignment = Alignment.Top
-        ) {
-            DateRow(data, isSmallMode, scaleFactor)
-            Spacer(modifier = GlanceModifier.height(if (isSmallMode) 0.dp else (2 * scaleFactor).dp))
-            WorkTimeRow(data.workTime, isSmallMode, scaleFactor)
-            ShiftNameRow(data, isSmallMode, scaleFactor)
-        }
-
-        Column(
-            modifier = GlanceModifier.defaultWeight().fillMaxHeight(),
-            verticalAlignment = Alignment.Top
-        ) {
+        DateRow(data, isSmallMode, scaleFactor)
+        Spacer(modifier = GlanceModifier.height(if (isSmallMode) 0.dp else (1 * scaleFactor).dp))
+        WorkTimeRow(data.workTime, isSmallMode, scaleFactor)
+        ShiftNameRow(data, isSmallMode, scaleFactor)
+        Spacer(modifier = GlanceModifier.height(if (isSmallMode) 0.dp else (1 * scaleFactor).dp))
+        Box(modifier = GlanceModifier.defaultWeight().fillMaxWidth()) {
             MemoAndEventColumn(data, isSmallMode, scaleFactor)
         }
     }
@@ -228,7 +222,7 @@ private fun DateRow(data: WidgetDayData, isSmallMode: Boolean, scaleFactor: Floa
 
 @Composable
 private fun WorkTimeRow(workTime: String?, isSmallMode: Boolean, scaleFactor: Float) {
-    val baseSize = if (isSmallMode) 22 else 24
+    val baseSize = if (isSmallMode) 18 else 24
     Text(
         modifier = GlanceModifier.fillMaxWidth(),
         text = workTime ?: "",
@@ -244,7 +238,7 @@ private fun WorkTimeRow(workTime: String?, isSmallMode: Boolean, scaleFactor: Fl
 @Composable
 private fun ShiftNameRow(data: WidgetDayData, isSmallMode: Boolean, scaleFactor: Float) {
     val shiftName = data.effectiveShiftName ?: return
-    val baseSize = if (isSmallMode) 18 else 20
+    val baseSize = if (isSmallMode) 15 else 20
 
     Text(
         modifier = GlanceModifier.fillMaxWidth(),

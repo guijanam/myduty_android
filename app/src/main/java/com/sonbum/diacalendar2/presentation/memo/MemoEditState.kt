@@ -23,7 +23,7 @@ data class MemoEditState(
     val startDate: LocalDate = LocalDate.now(),  // 시작일
     val endDate: LocalDate = LocalDate.now(),    // 종료일 (연속 일정용)
     val isMultipleDays: Boolean = false,         // 연속 일정 여부
-    val isAllDay: Boolean = false,               // 종일 여부
+    val isAllDay: Boolean = true,                // 종일 여부 (신규 메모 기본값)
     val isLoading: Boolean = false,
     val isSaved: Boolean = false,
     val reminderEnabled: Boolean = false,

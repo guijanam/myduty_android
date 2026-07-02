@@ -14,7 +14,7 @@ android {
 		applicationId = "com.sonbum.diacalendar2"
 		minSdk = 28
 		targetSdk = 36
-		versionCode = 1009
+		versionCode = 1010
 		versionName = "1.2"
 
 	}

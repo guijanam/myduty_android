@@ -150,9 +150,11 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.material.icons.filled.DeviceThermostat
+import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.HolidayVillage
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.TextFields
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
@@ -795,7 +797,7 @@ private fun HomeDrawerContent(
 							strokeWidth = 2.dp
 						)
 					} else {
-						Icon(Icons.Default.Refresh, contentDescription = null)
+						Icon(Icons.Default.HolidayVillage, contentDescription = null)
 					}
 				},
 				label = { Text(if (isRefreshingHolidays) "공휴일 갱신 중..." else "공휴일 갱신") },
@@ -820,22 +822,21 @@ private fun HomeDrawerContent(
 				onClick = { if (!isRefreshingShifts) onItemClick(DrawerItem.SHIFT_REFRESH) },
 				modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
 			)
+			HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
 			NavigationDrawerItem(
-				icon = { Icon(Icons.Default.Work, contentDescription = null) },
-				label = { Text("내근무 생성") },
+				icon = { Icon(Icons.Default.CalendarMonth, contentDescription = null) },
+				label = { Text("내근무 설정") },
 				selected = false,
 				onClick = { onItemClick(DrawerItem.SHIFT) },
 				modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
 			)
 
 
-
-
 			HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
 			NavigationDrawerItem(
-				icon = { Icon(Icons.Default.Work, contentDescription = null) },
+				icon = { Icon(Icons.Default.Group, contentDescription = null) },
 				label = { Text("sub 근무 생성") },
 				selected = false,
 				onClick = { onItemClick(DrawerItem.SUB_SHIFT) },
@@ -843,7 +844,7 @@ private fun HomeDrawerContent(
 			)
 
 			NavigationDrawerItem(
-				icon = { Icon(Icons.Default.Work, contentDescription = null) },
+				icon = { Icon(Icons.Default.Visibility, contentDescription = null) },
 				label = {
 					Row(
 						modifier = Modifier.fillMaxWidth(),
@@ -863,6 +864,8 @@ private fun HomeDrawerContent(
 				modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
 			)
 
+			HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
 			NavigationDrawerItem(
 				icon = { Icon(Icons.Default.DeviceThermostat, contentDescription = null) },
 				label = { Text("테마 설정") },
@@ -872,7 +875,7 @@ private fun HomeDrawerContent(
 			)
 
 			NavigationDrawerItem(
-				icon = { Icon(Icons.Default.HolidayVillage, contentDescription = null) },
+				icon = { Icon(Icons.Default.Info, contentDescription = null) },
 				label = { Text("근태종류 설정") },
 				selected = false,
 				onClick = { onItemClick(DrawerItem.VACATION) },
@@ -886,6 +889,7 @@ private fun HomeDrawerContent(
 				onClick = { onItemClick(DrawerItem.TEXT_SIZE) },
 				modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
 			)
+			HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
 			NavigationDrawerItem(
 				icon = { Icon(Icons.Default.Notifications, contentDescription = null) },
@@ -894,9 +898,10 @@ private fun HomeDrawerContent(
 				onClick = { onItemClick(DrawerItem.WORK_ALARM) },
 				modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
 			)
+			HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
 			NavigationDrawerItem(
-				icon = { Icon(Icons.Default.Groups, contentDescription = null) },
+				icon = { Icon(Icons.Default.Visibility, contentDescription = null) },
 				label = {
 					Row(
 						modifier = Modifier.fillMaxWidth(),
@@ -1321,7 +1326,7 @@ private fun Day(
 			) {
 				ShiftBadge(
 					shiftName = subShiftName,
-					fontSize = (textSizes.shiftFontSize / 2f).coerceAtLeast(8f)
+					fontSize = (textSizes.shiftFontSize * 0.8f).coerceAtLeast(8f)
 				)
 			}
 		}

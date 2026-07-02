@@ -33,8 +33,8 @@ android {
 		applicationId = "com.sonbum.diacalendar2"
 		minSdk = 29
 		targetSdk = 36
-		versionCode = 53
-		versionName = "4.3"
+		versionCode = 57
+		versionName = "4.5"
 
 		testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -117,8 +117,8 @@ dependencies {
 	implementation("androidx.security:security-crypto:1.1.0")
 
 	//결제시스템
-	implementation("com.revenuecat.purchases:purchases:10.7.0")
-	implementation("com.revenuecat.purchases:purchases-ui:10.7.0")
+	implementation("com.revenuecat.purchases:purchases:10.11.0")
+	implementation("com.revenuecat.purchases:purchases-ui:10.11.0")
 
 
 	// Google Credential Manager (Google Sign-In)

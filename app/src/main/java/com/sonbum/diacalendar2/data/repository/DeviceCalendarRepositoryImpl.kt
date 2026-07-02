@@ -310,6 +310,20 @@ class DeviceCalendarRepositoryImpl(
 
     override suspend fun updateEvent(event: CalendarEvent): Boolean = withContext(Dispatchers.IO) {
         try {
+            // CalendarProvider는 update()로 이벤트를 다른 캘린더로 이동시킬 수 없다.
+            // (CALENDAR_ID는 생성 후 사실상 read-only) → 캘린더가 바뀌었으면 삭제 후 재생성한다.
+            val currentCalendarId = getEventCalendarId(event.id)
+            if (currentCalendarId != null && currentCalendarId != event.calendarId) {
+                val newId = createEvent(event)
+                if (newId != null) {
+                    val deleteUri = ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, event.id)
+                    contentResolver.delete(deleteUri, null, null)
+                    _eventChanges.tryEmit(Unit)
+                    return@withContext true
+                }
+                return@withContext false
+            }
+
             val values = ContentValues().apply {
                 put(CalendarContract.Events.TITLE, event.title)
                 put(CalendarContract.Events.DESCRIPTION, event.description)
@@ -479,6 +493,25 @@ class DeviceCalendarRepositoryImpl(
      */
     private fun localDateTimeToMillis(dateTime: LocalDateTime): Long {
         return dateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+    }
+
+    /**
+     * 이벤트가 현재 속한 캘린더 ID를 조회한다. 없으면 null.
+     */
+    private fun getEventCalendarId(eventId: Long): Long? {
+        val uri = ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, eventId)
+        contentResolver.query(
+            uri,
+            arrayOf(CalendarContract.Events.CALENDAR_ID),
+            null,
+            null,
+            null
+        )?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                return cursor.getLong(0)
+            }
+        }
+        return null
     }
 
     /**

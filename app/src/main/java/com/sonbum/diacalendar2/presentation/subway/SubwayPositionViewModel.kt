@@ -32,7 +32,7 @@ data class SubwayPositionState(
     val secondsUntilRefresh: Int = AUTO_REFRESH_SECONDS
 )
 
-const val AUTO_REFRESH_SECONDS = 10
+const val AUTO_REFRESH_SECONDS = 30
 
 class SubwayPositionViewModel(
     private val subwayRepository: SubwayRepository,

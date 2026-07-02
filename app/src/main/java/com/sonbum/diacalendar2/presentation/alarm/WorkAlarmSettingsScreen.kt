@@ -1,6 +1,7 @@
 package com.sonbum.diacalendar2.presentation.alarm
 
 import android.app.AlarmManager
+import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -81,6 +82,7 @@ fun WorkAlarmSettingsScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             ExactAlarmWarning(context)
+            FullScreenIntentWarning(context)
             OverlayPermissionWarning(context)
 
             AlarmSlotCard(
@@ -224,6 +226,57 @@ private fun ExactAlarmWarning(context: Context) {
             TextButton(onClick = {
                 context.startActivity(
                     Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+                        data = Uri.parse("package:${context.packageName}")
+                    }
+                )
+            }) { Text("권한 설정 열기") }
+        }
+    }
+}
+
+/**
+ * Android 14(API 34)+ 전체화면 알람 권한(USE_FULL_SCREEN_INTENT) 안내.
+ * 이 권한이 없으면 setFullScreenIntent가 시스템에 의해 일반 알림으로 강등되어,
+ * 화면을 깨우지 못하고 트레이 알림으로만 뜨며(누르면 그제서야 전체화면) 동작한다.
+ * 설정에서 켜고 돌아오면 onResume으로 재확인해 카드가 자동으로 사라진다.
+ */
+@Composable
+private fun FullScreenIntentWarning(context: Context) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return
+    val notificationManager =
+        context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+    var canUse by remember { mutableStateOf(notificationManager.canUseFullScreenIntent()) }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                canUse = notificationManager.canUseFullScreenIntent()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    if (canUse) return
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp)) {
+            Text(
+                "‘전체 화면 알림’ 권한이 필요합니다",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.error
+            )
+            Text(
+                "이 권한이 꺼져 있으면 알람이 시계 앱처럼 화면을 깨우지 못하고 일반 알림으로만 표시됩니다.",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            TextButton(onClick = {
+                context.startActivity(
+                    Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).apply {
                         data = Uri.parse("package:${context.packageName}")
                     }
                 )

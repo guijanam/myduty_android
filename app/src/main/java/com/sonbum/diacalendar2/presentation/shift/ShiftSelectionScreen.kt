@@ -421,7 +421,7 @@ fun ShiftSelectionScreen(
                             modifier = Modifier.size(20.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("내근무 생성하기")
+                        Text("근무 생성하기")
                     }
                 }
             } else {
@@ -546,7 +546,7 @@ fun ShiftSelectionScreen(
                             modifier = Modifier.size(20.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("내근무 생성하기")
+                        Text("근무 생성하기")
                     }
                 }
             }
