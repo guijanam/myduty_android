@@ -4,10 +4,21 @@
     <selectionStates>
       <SelectionState runConfigName="app">
         <option name="selectionMode" value="DROPDOWN" />
-        <DropdownSelection timestamp="2026-06-01T05:55:40.719010Z">
+        <DropdownSelection timestamp="2026-08-10T13:28:25.624757Z">
           <Target type="DEFAULT_BOOT">
             <handle>
-              <DeviceId pluginId="PhysicalDevice" identifier="serial=R3CYA05P3CR" />
+              <DeviceId pluginId="PhysicalDevice" identifier="serial=4e7690b9" />
+            </handle>
+          </Target>
+        </DropdownSelection>
+        <DialogSelection />
+      </SelectionState>
+      <SelectionState runConfigName="diacalendar2">
+        <option name="selectionMode" value="DROPDOWN" />
+        <DropdownSelection timestamp="2026-06-14T14:31:00.371947Z">
+          <Target type="DEFAULT_BOOT">
+            <handle>
+              <DeviceId pluginId="LocalEmulator" identifier="path=/Users/heebum/.android/avd/Pixel_9_Pro_XL_3.avd" />
             </handle>
           </Target>
         </DropdownSelection>

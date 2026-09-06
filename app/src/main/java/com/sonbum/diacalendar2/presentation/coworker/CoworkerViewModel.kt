@@ -3,19 +3,19 @@ package com.sonbum.diacalendar2.presentation.coworker
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sonbum.diacalendar2.data.local.datastore.CoworkerPreferences
+import com.sonbum.diacalendar2.data.local.datastore.ShiftColorPreferences
+import com.sonbum.diacalendar2.data.local.datastore.ShiftDisplayColors
 import com.sonbum.diacalendar2.domain.model.Coworker
 import com.sonbum.diacalendar2.domain.model.CoworkerGroup
 import com.sonbum.diacalendar2.domain.repository.CoworkerRepository
 import com.sonbum.diacalendar2.domain.repository.HolidayRepository
-import com.sonbum.diacalendar2.domain.repository.LateHolidayRecordRepository
-import com.sonbum.diacalendar2.domain.repository.LateWorkRecordRepository
-import com.sonbum.diacalendar2.domain.repository.ShiftInputRecordRepository
-import com.sonbum.diacalendar2.domain.repository.ShiftRepository
-import com.sonbum.diacalendar2.domain.repository.ShiftSwapRecordRepository
+import com.sonbum.diacalendar2.domain.usecase.EffectiveShift
+import com.sonbum.diacalendar2.domain.usecase.EffectiveShiftUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -27,7 +27,7 @@ data class CoworkerUiState(
     val groups: List<CoworkerGroup> = emptyList(),
     /** null = 전체 */
     val selectedGroupId: Long? = null,
-    val myScheduleMap: Map<LocalDate, String> = emptyMap(),
+    val myScheduleMap: Map<LocalDate, EffectiveShift> = emptyMap(),
     /** coworkerId → 해당 월 날짜→근무 Map (캐시) */
     val coworkerSchedules: Map<Long, Map<LocalDate, String>> = emptyMap(),
     val holidayMap: Map<LocalDate, String> = emptyMap(),
@@ -43,17 +43,18 @@ data class CoworkerUiState(
 
 class CoworkerViewModel(
     private val coworkerRepository: CoworkerRepository,
-    private val shiftRepository: ShiftRepository,
     private val holidayRepository: HolidayRepository,
-    private val shiftSwapRecordRepository: ShiftSwapRecordRepository,
-    private val shiftInputRecordRepository: ShiftInputRecordRepository,
-    private val lateWorkRecordRepository: LateWorkRecordRepository,
-    private val lateHolidayRecordRepository: LateHolidayRecordRepository,
-    private val coworkerPreferences: CoworkerPreferences
+    private val effectiveShiftUseCase: EffectiveShiftUseCase,
+    private val coworkerPreferences: CoworkerPreferences,
+    private val shiftColorPreferences: ShiftColorPreferences
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(CoworkerUiState())
     val state = _state.asStateFlow()
+
+    /** 사용자 설정 주간/야간 근무 배경색 (달력 셀과 동일하게 적용) */
+    val shiftDisplayColors = shiftColorPreferences.colors
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ShiftDisplayColors.DEFAULT)
 
     init {
         viewModelScope.launch {
@@ -66,39 +67,8 @@ class CoworkerViewModel(
             combine(
                 coworkerRepository.getAllCoworkers(),
                 coworkerRepository.getAllGroups(),
-                // 유효 교번 우선순위: 교체 → 지근 → 충당 → 지휴
-                combine(
-                    shiftRepository.getScheduleMap(),
-                    shiftSwapRecordRepository.getAllRecords().map { records ->
-                        records.associate { it.date to it.swappedShiftName }
-                    },
-                    shiftInputRecordRepository.getAllRecords(),
-                    lateWorkRecordRepository.getAllRecords().map { records ->
-                        records.associate { it.date to it.shortName }
-                    },
-                    lateHolidayRecordRepository.getAllRecords().map { records ->
-                        records.associate { it.date to it.shortName }
-                    }
-                ) { scheduleMap, swapMap, shiftInputRecords, lateWorkMap, lateHolidayMap ->
-                    val effectiveMap = scheduleMap.toMutableMap()
-                    // 1. 근무 교체 적용
-                    swapMap.forEach { (date, swappedName) ->
-                        effectiveMap[date] = swappedName
-                    }
-                    // 2. 지근 적용 (교체보다 우선)
-                    lateWorkMap.forEach { (date, name) ->
-                        effectiveMap[date] = name
-                    }
-                    // 3. 충당 적용 (지근보다 우선)
-                    shiftInputRecords.forEach { record ->
-                        effectiveMap[record.date] = record.targetShiftName
-                    }
-                    // 4. 지휴 적용 (충당보다 우선)
-                    lateHolidayMap.forEach { (date, name) ->
-                        effectiveMap[date] = name
-                    }
-                    effectiveMap.toMap()
-                }
+                // 유효 교번 우선순위: 근태 > 지휴 > 충당 > 지근 > 교체 > 원래 교번
+                effectiveShiftUseCase.observe()
             ) { coworkers, groups, effectiveMyMap ->
                 Triple(coworkers, groups, effectiveMyMap)
             }.collect { (coworkers, groups, myMap) ->

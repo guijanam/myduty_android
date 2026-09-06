@@ -50,6 +50,7 @@ import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 
 import androidx.compose.runtime.mutableStateOf
@@ -188,7 +189,10 @@ fun ProfileScreen(
 			when (page) {
 				0 -> MemoHistoryTab(
 					state = state,
-					onDeleteMemo = viewModel::deleteMemo
+					onDeleteMemo = viewModel::deleteMemo,
+					onYearSelected = viewModel::onYearSelected,
+					onSearchQueryChange = viewModel::onSearchQueryChange,
+					onLoadMore = viewModel::loadMoreMemos
 				)
 				1 -> VacationHistoryTab(
 					state = state,
@@ -285,11 +289,14 @@ private fun YearSelector(
 @Composable
 private fun MemoHistoryTab(
 	state: ProfileState,
-	onDeleteMemo: (Memo) -> Unit
+	onDeleteMemo: (Memo) -> Unit,
+	onYearSelected: (Int?) -> Unit,
+	onSearchQueryChange: (String) -> Unit,
+	onLoadMore: () -> Unit
 ) {
 	var memoToDelete by remember { mutableStateOf<Memo?>(null) }
-	var selectedYear by remember { mutableStateOf<Int?>(LocalDate.now().year) }
-	var searchQuery by remember { mutableStateOf("") }
+	val selectedYear = state.selectedYear
+	val searchQuery = state.searchQuery
 
 	// 삭제 확인 다이얼로그
 	memoToDelete?.let { memo ->
@@ -326,7 +333,7 @@ private fun MemoHistoryTab(
 				CircularProgressIndicator()
 			}
 		}
-		state.memosByDate.isEmpty() -> {
+		state.memoYears.isEmpty() -> {
 			Box(
 				modifier = Modifier.fillMaxSize(),
 				contentAlignment = Alignment.Center
@@ -350,43 +357,30 @@ private fun MemoHistoryTab(
 			}
 		}
 		else -> {
-			val availableYears = remember(state.memosByDate) {
-				state.memosByDate.keys.map { it.year }.distinct().sortedDescending()
-			}
+			val availableYears = state.memoYears
 
-			val filteredMemos = remember(state.memosByDate, selectedYear, searchQuery) {
-				val yearFiltered = if (selectedYear == null) {
-					state.memosByDate
-				} else {
-					state.memosByDate.filterKeys { it.year == selectedYear }
-				}
-				val searchFiltered = if (searchQuery.isBlank()) {
-					yearFiltered
-				} else {
-					yearFiltered.mapValues { (_, memos) ->
-						memos.filter { memo ->
-							memo.title.contains(searchQuery, ignoreCase = true) ||
-								memo.content.contains(searchQuery, ignoreCase = true)
-						}
-					}.filterValues { it.isNotEmpty() }
-				}
-				searchFiltered.flatMap { (date, memos) ->
-					listOf(MemoListItemType.Header(date, memos.size)) +
-						memos.map { MemoListItemType.MemoItem(it) }
-				}
+			// 연도/검색 필터는 DB 쿼리에서 이미 적용됨.
+			// 여기서는 로드된 페이지에 날짜 헤더만 끼워 넣는다.
+			val filteredMemos = remember(state.memos) {
+				state.memos
+					.groupBy { it.date }
+					.flatMap { (date, memos) ->
+						listOf(MemoListItemType.Header(date, memos.size)) +
+							memos.map { MemoListItemType.MemoItem(it) }
+					}
 			}
 
 			Column(modifier = Modifier.fillMaxSize()) {
 				YearSelector(
 					years = availableYears,
 					selectedYear = selectedYear,
-					onYearSelected = { selectedYear = it }
+					onYearSelected = onYearSelected
 				)
 
 				// 검색바
 				OutlinedTextField(
 					value = searchQuery,
-					onValueChange = { searchQuery = it },
+					onValueChange = onSearchQueryChange,
 					modifier = Modifier
 						.fillMaxWidth()
 						.padding(horizontal = 16.dp, vertical = 4.dp),
@@ -405,7 +399,7 @@ private fun MemoHistoryTab(
 					},
 					trailingIcon = {
 						if (searchQuery.isNotEmpty()) {
-							IconButton(onClick = { searchQuery = "" }) {
+							IconButton(onClick = { onSearchQueryChange("") }) {
 								Icon(
 									imageVector = Icons.Default.Clear,
 									contentDescription = "지우기",
@@ -439,7 +433,23 @@ private fun MemoHistoryTab(
 						)
 					}
 				} else {
+					val listState = rememberLazyListState()
+
+					// 리스트 끝 근처에 도달하면 다음 페이지 요청
+					val shouldLoadMore by remember(filteredMemos.size) {
+						derivedStateOf {
+							val lastVisible = listState.layoutInfo.visibleItemsInfo
+								.lastOrNull()?.index ?: return@derivedStateOf false
+							lastVisible >= filteredMemos.size - LOAD_MORE_THRESHOLD
+						}
+					}
+
+					LaunchedEffect(shouldLoadMore) {
+						if (shouldLoadMore) onLoadMore()
+					}
+
 					LazyColumn(
+						state = listState,
 						modifier = Modifier
 							.fillMaxSize()
 							.padding(bottom = 10.dp),
@@ -472,12 +482,32 @@ private fun MemoHistoryTab(
 								}
 							}
 						}
+
+						// 다음 페이지 로딩 표시
+						if (state.isLoadingMoreMemos) {
+							item(key = "memo_loading_more") {
+								Box(
+									modifier = Modifier
+										.fillMaxWidth()
+										.padding(vertical = 16.dp),
+									contentAlignment = Alignment.Center
+								) {
+									CircularProgressIndicator(
+										modifier = Modifier.size(24.dp),
+										strokeWidth = 2.dp
+									)
+								}
+							}
+						}
 					}
 				}
 			}
 		}
 	}
 }
+
+/** 리스트 끝에서 이만큼 남았을 때 다음 페이지를 미리 요청한다 */
+private const val LOAD_MORE_THRESHOLD = 10
 
 private sealed class MemoListItemType {
 	data class Header(val date: LocalDate, val count: Int) : MemoListItemType()

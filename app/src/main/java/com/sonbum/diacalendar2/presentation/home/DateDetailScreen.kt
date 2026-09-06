@@ -50,6 +50,9 @@ import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -71,8 +74,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.FilterChip
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -94,6 +99,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -117,6 +123,9 @@ import com.sonbum.diacalendar2.domain.model.Dia
 import com.sonbum.diacalendar2.domain.util.SubwayTrainParser
 import com.sonbum.diacalendar2.domain.model.Memo
 import com.sonbum.diacalendar2.domain.model.ShiftSwapRecord
+import com.sonbum.diacalendar2.domain.model.TrainFormation
+import com.sonbum.diacalendar2.domain.model.TrainHalf
+import com.sonbum.diacalendar2.presentation.trainformation.TrainFormationEditDialog
 import com.sonbum.diacalendar2.domain.model.VacationType
 import com.sonbum.diacalendar2.domain.model.LateWorkRecord
 import com.sonbum.diacalendar2.domain.model.LateWorkType
@@ -180,11 +189,22 @@ fun DateDetailScreen(
 	viewModel: DateDetailViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val shiftDisplayColors by viewModel.shiftDisplayColors.collectAsStateWithLifecycle()
+    // 달력 셀과 동일한 사용자 설정 주간/야간 근무 배경색
+    val dayShiftBackgroundColor = remember(shiftDisplayColors.dayShiftColorHex) {
+        shiftDisplayColors.dayShiftColorHex.toComposeColorOrNull()
+    }
+    val nightShiftBackgroundColor = remember(shiftDisplayColors.nightShiftColorHex) {
+        shiftDisplayColors.nightShiftColorHex.toComposeColorOrNull()
+    }
 
     // 캘린더 이벤트 다이얼로그 상태
     var showEventDialog by remember { mutableStateOf(false) }
     var editingEvent by remember { mutableStateOf<CalendarEvent?>(null) }
     var showDeleteConfirm by remember { mutableStateOf<CalendarEvent?>(null) }
+
+    // 메모 스와이프 삭제 확인 대상
+    var memoPendingDelete by remember { mutableStateOf<Memo?>(null) }
 
     // 공휴일 편집 다이얼로그 상태
     var showHolidayDialog by remember { mutableStateOf(false) }
@@ -192,6 +212,9 @@ fun DateDetailScreen(
 
     // 휴가 입력 다이얼로그 상태
     var showVacationDialog by remember { mutableStateOf(false) }
+
+    // 편성 입력 다이얼로그 상태
+    var formationDialogTarget by remember { mutableStateOf<FormationDialogTarget?>(null) }
 
     // 지근/지휴 입력 다이얼로그 상태 (제거됨 - 바로 토글)
 
@@ -369,6 +392,8 @@ fun DateDetailScreen(
 						    shiftName = state.effectiveShiftName ?: state.shiftName ?: "",
 						    originalShiftName = state.shiftName ?: "",
 						    dia = state.shiftDia,
+						    carryOverFirstTime = state.carryOverFirstTime,
+						    carryOverNumTr = state.carryOverNumTr,
 						    vacationRecord = state.vacationRecord,
 						    onVacationClick = { showVacationDialog = true },
 						    shiftSwapRecord = state.shiftSwapRecord,
@@ -381,7 +406,14 @@ fun DateDetailScreen(
 						        state.holidayWorkShifts.contains(state.effectiveShiftName) &&
 						        (isHoliday || isSaturday || isSunday),
 						    officeName = state.officeName,
-						    onNavigateToSubway = onNavigateToSubway
+						    dayShiftBackgroundColor = dayShiftBackgroundColor,
+						    nightShiftBackgroundColor = nightShiftBackgroundColor,
+						    isNightShift = state.isNightShift,
+						    onNavigateToSubway = onNavigateToSubway,
+						    formations = state.trainFormations,
+						    onFormationClick = { half, existing ->
+							    formationDialogTarget = FormationDialogTarget(half, existing)
+						    }
 					    )
 				    }
 			    //}
@@ -502,21 +534,45 @@ fun DateDetailScreen(
 						    label = "elevation"
 					    )
 
-					    ReorderableMemoCard(
-						    memo = memo,
-						    isDragging = isDragging,
-						    elevation = elevation,
-						    onClick = { onEditMemo(memo.objectId) },
-						    onToggleComplete = { viewModel.toggleMemoComplete(memo) },
-						    modifier = Modifier.draggableHandle(
-							    onDragStarted = {
-								    hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-							    },
-							    onDragStopped = {
-								    hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+					    val dismissState = rememberSwipeToDismissBoxState(
+						    confirmValueChange = { value ->
+							    if (value == SwipeToDismissBoxValue.EndToStart) {
+								    memoPendingDelete = memo
 							    }
-						    )
+							    // 실제 삭제는 확인창을 거치므로 항상 dismiss를 막는다
+							    false
+						    }
 					    )
+
+					    // 확인창이 닫히면(취소/삭제) 스와이프 위치를 원위치로 복원
+					    LaunchedEffect(memoPendingDelete) {
+						    if (memoPendingDelete?.objectId != memo.objectId) {
+							    dismissState.reset()
+						    }
+					    }
+
+					    SwipeToDismissBox(
+						    state = dismissState,
+						    enableDismissFromStartToEnd = false,
+						    enableDismissFromEndToStart = true,
+						    backgroundContent = {}
+					    ) {
+						    ReorderableMemoCard(
+							    memo = memo,
+							    isDragging = isDragging,
+							    elevation = elevation,
+							    onClick = { onEditMemo(memo.objectId) },
+							    onToggleComplete = { viewModel.toggleMemoComplete(memo) },
+							    modifier = Modifier.draggableHandle(
+								    onDragStarted = {
+									    hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+								    },
+								    onDragStopped = {
+									    hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+								    }
+							    )
+						    )
+					    }
 				    }
 			    }
 		    }//LazyColumn End
@@ -724,6 +780,30 @@ fun DateDetailScreen(
         )
     }
 
+    // 메모 스와이프 삭제 확인 다이얼로그
+    memoPendingDelete?.let { memo ->
+        AlertDialog(
+            onDismissRequest = { memoPendingDelete = null },
+            title = { Text("메모 삭제") },
+            text = { Text("\"${memo.title}\"을(를) 삭제하시겠습니까?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.deleteMemo(memo)
+                        memoPendingDelete = null
+                    }
+                ) {
+                    Text("삭제", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { memoPendingDelete = null }) {
+                    Text("취소")
+                }
+            }
+        )
+    }
+
     // 공휴일 편집 다이얼로그
     if (showHolidayDialog) {
         HolidayEditDialog(
@@ -787,6 +867,32 @@ fun DateDetailScreen(
         )
     }
 
+    // 편성 입력 다이얼로그
+    formationDialogTarget?.let { target ->
+        TrainFormationEditDialog(
+            half = target.half,
+            initial = target.existing,
+            onConfirm = { formationNo, note ->
+                val existing = target.existing
+                if (existing == null) {
+                    viewModel.addFormation(target.half, formationNo, note)
+                } else {
+                    viewModel.updateFormation(
+                        existing.copy(formationNo = formationNo, note = note.trim())
+                    )
+                }
+                formationDialogTarget = null
+            },
+            onDelete = target.existing?.let { existing ->
+                {
+                    viewModel.deleteFormation(existing.id)
+                    formationDialogTarget = null
+                }
+            },
+            onDismiss = { formationDialogTarget = null }
+        )
+    }
+
     // 교번교체 다이얼로그
     if (showShiftSwapDialog) {
         ShiftSwapInputDialog(
@@ -835,6 +941,8 @@ fun WorkTimeCard(
     shiftName: String,
     originalShiftName: String = shiftName,
     dia: Dia?,
+    carryOverFirstTime: String? = null,
+    carryOverNumTr: String? = null,
     vacationRecord: com.sonbum.diacalendar2.domain.model.VacationRecord? = null,
     onVacationClick: () -> Unit = {},
     shiftSwapRecord: ShiftSwapRecord? = null,
@@ -845,7 +953,12 @@ fun WorkTimeCard(
     shiftInputRecord: ShiftInputRecord? = null,
     isHolidayWork: Boolean = false,
     officeName: String? = null,
-    onNavigateToSubway: (String, Int, String) -> Unit = { _, _, _ -> }
+    onNavigateToSubway: (String, Int, String) -> Unit = { _, _, _ -> },
+    formations: List<TrainFormation> = emptyList(),
+    onFormationClick: (TrainHalf, TrainFormation?) -> Unit = { _, _ -> },
+    dayShiftBackgroundColor: Color? = null,
+    nightShiftBackgroundColor: Color? = null,
+    isNightShift: Boolean = false
 ) {
     val hasVacation = vacationRecord != null
     val hasSwap = shiftSwapRecord != null
@@ -859,6 +972,13 @@ fun WorkTimeCard(
         hasVacation || hasLateHoliday -> 0.35f
         hasLateWork && !hasShiftInput -> 0.35f  // 지근만 있고 충당이 없을 때
         else -> 1f
+    }
+
+    val firstHalfFormations = remember(formations) {
+        formations.filter { it.half == TrainHalf.FIRST }.sortedBy { it.sortOrder }
+    }
+    val secondHalfFormations = remember(formations) {
+        formations.filter { it.half == TrainHalf.SECOND }.sortedBy { it.sortOrder }
     }
 
     Card(
@@ -910,7 +1030,28 @@ fun WorkTimeCard(
                                 }
                             }
                         }
-                        else -> MaterialTheme.colorScheme.primary to MaterialTheme.colorScheme.onPrimary
+                        shiftName == "지근" ->
+                            if (isDarkTheme) Color(0xFF0288D1) to Color.White
+                            else Color(0xFF81D4FA) to Color.Black
+                        shiftName == "지휴" ->
+                            if (isDarkTheme) Color(0xFFC62828) to Color.White
+                            else Color(0xFFFFCDD2) to Color.Black
+                        shiftName.contains("휴") ->
+                            MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.onErrorContainer
+                        shiftName.contains("대") ->
+                            if (isDarkTheme) Color(0xFF2E7D32) to Color.White
+                            else Color(0xFFC8E6C9) to Color(0xFF1B5E20)
+                        else -> {
+                            // 달력 셀과 동일하게 사용자 설정 주간/야간 색상 적용
+                            val customBackgroundColor =
+                                if (isNightShift) nightShiftBackgroundColor else dayShiftBackgroundColor
+                            if (customBackgroundColor != null) {
+                                customBackgroundColor to
+                                    (if (customBackgroundColor.luminance() > 0.5f) Color.Black else Color.White)
+                            } else {
+                                MaterialTheme.colorScheme.primary to MaterialTheme.colorScheme.onPrimary
+                            }
+                        }
                     }
 
                     Box(
@@ -1038,6 +1179,35 @@ fun WorkTimeCard(
                             fontWeight = FontWeight.Bold,
                             style = MaterialTheme.typography.bodyLarge
                         )
+                    }
+                }
+            }
+
+            // 전날 야간 근무가 이어지는 날(예: "59~")은 자체 Dia가 없으므로,
+            // 전날에서 이어진 후반 근무만 표시한다.
+            if (dia == null && (!carryOverNumTr.isNullOrBlank() || !carryOverFirstTime.isNullOrBlank())) {
+                Spacer(modifier = Modifier.height(8.dp))
+                val sectionCardColors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f)
+                )
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .graphicsLayer { alpha = shiftContentAlpha },
+                    colors = sectionCardColors
+                ) {
+                    Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                        if (!carryOverNumTr.isNullOrBlank()) {
+                            TrainNumberRow(
+                                label = "후반",
+                                numTr = carryOverNumTr,
+                                officeName = officeName,
+                                onNavigateToSubway = onNavigateToSubway
+                            )
+                        }
+                        if (!carryOverFirstTime.isNullOrBlank()) {
+                            ShiftAlarmRow(label = "후반", value = carryOverFirstTime)
+                        }
                     }
                 }
             }
@@ -1339,14 +1509,17 @@ fun WorkTimeCard(
 			                colors = sectionCardColors
 		                ) {
 			                Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-				                if (!dia.numTr1.isNullOrBlank()) {
-					                TrainNumberRow(
-						                label = "전반",
-						                numTr = dia.numTr1,
-						                officeName = officeName,
-						                onNavigateToSubway = onNavigateToSubway
-					                )
-				                }
+				                // 열번이 없는 승무소(예: 대기근무)에서도 편성은 기록할 수 있어야 하므로
+				                // numTr 유무와 무관하게 항상 표시한다.
+				                TrainNumberRow(
+					                label = "전반",
+					                numTr = dia.numTr1,
+					                officeName = officeName,
+					                onNavigateToSubway = onNavigateToSubway,
+					                formations = firstHalfFormations,
+					                onAddFormation = { onFormationClick(TrainHalf.FIRST, null) },
+					                onFormationClick = { onFormationClick(TrainHalf.FIRST, it) }
+				                )
 				                if (!dia.firstTime.isNullOrBlank()) {
 					                ShiftAlarmRow(label = "전반", value = dia.firstTime)
 				                }
@@ -1361,14 +1534,17 @@ fun WorkTimeCard(
 			                colors = sectionCardColors
 		                ) {
 			                Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-				                if (!dia.numTr2.isNullOrBlank()) {
-					                TrainNumberRow(
-						                label = "후반",
-						                numTr = dia.numTr2,
-						                officeName = officeName,
-						                onNavigateToSubway = onNavigateToSubway
-					                )
-				                }
+				                // 열번이 없는 승무소(예: 대기근무)에서도 편성은 기록할 수 있어야 하므로
+				                // numTr 유무와 무관하게 항상 표시한다.
+				                TrainNumberRow(
+					                label = "후반",
+					                numTr = dia.numTr2,
+					                officeName = officeName,
+					                onNavigateToSubway = onNavigateToSubway,
+					                formations = secondHalfFormations,
+					                onAddFormation = { onFormationClick(TrainHalf.SECOND, null) },
+					                onFormationClick = { onFormationClick(TrainHalf.SECOND, it) }
+				                )
 				                if (!dia.secondTime.isNullOrBlank()) {
 					                ShiftAlarmRow(label = "후반", value = dia.secondTime)
 				                }
@@ -1581,6 +1757,12 @@ private fun TrNumRow(label: String, value: String) {
 	}
 }
 
+/** 편성 다이얼로그 대상: 어느 반(半)의, 어떤 기존 기록(null이면 추가)인지 */
+private data class FormationDialogTarget(
+	val half: TrainHalf,
+	val existing: TrainFormation?
+)
+
 /**
  * 열번(numTr 원본) 표시 + 오른쪽 끝 실시간 위치 버튼.
  * 첫 토큰이 숫자(=호선 파싱 가능)이고 officeName이 있을 때만 tram 버튼 노출.
@@ -1588,41 +1770,127 @@ private fun TrNumRow(label: String, value: String) {
 @Composable
 private fun TrainNumberRow(
 	label: String,
-	numTr: String,
+	numTr: String?,
 	officeName: String?,
-	onNavigateToSubway: (String, Int, String) -> Unit
+	onNavigateToSubway: (String, Int, String) -> Unit,
+	formations: List<TrainFormation> = emptyList(),
+	onAddFormation: (() -> Unit)? = null,
+	onFormationClick: (TrainFormation) -> Unit = {}
 ) {
-	Row(
-		modifier = Modifier
-			.fillMaxWidth()
-			.padding(vertical = 2.dp),
-		verticalAlignment = Alignment.CenterVertically
-	) {
-		Text(
-			text = label,
-			style = MaterialTheme.typography.labelLarge,
-			color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
-			modifier = Modifier.width(40.dp)
-		)
-		Text(
-			text = numTr,
-			style = MaterialTheme.typography.bodyMedium,
-			fontWeight = FontWeight.SemiBold,
-			color = MaterialTheme.colorScheme.onPrimaryContainer
-		)
-		Spacer(modifier = Modifier.weight(1f))
+	Column(modifier = Modifier.fillMaxWidth()) {
+		Row(
+			modifier = Modifier
+				.fillMaxWidth()
+				.padding(vertical = 2.dp),
+			verticalAlignment = Alignment.CenterVertically
+		) {
+			Text(
+				text = label,
+				style = MaterialTheme.typography.labelLarge,
+				color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+				modifier = Modifier.width(40.dp)
+			)
+			if (!numTr.isNullOrBlank()) {
+				Text(
+					text = numTr,
+					style = MaterialTheme.typography.bodyMedium,
+					fontWeight = FontWeight.SemiBold,
+					color = MaterialTheme.colorScheme.onPrimaryContainer
+				)
+			}
 
-		val myTrainNo = SubwayTrainParser.firstToken(numTr)
-		val line = myTrainNo?.let { SubwayTrainParser.line(it) }
-		if (myTrainNo != null && line != null && !officeName.isNullOrBlank()) {
-			IconButton(
-				onClick = { onNavigateToSubway(myTrainNo, line, officeName) },
-				modifier = Modifier.size(32.dp)
+			// 편성 추가 버튼: 열번 바로 오른쪽 (열번이 없는 승무소에서도 표시)
+			// IconButton 대신 clickable Box를 써서 48dp 최소 터치영역으로 인한
+			// 불필요한 세로 여백을 없앤다.
+			if (onAddFormation != null) {
+				Box(
+					modifier = Modifier
+						.padding(start = 4.dp)
+						.size(24.dp)
+						.clickable(
+							interactionSource = remember { MutableInteractionSource() },
+							indication = null,
+							onClick = onAddFormation
+						),
+					contentAlignment = Alignment.Center
+				) {
+					Icon(
+						imageVector = Icons.Filled.AddCircleOutline,
+						contentDescription = "$label 편성 추가",
+						tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+						modifier = Modifier.size(18.dp)
+					)
+				}
+			}
+
+			Spacer(modifier = Modifier.weight(1f))
+
+			val myTrainNo = numTr?.let { SubwayTrainParser.firstToken(it) }
+			val line = myTrainNo?.let { SubwayTrainParser.line(it) }
+			if (myTrainNo != null && line != null && !officeName.isNullOrBlank()) {
+				IconButton(
+					onClick = { onNavigateToSubway(myTrainNo, line, officeName) },
+					modifier = Modifier.size(32.dp)
+				) {
+					Icon(
+						imageVector = Icons.Filled.Tram,
+						contentDescription = "실시간 열차 위치",
+						tint = MaterialTheme.colorScheme.primary
+					)
+				}
+			}
+		}
+
+		// 저장된 편성 칩
+		if (formations.isNotEmpty()) {
+			FlowRow(
+				modifier = Modifier
+					.fillMaxWidth()
+					.padding(start = 40.dp, bottom = 2.dp),
+				horizontalArrangement = Arrangement.spacedBy(6.dp),
+				verticalArrangement = Arrangement.spacedBy(2.dp)
 			) {
-				Icon(
-					imageVector = Icons.Filled.Tram,
-					contentDescription = "실시간 열차 위치",
-					tint = MaterialTheme.colorScheme.primary
+				formations.forEach { formation ->
+					FormationChip(
+						formation = formation,
+						onClick = { onFormationClick(formation) }
+					)
+				}
+			}
+		}
+	}
+}
+
+/** 저장된 편성 1건을 나타내는 칩. 탭하면 수정/삭제 다이얼로그. */
+@Composable
+private fun FormationChip(
+	formation: TrainFormation,
+	onClick: () -> Unit
+) {
+	Surface(
+		onClick = onClick,
+		shape = RoundedCornerShape(12.dp),
+		color = MaterialTheme.colorScheme.secondaryContainer,
+		contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+	) {
+		Row(
+			modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+			verticalAlignment = Alignment.CenterVertically,
+			horizontalArrangement = Arrangement.spacedBy(4.dp)
+		) {
+			Text(
+				text = "${formation.formationNo}편성",
+				style = MaterialTheme.typography.bodyMedium,
+				fontWeight = FontWeight.SemiBold
+			)
+			if (formation.note.isNotBlank()) {
+				Text(
+					text = formation.note,
+					style = MaterialTheme.typography.bodySmall,
+					color = LocalContentColor.current.copy(alpha = 0.7f),
+					maxLines = 1,
+					overflow = TextOverflow.Ellipsis,
+					modifier = Modifier.widthIn(max = 120.dp)
 				)
 			}
 		}
@@ -3493,4 +3761,14 @@ private fun OfficeWebsitePasswordDialog(
 			}
 		}
 	)
+}
+
+private fun String.toComposeColorOrNull(): Color? {
+    // 빈 값(테마 기본색)이면 null을 돌려주고, 잘못된 값도 예외로 앱이 죽지 않게 한다.
+    if (isBlank()) return null
+    return try {
+        Color(toColorInt())
+    } catch (e: RuntimeException) {
+        null
+    }
 }

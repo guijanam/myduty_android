@@ -55,7 +55,6 @@ class MainActivity : ComponentActivity() {
 
 	private val themePreferences: ThemePreferences by inject()
 	private lateinit var inAppUpdateManager: InAppUpdateManager
-	private var adShownOnColdStart = false
 	private var updateCheckRequested = false
 
 	private val updateLauncher = registerForActivityResult(
@@ -250,14 +249,6 @@ class MainActivity : ComponentActivity() {
 				waitingForNotificationPermission = false
 			}
 		}
-		// 오프닝 광고 표시 (콜드 스타트 1회만) - 사용자 확보 후 주석 해제
-//		if (!adShownOnColdStart) {
-//			adShownOnColdStart = true
-//			val adManager = (application as Diacalendar2App).appOpenAdManager
-//			if (adManager?.isShowingAd == false) {
-//				adManager.loadAndShow(this)
-//			}
-//		}
 	}
 
 	override fun onPause() {

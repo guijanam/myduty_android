@@ -68,6 +68,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.core.graphics.toColorInt
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -76,7 +77,10 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sonbum.diacalendar2.domain.model.Coworker
 import com.sonbum.diacalendar2.domain.model.CoworkerGroup
+import com.sonbum.diacalendar2.domain.usecase.EffectiveShift
+import com.sonbum.diacalendar2.data.local.datastore.ShiftDisplayColors
 import com.sonbum.diacalendar2.presentation.shared.ShiftBadge
+import com.sonbum.diacalendar2.presentation.shared.VacationBadge
 import org.koin.compose.viewmodel.koinViewModel
 import java.time.LocalDate
 import java.time.YearMonth
@@ -92,6 +96,7 @@ fun CoworkerScreen(
     viewModel: CoworkerViewModel = koinViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val shiftDisplayColors by viewModel.shiftDisplayColors.collectAsStateWithLifecycle()
     var groupDropdownExpanded by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -220,7 +225,8 @@ fun CoworkerScreen(
         when (state.selectedTab) {
             CoworkerTab.CALENDAR -> CoworkerCalendarTab(
                 innerPadding = innerPadding,
-                state = state
+                state = state,
+                shiftDisplayColors = shiftDisplayColors
             )
             CoworkerTab.LIST -> CoworkerListTab(
                 innerPadding = innerPadding,
@@ -238,7 +244,8 @@ fun CoworkerScreen(
 @Composable
 private fun CoworkerCalendarTab(
     innerPadding: PaddingValues,
-    state: CoworkerUiState
+    state: CoworkerUiState,
+    shiftDisplayColors: ShiftDisplayColors = ShiftDisplayColors.DEFAULT
 ) {
     if (state.coworkers.isEmpty()) {
         Box(
@@ -267,7 +274,8 @@ private fun CoworkerCalendarTab(
             myScheduleMap = state.myScheduleMap,
             coworkers = state.filteredCoworkers,
             coworkerSchedules = state.coworkerSchedules,
-            holidayMap = state.holidayMap
+            holidayMap = state.holidayMap,
+            shiftDisplayColors = shiftDisplayColors
         )
     }
 }
@@ -465,11 +473,19 @@ private fun CoworkerCalendarGrid(
     modifier: Modifier = Modifier,
     year: Int,
     month: Int,
-    myScheduleMap: Map<LocalDate, String>,
+    myScheduleMap: Map<LocalDate, EffectiveShift>,
     coworkers: List<Coworker>,
     coworkerSchedules: Map<Long, Map<LocalDate, String>>,
-    holidayMap: Map<LocalDate, String> = emptyMap()
+    holidayMap: Map<LocalDate, String> = emptyMap(),
+    shiftDisplayColors: ShiftDisplayColors = ShiftDisplayColors.DEFAULT
 ) {
+    // 달력 셀과 동일한 사용자 설정 주간/야간 배경색
+    val dayShiftBackgroundColor = remember(shiftDisplayColors.dayShiftColorHex) {
+        shiftDisplayColors.dayShiftColorHex.toComposeColorOrNull()
+    }
+    val nightShiftBackgroundColor = remember(shiftDisplayColors.nightShiftColorHex) {
+        shiftDisplayColors.nightShiftColorHex.toComposeColorOrNull()
+    }
     val yearMonth = YearMonth.of(year, month)
     val firstDay = yearMonth.atDay(1)
     val daysInMonth = yearMonth.lengthOfMonth()
@@ -487,8 +503,11 @@ private fun CoworkerCalendarGrid(
         CoworkerDayDetailDialog(
             date = date,
             myShift = myScheduleMap[date],
+            isMyNightShift = myScheduleMap[date.plusDays(1)]?.name?.contains("~") == true,
             coworkers = coworkers,
             coworkerSchedules = coworkerSchedules,
+            dayShiftBackgroundColor = dayShiftBackgroundColor,
+            nightShiftBackgroundColor = nightShiftBackgroundColor,
             onDismiss = { selectedDate = null }
         )
     }
@@ -527,12 +546,14 @@ private fun CoworkerCalendarGrid(
         }
 
         // ── 달력 본문 ──────────────────────────────────────────────────────
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
+        // 주(row) 단위 LazyColumn: 화면 밖 주는 구성 해제되어 노드 수가 유지됨
+        LazyColumn(
+            modifier = Modifier.fillMaxSize()
         ) {
-            (0 until rows).forEach { row ->
+            items(
+                count = rows,
+                key = { row -> "${year}_${month}_week_$row" }
+            ) { row ->
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -591,8 +612,12 @@ private fun CoworkerCalendarGrid(
                                     isSaturday = col == 6,
                                     isHoliday = holidayMap.containsKey(date),
                                     myShift = myScheduleMap[date],
+                                    // 다음날 근무명에 "~"가 있으면 이 날은 야간 근무
+                                    isMyNightShift = myScheduleMap[date.plusDays(1)]?.name?.contains("~") == true,
                                     coworkers = coworkers,
                                     coworkerSchedules = coworkerSchedules,
+                                    dayShiftBackgroundColor = dayShiftBackgroundColor,
+                                    nightShiftBackgroundColor = nightShiftBackgroundColor,
                                     rowHeight = rowHeight,
                                     onClick = { selectedDate = date }
                                 )
@@ -607,7 +632,9 @@ private fun CoworkerCalendarGrid(
                     }
                 }
             }
-            Spacer(Modifier.height(88.dp))
+            item(key = "bottom_spacer") {
+                Spacer(Modifier.height(88.dp))
+            }
         }
     }
 }
@@ -619,9 +646,12 @@ private fun CoworkerDayCell(
     isSunday: Boolean,
     isSaturday: Boolean,
     isHoliday: Boolean,
-    myShift: String?,
+    myShift: EffectiveShift?,
+    isMyNightShift: Boolean = false,
     coworkers: List<Coworker>,
     coworkerSchedules: Map<Long, Map<LocalDate, String>>,
+    dayShiftBackgroundColor: Color? = null,
+    nightShiftBackgroundColor: Color? = null,
     rowHeight: androidx.compose.ui.unit.Dp,
     onClick: () -> Unit = {}
 ) {
@@ -665,18 +695,41 @@ private fun CoworkerDayCell(
                 ),
             contentAlignment = Alignment.Center
         ) {
-            if (myShift != null) ShiftBadge(shiftName = myShift, fontSize = 10f)
+            if (myShift != null) {
+                if (myShift.isVacation) {
+                    VacationBadge(shortName = myShift.name, fontSize = 10f)
+                } else {
+                    ShiftBadge(
+                        shiftName = myShift.name,
+                        fontSize = 10f,
+                        dayShiftBackgroundColor = dayShiftBackgroundColor,
+                        nightShiftBackgroundColor = nightShiftBackgroundColor,
+                        isNightShift = isMyNightShift
+                    )
+                }
+            }
         }
         // 동료 근무 (18dp × N)
         coworkers.forEach { coworker ->
-            val shift = coworkerSchedules[coworker.id]?.get(date)
+            val schedule = coworkerSchedules[coworker.id]
+            val shift = schedule?.get(date)
+            // 동료도 다음날 근무명에 "~"가 있으면 이 날이 야간 근무다
+            val isNight = schedule?.get(date.plusDays(1))?.contains("~") == true
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(18.dp),
                 contentAlignment = Alignment.Center
             ) {
-                if (shift != null) ShiftBadge(shiftName = shift, fontSize = 9f)
+                if (shift != null) {
+                    ShiftBadge(
+                        shiftName = shift,
+                        fontSize = 9f,
+                        dayShiftBackgroundColor = dayShiftBackgroundColor,
+                        nightShiftBackgroundColor = nightShiftBackgroundColor,
+                        isNightShift = isNight
+                    )
+                }
             }
         }
     }
@@ -687,9 +740,12 @@ private fun CoworkerDayCell(
 @Composable
 private fun CoworkerDayDetailDialog(
     date: LocalDate,
-    myShift: String?,
+    myShift: EffectiveShift?,
+    isMyNightShift: Boolean = false,
     coworkers: List<Coworker>,
     coworkerSchedules: Map<Long, Map<LocalDate, String>>,
+    dayShiftBackgroundColor: Color? = null,
+    nightShiftBackgroundColor: Color? = null,
     onDismiss: () -> Unit
 ) {
     val dayOfWeek = date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.KOREAN)
@@ -743,7 +799,17 @@ private fun CoworkerDayDetailDialog(
                         modifier = Modifier.weight(1f)
                     )
                     if (myShift != null) {
-                        ShiftBadge(shiftName = myShift, fontSize = 14f)
+                        if (myShift.isVacation) {
+                            VacationBadge(shortName = myShift.name, fontSize = 14f)
+                        } else {
+                            ShiftBadge(
+                                shiftName = myShift.name,
+                                fontSize = 14f,
+                                dayShiftBackgroundColor = dayShiftBackgroundColor,
+                                nightShiftBackgroundColor = nightShiftBackgroundColor,
+                                isNightShift = isMyNightShift
+                            )
+                        }
                     } else {
                         Text(
                             text = "-",
@@ -757,7 +823,9 @@ private fun CoworkerDayDetailDialog(
 
                 // 동료 근무
                 coworkers.forEach { coworker ->
-                    val shift = coworkerSchedules[coworker.id]?.get(date)
+                    val schedule = coworkerSchedules[coworker.id]
+                    val shift = schedule?.get(date)
+                    val isNight = schedule?.get(date.plusDays(1))?.contains("~") == true
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -783,7 +851,13 @@ private fun CoworkerDayDetailDialog(
                             modifier = Modifier.weight(1f)
                         )
                         if (shift != null) {
-                            ShiftBadge(shiftName = shift, fontSize = 14f)
+                            ShiftBadge(
+                                shiftName = shift,
+                                fontSize = 14f,
+                                dayShiftBackgroundColor = dayShiftBackgroundColor,
+                                nightShiftBackgroundColor = nightShiftBackgroundColor,
+                                isNightShift = isNight
+                            )
                         } else {
                             Text(
                                 text = "-",
@@ -796,4 +870,14 @@ private fun CoworkerDayDetailDialog(
             }
         }
     )
+}
+
+private fun String.toComposeColorOrNull(): Color? {
+    // 빈 값(테마 기본색)이면 null을 돌려주고, 잘못된 값도 예외로 앱이 죽지 않게 한다.
+    if (isBlank()) return null
+    return try {
+        Color(toColorInt())
+    } catch (e: RuntimeException) {
+        null
+    }
 }

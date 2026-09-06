@@ -62,7 +62,8 @@ data class AppBackupData(
     val chatNotes: List<ChatNoteBackup> = emptyList(),
     val anniversaries: List<AnniversaryBackup> = emptyList(),
     val coworkerGroups: List<CoworkerGroupBackup> = emptyList(),
-    val coworkers: List<CoworkerBackup> = emptyList()
+    val coworkers: List<CoworkerBackup> = emptyList(),
+    val trainFormations: List<TrainFormationBackup> = emptyList()
 ) {
     companion object {
         const val CURRENT_VERSION = 2
@@ -230,6 +231,19 @@ data class AnniversaryBackup(
     val month: Int,
     val day: Int,
     val isLunar: Boolean,
+    val createdAt: Long
+)
+
+@Serializable
+data class TrainFormationBackup(
+    val id: Long,
+    val date: String,
+    val half: String,
+    val formationNo: Int,
+    val note: String,
+    val shiftName: String,
+    val numTr: String,
+    val sortOrder: Int,
     val createdAt: Long
 )
 

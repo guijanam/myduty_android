@@ -26,6 +26,10 @@ class LateWorkRecordRepositoryImpl(
         }
     }
 
+    override suspend fun getByDate(date: LocalDate): LateWorkRecord? {
+        return dao.getByDateOnce(date.toString())?.toDomain(date)
+    }
+
     override suspend fun addLateWork(
         startDate: LocalDate,
         days: Int,

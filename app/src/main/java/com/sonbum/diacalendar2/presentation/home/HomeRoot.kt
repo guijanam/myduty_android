@@ -1,6 +1,8 @@
 package com.sonbum.diacalendar2.presentation.home
 
 import android.widget.Toast
+import com.sonbum.diacalendar2.core.notification.ShiftReminderWorker
+import com.sonbum.diacalendar2.widget.WidgetUpdater
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
@@ -22,6 +24,7 @@ fun HomeRoot(
 	onNavigateToDetail: (String) -> Unit,
 	onNavigateToCalendarSelection: () -> Unit = {},
 	onNavigateToAnniversary: () -> Unit = {},
+	onNavigateToTrainFormation: () -> Unit = {},
 	onNavigateToShiftSelection: () -> Unit = {},
 	onNavigateToSubShiftSelection: () -> Unit = {},
 	onNavigateToAddMemo: (String) -> Unit = {},
@@ -29,6 +32,7 @@ fun HomeRoot(
 	onNavigateToDiaTable: () -> Unit = {},
 	onNavigateToVacationSetting: () -> Unit = {},
 	onNavigateToTextSizeSettings: () -> Unit = {},
+	onNavigateToShiftColorSettings: () -> Unit = {},
 	onNavigateToWorkAlarmSettings: () -> Unit = {},
 	modifier: Modifier,
 	viewModel: HomeViewModel = koinViewModel()
@@ -36,6 +40,7 @@ fun HomeRoot(
 	val state by viewModel.state.collectAsStateWithLifecycle()
 	val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
 	val textSizes by viewModel.textSizes.collectAsStateWithLifecycle()
+	val shiftDisplayColors by viewModel.shiftDisplayColors.collectAsStateWithLifecycle()
 	val showCrewPattern by viewModel.showCrewPattern.collectAsStateWithLifecycle()
 	val crewPattern by viewModel.crewPattern.collectAsStateWithLifecycle()
 	val crewPatternStartDate by viewModel.crewPatternStartDate.collectAsStateWithLifecycle()
@@ -84,6 +89,11 @@ fun HomeRoot(
 					// 복원 후 앱 데이터 새로고침
 					viewModel.refreshCalendarEvents()
 				}
+				is HomeEvent.ShiftRefreshed -> {
+					// 근무표 갱신 후 위젯/근무 알람 갱신
+					WidgetUpdater.updateAll(context)
+					ShiftReminderWorker.enqueue(context)
+				}
 			}
 		}
 	}
@@ -102,6 +112,7 @@ fun HomeRoot(
 		holidayWorkShifts = state.holidayWorkShifts,
 		vacationMap = state.vacationMap,
 		isRefreshingHolidays = state.isRefreshingHolidays,
+		isRefreshingShifts = state.isRefreshingShifts,
 		shiftPattern = state.shiftPattern,
 		isCustomShift = state.isCustomShift,
 		officeName = state.officeName,
@@ -109,6 +120,7 @@ fun HomeRoot(
 		onVisibleYearChanged = viewModel::onVisibleYearChanged,
 		onNavigateToCalendarSelection = onNavigateToCalendarSelection,
 		onNavigateToAnniversary = onNavigateToAnniversary,
+		onNavigateToTrainFormation = onNavigateToTrainFormation,
 		onNavigateToShiftSelection = onNavigateToShiftSelection,
 		onNavigateToSubShiftSelection = onNavigateToSubShiftSelection,
 		onToggleSubShift = viewModel::toggleShowSubShift,
@@ -121,11 +133,14 @@ fun HomeRoot(
 		currentThemeMode = themeMode,
 		onThemeModeChange = viewModel::setThemeMode,
 		onRefreshHolidays = viewModel::refreshHolidays,
+		onRefreshShiftSchedule = viewModel::refreshShiftSchedule,
 		onNavigateToDiaTable = onNavigateToDiaTable,
 		onNavigateToVacationSetting = onNavigateToVacationSetting,
 		onNavigateToTextSizeSettings = onNavigateToTextSizeSettings,
+		onNavigateToShiftColorSettings = onNavigateToShiftColorSettings,
 		onNavigateToWorkAlarmSettings = onNavigateToWorkAlarmSettings,
 		textSizes = textSizes,
+		shiftDisplayColors = shiftDisplayColors,
 		onBackup = {
 			// 파일 이름에 현재 날짜/시간 포함
 			val timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"))

@@ -5,10 +5,17 @@ import android.util.Log
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.state.updateAppWidgetState
+import com.sonbum.diacalendar2.core.util.DeviceIdProvider
+import com.sonbum.diacalendar2.domain.repository.SubscriptionRepository
+import com.sonbum.diacalendar2.wear.WearDataSyncManager
+import com.sonbum.diacalendar2.widget.data.WidgetDataProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import org.koin.java.KoinJavaComponent.getKoin
+import java.time.LocalDate
+import java.time.ZoneId
 
 private const val TAG = "WidgetUpdater"
 
@@ -58,6 +65,41 @@ object WidgetUpdater {
             } catch (e: Exception) {
                 Log.e(TAG, "Widget update failed", e)
             }
+
+            // 워치(Wear OS 타일) 동기화 — 위젯과 동일하게 모든 데이터 변경 시점에 전송
+            syncToWear(appContext)
+        }
+    }
+
+    /**
+     * 오늘의 유효교번/시각/열번을 계산해 워치 타일로 전송한다.
+     * 워치 미연결/예외는 무시한다(타일은 마지막 수신 데이터를 유지).
+     */
+    private suspend fun syncToWear(appContext: Context) {
+        try {
+            val koin = getKoin()
+            val provider = koin.get<WidgetDataProvider>()
+            val subscriptionRepository = koin.get<SubscriptionRepository>()
+
+            val today = LocalDate.now(ZoneId.of("Asia/Seoul"))
+            val data = provider.loadEffectiveShiftTimes(listOf(today)).firstOrNull()
+
+            val ssaid = DeviceIdProvider.getSsaid(appContext)
+            val isPremium = subscriptionRepository.isVip(ssaid)
+
+            WearDataSyncManager(appContext).syncTodayShift(
+                date = today,
+                turn = data?.effectiveShiftName,
+                worktime = data?.workTime,
+                firsttime = data?.firstTime,
+                secondtime = data?.secondTime,
+                tableName = data?.typeName,
+                numtr1 = data?.numTr1,
+                numtr2 = data?.numTr2,
+                isPremium = isPremium
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Wear sync failed", e)
         }
     }
 }

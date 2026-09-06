@@ -25,6 +25,32 @@ class MemoRepositoryImpl(
         }
     }
 
+    override fun getMemosBetween(startDate: LocalDate, endDate: LocalDate): Flow<List<Memo>> {
+        return memoDao.getMemosBetween(startDate.toString(), endDate.toString()).map { entities ->
+            entities.map { it.toDomain() }
+        }
+    }
+
+    override fun getMemoYears(): Flow<List<Int>> {
+        return memoDao.getMemoYears().map { years ->
+            years.mapNotNull { it.toIntOrNull() }
+        }
+    }
+
+    override suspend fun getMemosPaged(
+        year: Int?,
+        query: String,
+        limit: Int,
+        offset: Int
+    ): List<Memo> {
+        return memoDao.getMemosPaged(
+            year = year?.toString(),
+            query = query,
+            limit = limit,
+            offset = offset
+        ).map { it.toDomain() }
+    }
+
     override fun getDatesWithMemos(): Flow<List<LocalDate>> {
         return memoDao.getDatesWithMemos().map { dateStrings ->
             dateStrings.map { LocalDate.parse(it) }

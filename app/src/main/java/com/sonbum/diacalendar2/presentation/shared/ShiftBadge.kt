@@ -12,6 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -27,7 +28,10 @@ fun ShiftBadge(
     isShiftInput: Boolean = false,
     shiftInputColorHex: String? = null,
     isHolidayWork: Boolean = false,
-    fontSize: Float = 14f
+    fontSize: Float = 14f,
+    dayShiftBackgroundColor: Color? = null,
+    nightShiftBackgroundColor: Color? = null,
+    isNightShift: Boolean = false
 ) {
     val isContainsTilde = shiftName.contains("~")
     val displayText = if (shiftName.contains("~")) "~" else shiftName
@@ -71,8 +75,14 @@ fun ShiftBadge(
             } else {
                 Color(0xFFC8E6C9) to Color(0xFF1B5E20)
             }
-        else ->
-            MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.onPrimaryContainer
+        else -> {
+            val customBackgroundColor = if (isNightShift) nightShiftBackgroundColor else dayShiftBackgroundColor
+            if (customBackgroundColor != null) {
+                customBackgroundColor to customBackgroundColor.readableContentColor()
+            } else {
+                MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.onPrimaryContainer
+            }
+        }
     }
 
     val backgroundColor = if (isContainsTilde) rawBackgroundColor.copy(alpha = 0.3f) else rawBackgroundColor
@@ -101,4 +111,8 @@ fun ShiftBadge(
             )
         )
     }
+}
+
+private fun Color.readableContentColor(): Color {
+    return if (luminance() > 0.5f) Color.Black else Color.White
 }

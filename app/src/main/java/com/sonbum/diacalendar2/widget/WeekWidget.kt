@@ -2,6 +2,8 @@ package com.sonbum.diacalendar2.widget
 
 import android.content.Context
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -34,6 +36,7 @@ import com.sonbum.diacalendar2.MainActivity
 import com.sonbum.diacalendar2.widget.data.WidgetDataProvider
 import com.sonbum.diacalendar2.widget.data.WidgetDayData
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.koin.java.KoinJavaComponent.getKoin
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -48,13 +51,21 @@ class WeekWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         Log.d("WeekWidget", "provideGlance() called")
 
+        // 최초 데이터는 suspend 컨텍스트(백그라운드)에서 미리 로딩한다.
+        val initialData = loadData()
+
         provideContent {
             // currentState를 읽어서 상태 변경 시 recomposition 트리거
             val prefs = currentState<Preferences>()
             val lastUpdated = prefs[longPreferencesKey("last_updated")] ?: 0L
             Log.d("WeekWidget", "provideContent() recomposing, lastUpdated=$lastUpdated")
 
-            val dayDataList = loadDataBlocking()
+            // lastUpdated가 바뀌면 백그라운드에서 다시 로딩한다(메인 스레드 차단 금지).
+            val dayDataList by produceState(initialValue = initialData, key1 = lastUpdated) {
+                if (lastUpdated != 0L) {
+                    value = loadData()
+                }
+            }
 
             val size = LocalSize.current
             val scaleFactor = (size.width.value / 300f).coerceIn(1.0f, 2.0f)
@@ -65,7 +76,7 @@ class WeekWidget : GlanceAppWidget() {
         }
     }
 
-    private fun loadDataBlocking(): List<WidgetDayData> {
+    private suspend fun loadData(): List<WidgetDayData> {
         return try {
             val koin = getKoin()
             val provider = WidgetDataProvider(
@@ -84,7 +95,7 @@ class WeekWidget : GlanceAppWidget() {
             )
             val today = LocalDate.now(ZoneId.of("Asia/Seoul"))
             val weekDates = (0L..6L).map { today.plusDays(it) }
-            kotlinx.coroutines.runBlocking(Dispatchers.IO) {
+            withContext(Dispatchers.IO) {
                 provider.loadDayDataList(weekDates)
             }
         } catch (e: Exception) {

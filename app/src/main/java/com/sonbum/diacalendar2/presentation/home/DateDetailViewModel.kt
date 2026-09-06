@@ -2,6 +2,8 @@ package com.sonbum.diacalendar2.presentation.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.sonbum.diacalendar2.core.notification.AlarmScheduler
+import com.sonbum.diacalendar2.core.util.ImageUtils
 import com.sonbum.diacalendar2.domain.model.CalendarEvent
 import com.sonbum.diacalendar2.domain.model.DeviceCalendar
 import com.sonbum.diacalendar2.domain.model.Dia
@@ -34,8 +36,13 @@ import com.sonbum.diacalendar2.domain.repository.LateHolidayTypeRepository
 import com.sonbum.diacalendar2.domain.repository.ShiftInputRecordRepository
 import com.sonbum.diacalendar2.domain.repository.ShiftInputTypeRepository
 import com.sonbum.diacalendar2.domain.repository.AnniversaryRepository
+import com.sonbum.diacalendar2.domain.model.TrainFormation
+import com.sonbum.diacalendar2.domain.model.TrainHalf
+import com.sonbum.diacalendar2.domain.repository.TrainFormationRepository
 import com.sonbum.diacalendar2.data.local.OfficeWebsiteRegistry
 import com.sonbum.diacalendar2.domain.util.DayTypeResolver
+import com.sonbum.diacalendar2.data.local.datastore.ShiftColorPreferences
+import com.sonbum.diacalendar2.data.local.datastore.ShiftDisplayColors
 import com.sonbum.diacalendar2.widget.WidgetUpdater
 import com.sonbum.diacalendar2.core.notification.ShiftReminderWorker
 import android.content.Context
@@ -43,6 +50,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -65,6 +74,9 @@ data class DateDetailState(
     val shiftName: String? = null,
     val effectiveShiftName: String? = null,
     val shiftDia: Dia? = null,
+    // 전날에서 이어진 후반 근무 (다음날 전반 자리에 표시). null이면 이어진 근무 없음
+    val carryOverFirstTime: String? = null,   // 전날 dia.secondTime
+    val carryOverNumTr: String? = null,       // 전날 dia.numTr2
     val vacationRecord: VacationRecord? = null,
     val vacationTypes: List<VacationType> = emptyList(),
     val shiftSwapRecord: ShiftSwapRecord? = null,
@@ -80,7 +92,10 @@ data class DateDetailState(
     val isCustomShift: Boolean = false,
     val officeName: String? = null,
     val officeWebsiteUrl: String? = null,
-    val viewMode: DayViewMode = DayViewMode.LIST
+    val viewMode: DayViewMode = DayViewMode.LIST,
+    // 다음날 근무명이 "~"로 시작/포함하면 이 날은 야간 근무다 (달력 셀과 동일한 판별)
+    val isNightShift: Boolean = false,
+    val trainFormations: List<TrainFormation> = emptyList()
 )
 
 class DateDetailViewModel(
@@ -103,8 +118,14 @@ class DateDetailViewModel(
     private val localOfficeRepository: LocalOfficeRepository,
     private val officeWebsiteRegistry: OfficeWebsiteRegistry,
     private val anniversaryRepository: AnniversaryRepository,
+    private val alarmScheduler: AlarmScheduler,
+    private val trainFormationRepository: TrainFormationRepository,
+    private val shiftColorPreferences: ShiftColorPreferences,
     private val appContext: Context
 ) : ViewModel() {
+
+    val shiftDisplayColors = shiftColorPreferences.colors
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ShiftDisplayColors.DEFAULT)
 
     private val _state = MutableStateFlow(DateDetailState())
     val state = _state.asStateFlow()
@@ -139,6 +160,52 @@ class DateDetailViewModel(
         loadShiftInputInfo(date)
         loadShiftInputTypes()
         loadAnniversaryInfo(date)
+        loadTrainFormations(date)
+    }
+
+    private fun loadTrainFormations(date: LocalDate) {
+        viewModelScope.launch {
+            trainFormationRepository.observeByDate(date.toString()).collect { list ->
+                _state.update { it.copy(trainFormations = list) }
+            }
+        }
+    }
+
+    /**
+     * 편성 기록 추가.
+     * 기록 당시의 유효 교번/열번을 스냅샷으로 함께 저장한다 — Dia 는 날짜 키가 아니라
+     * (diaId, officeName, typeName) 로 조회되므로 나중에 재조회하면 값이 달라질 수 있다.
+     * numTr 은 없는 승무소(대기근무 등)도 있으므로 빈 문자열일 수 있다.
+     */
+    fun addFormation(half: TrainHalf, formationNo: Int, note: String) {
+        viewModelScope.launch {
+            val current = _state.value
+            val dateStr = current.date.toString()
+            val numTr = when (half) {
+                TrainHalf.FIRST -> current.shiftDia?.numTr1
+                TrainHalf.SECOND -> current.shiftDia?.numTr2
+            }.orEmpty()
+            trainFormationRepository.add(
+                TrainFormation(
+                    date = dateStr,
+                    half = half,
+                    formationNo = formationNo,
+                    note = note.trim(),
+                    shiftName = current.effectiveShiftName ?: current.shiftName.orEmpty(),
+                    numTr = numTr,
+                    sortOrder = trainFormationRepository.nextSortOrder(dateStr, half)
+                )
+            )
+        }
+    }
+
+    /** 편성번호/메모만 수정. 스냅샷(shiftName, numTr)은 재계산하지 않는다. */
+    fun updateFormation(formation: TrainFormation) {
+        viewModelScope.launch { trainFormationRepository.update(formation) }
+    }
+
+    fun deleteFormation(id: Long) {
+        viewModelScope.launch { trainFormationRepository.delete(id) }
     }
 
     private fun loadAnniversaryInfo(date: LocalDate) {
@@ -211,6 +278,14 @@ class DateDetailViewModel(
                 updateEffectiveShift()
             }
         }
+
+        // 다음날 근무명에 "~"가 있으면 이 날은 야간 근무 (HomeScreen 달력 셀과 동일한 판별)
+        viewModelScope.launch {
+            shiftRepository.observeScheduleByDate(date.plusDays(1)).collect { nextSchedule ->
+                val isNight = nextSchedule?.shiftName?.contains("~") == true
+                _state.update { it.copy(isNightShift = isNight) }
+            }
+        }
     }
 
     private suspend fun loadDiaForShift(
@@ -219,17 +294,77 @@ class DateDetailViewModel(
         config: com.sonbum.diacalendar2.domain.model.UserShiftConfig? = null
     ) {
         val effectiveConfig = config ?: shiftRepository.getUserConfigOnce() ?: return
-        val isLocalOffice = effectiveConfig.officeCode < 0
+
+        // 근무명이 "~"로 끝나면 전날 야간 근무가 이어지는 날이다 (예: "59~").
+        // "~"를 떼고 자체 Dia를 조회한다 (보통 자체 Dia는 없음).
+        // "~"로 끝나는 날은 전날 야간 근무가 이어지는 날일 뿐, 그 날 자체의 근무는 없다.
+        // 따라서 자체 Dia는 조회하지 않고(null), 전날 후반만 표시한다.
+        val isCarryOverDay = shiftName.endsWith("~")
+        val dia = if (isCarryOverDay) null else fetchDia(shiftName, date, effectiveConfig)
+
+        // 전날 야간 근무의 후반(secondTime)을 이 날에 표시한다.
+        // 조건: 이 날 근무명이 "~"로 끝남(이어지는 날) AND 전날 typeName이 cross-day.
+        var carryOverFirstTime: String? = null
+        var carryOverNumTr: String? = null
+        if (isCarryOverDay) {
+            val prevDate = date.minusDays(1)
+            // 전날 근무도 교체/충당/지근/지휴/근태가 반영된 "유효 근무"로 조회해야 한다.
+            // (원래 교번만 보면 이미 교체된 옛 근무의 후반이 계속 표시된다)
+            val prevShiftName = resolveEffectiveShiftName(prevDate)
+            if (!prevShiftName.isNullOrBlank()) {
+                val prevDia = fetchDia(prevShiftName.removeSuffix("~"), prevDate, effectiveConfig)
+                if (prevDia != null && DayTypeResolver.isCrossDayType(prevDia.typeName)) {
+                    carryOverFirstTime = prevDia.secondTime
+                    carryOverNumTr = prevDia.numTr2
+                }
+            }
+        }
+
+        _state.update {
+            it.copy(
+                shiftDia = dia,
+                carryOverFirstTime = carryOverFirstTime,
+                carryOverNumTr = carryOverNumTr
+            )
+        }
+    }
+
+    /**
+     * 특정 날짜의 유효 근무명을 조회한다.
+     * 우선순위: 근태(휴가) > 지휴 > 충당 > 지근 > 교번교체 > 원래 교번
+     *
+     * state의 레코드는 현재 날짜 것만 담고 있으므로, 다른 날짜(예: 전날)를 계산할 때는
+     * 반드시 이 함수처럼 날짜로 직접 조회해야 한다.
+     */
+    private suspend fun resolveEffectiveShiftName(date: LocalDate): String? {
+        vacationRecordRepository.getByDate(date)?.let { return it.shortName }
+        lateHolidayRecordRepository.getByDate(date)?.let { return it.lateHolidayName }
+        shiftInputRecordRepository.getByDate(date)?.let { return it.targetShiftName }
+        lateWorkRecordRepository.getByDate(date)?.let { return it.lateWorkName }
+        shiftSwapRecordRepository.getByDate(date)?.let { return it.swappedShiftName }
+        return shiftRepository.getScheduleByDate(date)?.shiftName
+    }
+
+    /**
+     * shiftName + 날짜 기준으로 Dia를 조회한다.
+     * 날짜로 typeName을 계산하고 fallback 순서대로 로컬/서버 DB에서 조회한다.
+     */
+    private suspend fun fetchDia(
+        shiftName: String,
+        date: LocalDate,
+        config: com.sonbum.diacalendar2.domain.model.UserShiftConfig
+    ): Dia? {
+        val isLocalOffice = config.officeCode < 0
 
         val holidayDates = holidayRepository.getHolidayDates().first()
         val typeName = DayTypeResolver.resolveTypeName(date, holidayDates)
         val fallbackTypes = DayTypeResolver.getFallbackTypeNames(typeName)
 
-        val dia = if (isLocalOffice) {
+        return if (isLocalOffice) {
             var localDia: LocalDia? = null
             for (type in fallbackTypes) {
                 localDia = localDiaRepository.getLocalDiaByDiaIdAndOfficeAndType(
-                    shiftName, effectiveConfig.officeName, type
+                    shiftName, config.officeName, type
                 )
                 if (localDia != null) break
             }
@@ -238,14 +373,12 @@ class DateDetailViewModel(
             var result: Dia? = null
             for (type in fallbackTypes) {
                 result = diaRepository.getDiaByDiaIdAndOfficeAndType(
-                    shiftName, effectiveConfig.officeName, type
+                    shiftName, config.officeName, type
                 )
                 if (result != null) break
             }
             result
         }
-
-        _state.update { it.copy(shiftDia = dia) }
     }
 
     private fun LocalDia.toDia(): Dia = Dia(
@@ -338,6 +471,16 @@ class DateDetailViewModel(
     fun toggleMemoComplete(memo: Memo) {
         viewModelScope.launch {
             memoRepository.updateMemo(memo.copy(isCompleted = !memo.isCompleted))
+            WidgetUpdater.updateAll(appContext)
+        }
+    }
+
+    fun deleteMemo(memo: Memo) {
+        viewModelScope.launch {
+            // 편집 화면 삭제와 동일하게 이미지 파일과 알람도 함께 정리한다
+            memo.imagePath?.let { ImageUtils.deleteImage(it) }
+            alarmScheduler.cancelMemoAlarm(memo.objectId)
+            memoRepository.deleteMemoById(memo.objectId)
             WidgetUpdater.updateAll(appContext)
         }
     }
@@ -625,7 +768,9 @@ class DateDetailViewModel(
             if (effectiveName != null) {
                 loadDiaForShift(effectiveName, state.date)
             } else {
-                _state.update { it.copy(shiftDia = null) }
+                _state.update {
+                    it.copy(shiftDia = null, carryOverFirstTime = null, carryOverNumTr = null)
+                }
             }
         }
     }

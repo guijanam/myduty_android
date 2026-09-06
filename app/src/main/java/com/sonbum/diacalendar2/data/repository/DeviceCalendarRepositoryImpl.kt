@@ -39,13 +39,17 @@ class DeviceCalendarRepositoryImpl(
     override val eventChanges: SharedFlow<Unit> = _eventChanges.asSharedFlow()
 
     companion object {
+        // 근무 동기화 이벤트 식별용 마커 (description에 저장 → 우리 이벤트만 골라 삭제)
+        const val SHIFT_SYNC_MARKER = "DiaCalendar 근무 동기화"
+
         private val CALENDAR_PROJECTION = arrayOf(
             CalendarContract.Calendars._ID,
             CalendarContract.Calendars.CALENDAR_DISPLAY_NAME,
             CalendarContract.Calendars.ACCOUNT_NAME,
             CalendarContract.Calendars.ACCOUNT_TYPE,
             CalendarContract.Calendars.CALENDAR_COLOR,
-            CalendarContract.Calendars.IS_PRIMARY
+            CalendarContract.Calendars.IS_PRIMARY,
+            CalendarContract.Calendars.CALENDAR_ACCESS_LEVEL
         )
 
         private const val PROJECTION_ID_INDEX = 0
@@ -54,6 +58,7 @@ class DeviceCalendarRepositoryImpl(
         private const val PROJECTION_ACCOUNT_TYPE_INDEX = 3
         private const val PROJECTION_CALENDAR_COLOR_INDEX = 4
         private const val PROJECTION_IS_PRIMARY_INDEX = 5
+        private const val PROJECTION_ACCESS_LEVEL_INDEX = 6
 
         // Event projection (단일 이벤트 조회용)
         private val EVENT_PROJECTION = arrayOf(
@@ -135,13 +140,16 @@ class DeviceCalendarRepositoryImpl(
 
             cursor?.let {
                 while (it.moveToNext()) {
+                    val accessLevel = it.getInt(PROJECTION_ACCESS_LEVEL_INDEX)
                     val calendar = DeviceCalendar(
                         id = it.getLong(PROJECTION_ID_INDEX),
                         displayName = it.getString(PROJECTION_DISPLAY_NAME_INDEX) ?: "",
                         accountName = it.getString(PROJECTION_ACCOUNT_NAME_INDEX) ?: "",
                         accountType = it.getString(PROJECTION_ACCOUNT_TYPE_INDEX) ?: "",
                         color = it.getInt(PROJECTION_CALENDAR_COLOR_INDEX),
-                        isPrimary = it.getInt(PROJECTION_IS_PRIMARY_INDEX) == 1
+                        isPrimary = it.getInt(PROJECTION_IS_PRIMARY_INDEX) == 1,
+                        // CONTRIBUTOR(500) 이상이면 이벤트 쓰기 가능
+                        isWritable = accessLevel >= CalendarContract.Calendars.CAL_ACCESS_CONTRIBUTOR
                     )
                     calendars.add(calendar)
                 }
@@ -302,6 +310,20 @@ class DeviceCalendarRepositoryImpl(
 
     override suspend fun updateEvent(event: CalendarEvent): Boolean = withContext(Dispatchers.IO) {
         try {
+            // CalendarProvider는 update()로 이벤트를 다른 캘린더로 이동시킬 수 없다.
+            // (CALENDAR_ID는 생성 후 사실상 read-only) → 캘린더가 바뀌었으면 삭제 후 재생성한다.
+            val currentCalendarId = getEventCalendarId(event.id)
+            if (currentCalendarId != null && currentCalendarId != event.calendarId) {
+                val newId = createEvent(event)
+                if (newId != null) {
+                    val deleteUri = ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, event.id)
+                    contentResolver.delete(deleteUri, null, null)
+                    _eventChanges.tryEmit(Unit)
+                    return@withContext true
+                }
+                return@withContext false
+            }
+
             val values = ContentValues().apply {
                 put(CalendarContract.Events.TITLE, event.title)
                 put(CalendarContract.Events.DESCRIPTION, event.description)
@@ -418,6 +440,29 @@ class DeviceCalendarRepositoryImpl(
         null
     }
 
+    // ===== 근무 동기화 =====
+
+    override suspend fun deleteShiftSyncEvents(calendarId: Long): Int =
+        withContext(Dispatchers.IO) {
+            try {
+                // 우리가 등록한 이벤트만 삭제 (마커 description으로 식별)
+                val selection =
+                    "${CalendarContract.Events.CALENDAR_ID} = ? AND " +
+                        "${CalendarContract.Events.DESCRIPTION} = ?"
+                val args = arrayOf(calendarId.toString(), SHIFT_SYNC_MARKER)
+                val deleted = contentResolver.delete(
+                    CalendarContract.Events.CONTENT_URI,
+                    selection,
+                    args
+                )
+                if (deleted > 0) _eventChanges.tryEmit(Unit)
+                deleted
+            } catch (e: Exception) {
+                android.util.Log.e("DeviceCalendarRepo", "deleteShiftSyncEvents failed", e)
+                0
+            }
+        }
+
     // ===== 유틸리티 함수 =====
 
     /**
@@ -448,6 +493,25 @@ class DeviceCalendarRepositoryImpl(
      */
     private fun localDateTimeToMillis(dateTime: LocalDateTime): Long {
         return dateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+    }
+
+    /**
+     * 이벤트가 현재 속한 캘린더 ID를 조회한다. 없으면 null.
+     */
+    private fun getEventCalendarId(eventId: Long): Long? {
+        val uri = ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, eventId)
+        contentResolver.query(
+            uri,
+            arrayOf(CalendarContract.Events.CALENDAR_ID),
+            null,
+            null,
+            null
+        )?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                return cursor.getLong(0)
+            }
+        }
+        return null
     }
 
     /**

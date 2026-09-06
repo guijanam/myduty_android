@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sonbum.diacalendar2.data.local.datastore.CalendarTextSizes
 import com.sonbum.diacalendar2.data.local.datastore.CrewPatternPreferences
+import com.sonbum.diacalendar2.data.local.datastore.ShiftColorPreferences
+import com.sonbum.diacalendar2.data.local.datastore.ShiftDisplayColors
 import com.sonbum.diacalendar2.data.local.datastore.TextSizePreferences
 import com.sonbum.diacalendar2.data.local.datastore.ThemeMode
 import com.sonbum.diacalendar2.data.local.datastore.ThemePreferences
@@ -22,6 +24,7 @@ import com.sonbum.diacalendar2.domain.repository.OfficeRepository
 import com.sonbum.diacalendar2.domain.repository.ShiftInputRecordRepository
 import com.sonbum.diacalendar2.domain.repository.BackupRepository
 import com.sonbum.diacalendar2.domain.repository.AnniversaryRepository
+import com.sonbum.diacalendar2.domain.usecase.ShiftCalendarSyncUseCase
 import android.net.Uri
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -52,6 +55,7 @@ data class HomeCalendarState(
     val shiftScheduleMap: Map<LocalDate, String> = emptyMap(),
     val vacationMap: Map<LocalDate, String> = emptyMap(),
     val isRefreshingHolidays: Boolean = false,
+    val isRefreshingShifts: Boolean = false,
     val shiftPattern: List<String> = emptyList(),
     val subShiftScheduleMap: Map<LocalDate, String> = emptyMap(),
     val swapDates: Set<LocalDate> = emptySet(),
@@ -78,7 +82,9 @@ class HomeViewModel(
     private val officeRepository: OfficeRepository,
     private val backupRepository: BackupRepository,
     private val crewPatternPreferences: CrewPatternPreferences,
-    private val anniversaryRepository: AnniversaryRepository
+    private val anniversaryRepository: AnniversaryRepository,
+    private val shiftColorPreferences: ShiftColorPreferences,
+    private val shiftCalendarSyncUseCase: ShiftCalendarSyncUseCase
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(HomeCalendarState())
@@ -104,6 +110,9 @@ class HomeViewModel(
 
     val showSubShift = crewPatternPreferences.showSubShift
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val shiftDisplayColors = shiftColorPreferences.colors
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ShiftDisplayColors.DEFAULT)
 
     // 현재 캘린더에 표시 중인 연도 (HomeScreen에서 갱신) - init 이전에 초기화 필요
     private val _visibleYear = MutableStateFlow(LocalDate.now().year)
@@ -136,7 +145,14 @@ class HomeViewModel(
 
     private fun loadAllMemos() {
         viewModelScope.launch {
-            memoRepository.getAllMemos().collect { memos ->
+            // 달력은 표시 구간의 메모만 조회하면 되므로 전체를 힙에 올리지 않는다.
+            // 오늘 기준 ±MEMO_WINDOW_MONTHS 개월만 구독한다.
+            val today = LocalDate.now()
+            val windowStart = today.minusMonths(MEMO_WINDOW_MONTHS).withDayOfMonth(1)
+            val windowEnd = today.plusMonths(MEMO_WINDOW_MONTHS)
+                .withDayOfMonth(today.plusMonths(MEMO_WINDOW_MONTHS).lengthOfMonth())
+
+            memoRepository.getMemosBetween(windowStart, windowEnd).collect { memos ->
                 val grouped = memos.groupBy { it.date }
                 _state.update { it.copy(memosByDate = grouped) }
             }
@@ -231,7 +247,21 @@ class HomeViewModel(
                         shiftInputMap = result.shiftInputDisplayMap
                     )
                 }
+                // 최종 근무가 바뀔 때마다 전용 캘린더에 동기화 (동기화 OFF면 내부에서 no-op)
+                triggerShiftCalendarSync()
             }
+        }
+    }
+
+    // 동기화 중복 실행 방지 (연속 변경 시 마지막 1회만 의미 있음)
+    private var syncJob: kotlinx.coroutines.Job? = null
+
+    private fun triggerShiftCalendarSync() {
+        syncJob?.cancel()
+        syncJob = viewModelScope.launch {
+            // 짧은 디바운스: 연속된 레이어 변경을 1회 동기화로 합침
+            kotlinx.coroutines.delay(800)
+            shiftCalendarSyncUseCase.sync()
         }
     }
 
@@ -289,6 +319,21 @@ class HomeViewModel(
                 _event.emit(HomeEvent.ShowMessage("공휴일 정보가 갱신되었습니다 (${result.getOrNull()}개)"))
             } else {
                 _event.emit(HomeEvent.ShowMessage("공휴일 갱신 실패: ${result.exceptionOrNull()?.message}"))
+            }
+        }
+    }
+
+    fun refreshShiftSchedule() {
+        viewModelScope.launch {
+            _state.update { it.copy(isRefreshingShifts = true) }
+            val result = shiftRepository.refreshScheduleFromServer()
+            _state.update { it.copy(isRefreshingShifts = false) }
+
+            if (result.isSuccess) {
+                _event.emit(HomeEvent.ShowMessage("근무표가 갱신되었습니다 (${result.getOrNull()}일)"))
+                _event.emit(HomeEvent.ShiftRefreshed)
+            } else {
+                _event.emit(HomeEvent.ShowMessage("근무표 갱신 실패: ${result.exceptionOrNull()?.message}"))
             }
         }
     }
@@ -422,5 +467,13 @@ class HomeViewModel(
                 _event.emit(HomeEvent.ShowMessage("복원 실패: ${restoreResult.exceptionOrNull()?.message}"))
             }
         }
+    }
+
+    companion object {
+        /**
+         * 달력 메모를 구독할 오늘 기준 전후 개월 수.
+         * HomeScreen 달력의 스크롤 범위(startMonth/endMonth = ±60개월)와 일치시킨다.
+         */
+        private const val MEMO_WINDOW_MONTHS = 60L
     }
 }

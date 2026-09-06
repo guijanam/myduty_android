@@ -26,3 +26,6 @@ google-services.json
 *.aab
 *.apk
 app/release/
+
+# Kotlin 빌드 세션 임시 파일
+.kotlin/

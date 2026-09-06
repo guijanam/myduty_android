@@ -9,6 +9,7 @@ import com.sonbum.diacalendar2.data.local.datastore.CalendarPreferences
 import com.sonbum.diacalendar2.data.local.datastore.CoworkerPreferences
 import com.sonbum.diacalendar2.data.local.datastore.MenuPreferences
 import com.sonbum.diacalendar2.data.local.datastore.OnboardingPreferences
+import com.sonbum.diacalendar2.data.local.datastore.ShiftColorPreferences
 import com.sonbum.diacalendar2.data.local.datastore.TextSizePreferences
 import com.sonbum.diacalendar2.data.local.datastore.ThemePreferences
 import com.sonbum.diacalendar2.data.remote.SubwayApiConfig
@@ -25,6 +26,8 @@ import com.sonbum.diacalendar2.data.repository.LocalDiaRepositoryImpl
 import com.sonbum.diacalendar2.data.repository.LocalOfficeRepositoryImpl
 import com.sonbum.diacalendar2.data.repository.MemoRepositoryImpl
 import com.sonbum.diacalendar2.domain.usecase.BackupRestoreUseCase
+import com.sonbum.diacalendar2.domain.usecase.EffectiveShiftUseCase
+import com.sonbum.diacalendar2.domain.usecase.ShiftCalendarSyncUseCase
 import com.sonbum.diacalendar2.data.repository.OfficeRepositoryImpl
 import com.sonbum.diacalendar2.data.repository.ShiftRepositoryImpl
 import com.sonbum.diacalendar2.data.repository.ShiftSwapRecordRepositoryImpl
@@ -73,6 +76,7 @@ import com.sonbum.diacalendar2.presentation.coworker.CoworkerGroupViewModel
 import com.sonbum.diacalendar2.presentation.coworker.CoworkerEditViewModel
 import com.sonbum.diacalendar2.presentation.calendar.CalendarSelectionViewModel
 import com.sonbum.diacalendar2.presentation.home.DateDetailViewModel
+import com.sonbum.diacalendar2.presentation.trainformation.TrainFormationListViewModel
 import com.sonbum.diacalendar2.presentation.home.HomeViewModel
 import com.sonbum.diacalendar2.presentation.memo.MemoEditViewModel
 import com.sonbum.diacalendar2.presentation.profile.ProfileViewModel
@@ -86,6 +90,7 @@ import com.sonbum.diacalendar2.presentation.localoffice.LocalOfficeListViewModel
 import com.sonbum.diacalendar2.presentation.customshift.CustomShiftListViewModel
 import com.sonbum.diacalendar2.presentation.customshift.CustomShiftEditViewModel
 import com.sonbum.diacalendar2.presentation.shift.ShiftSelectionViewModel
+import com.sonbum.diacalendar2.presentation.shiftcolor.ShiftColorSettingsViewModel
 import com.sonbum.diacalendar2.presentation.textsize.TextSizeSettingsViewModel
 import com.sonbum.diacalendar2.presentation.alarm.WorkAlarmSettingsViewModel
 import com.sonbum.diacalendar2.presentation.vacation.VacationSettingViewModel
@@ -114,7 +119,9 @@ import com.sonbum.diacalendar2.data.local.datastore.CrewPatternPreferences
 import com.sonbum.diacalendar2.data.local.datastore.NotificationPreferences
 import androidx.work.WorkManager
 import com.sonbum.diacalendar2.data.repository.AnniversaryRepositoryImpl
+import com.sonbum.diacalendar2.data.repository.TrainFormationRepositoryImpl
 import com.sonbum.diacalendar2.domain.repository.AnniversaryRepository
+import com.sonbum.diacalendar2.domain.repository.TrainFormationRepository
 import com.sonbum.diacalendar2.presentation.anniversary.AnniversaryViewModel
 import com.sonbum.diacalendar2.data.repository.DocumentRepositoryImpl
 import com.sonbum.diacalendar2.domain.repository.DocumentRepository
@@ -168,7 +175,8 @@ val databaseModule = module {
                 AppDatabase.MIGRATION_24_25,
                 AppDatabase.MIGRATION_25_26,
                 AppDatabase.MIGRATION_26_27,
-                AppDatabase.MIGRATION_27_28
+                AppDatabase.MIGRATION_27_28,
+                AppDatabase.MIGRATION_28_29
             )
             .fallbackToDestructiveMigration()
             .build()
@@ -200,6 +208,7 @@ val databaseModule = module {
     single { get<AppDatabase>().scheduledAlarmDao() }
     single { get<AppDatabase>().subShiftConfigDao() }
     single { get<AppDatabase>().subShiftScheduleDao() }
+    single { get<AppDatabase>().trainFormationDao() }
     single {
         com.sonbum.diacalendar2.widget.data.WidgetDataProvider(
             get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()
@@ -216,6 +225,7 @@ val dataStoreModule = module {
     single { ThemePreferences(androidContext()) }
     single { OnboardingPreferences(androidContext()) }
     single { TextSizePreferences(androidContext()) }
+    single { ShiftColorPreferences(androidContext()) }
     single { NotificationPreferences(androidContext()) }
     single { AuthPreferences(androidContext()) }
     single { CrewPatternPreferences(androidContext()) }
@@ -237,7 +247,7 @@ val repositoryModule = module {
     single<OfficeRepository> { OfficeRepositoryImpl(get(), get(), get()) }
     single<DiaRepository> { DiaRepositoryImpl(get(), get(), get()) }
     single<SubwayRepository> { SubwayRepositoryImpl(get(named("subwayApi"))) }
-    single<ShiftRepository> { ShiftRepositoryImpl(get(), get()) }
+    single<ShiftRepository> { ShiftRepositoryImpl(get(), get(), get(), get()) }
     single<com.sonbum.diacalendar2.domain.repository.SubShiftRepository> {
         com.sonbum.diacalendar2.data.repository.SubShiftRepositoryImpl(get(), get())
     }
@@ -273,17 +283,21 @@ val repositoryModule = module {
             localDiaDao = get(),
             chatNoteDao = get(),
             anniversaryDao = get(),
+            trainFormationDao = get(),
             coworkerDao = get(),
             coworkerGroupDao = get()
         )
     }
     singleOf(::BackupRestoreUseCase)
+    singleOf(::EffectiveShiftUseCase)
+    singleOf(::ShiftCalendarSyncUseCase)
     single<AuthRepository> { AuthRepositoryImpl(get(named("boardApi")), get()) }
     single<BoardRepository> { BoardRepositoryImpl(get(named("boardApi")), get()) }
     single<MenuRepository> { MenuRepositoryImpl(get(named("menuApi"))) }
     single<CoworkerRepository> { CoworkerRepositoryImpl(get(), get(), get()) }
     single<SubscriptionRepository> { SubscriptionRepositoryImpl(get(), get()) }
     single<AnniversaryRepository> { AnniversaryRepositoryImpl(get()) }
+    single<TrainFormationRepository> { TrainFormationRepositoryImpl(get()) }
     single<DocumentRepository> { DocumentRepositoryImpl(get()) }
 }
 
@@ -294,7 +308,7 @@ val repositoryModule = module {
 val viewModelModule = module {
     viewModelOf(::HomeViewModel)
     viewModelOf(::SubwayPositionViewModel)
-    viewModel { DateDetailViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), androidContext()) }
+    viewModel { DateDetailViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), androidContext()) }
     viewModel { MemoEditViewModel(get(), get(), androidContext()) }
     viewModelOf(::CalendarSelectionViewModel)
     viewModel { ProfileViewModel(get(), get(), get(), get(), get(), androidContext()) }
@@ -306,6 +320,7 @@ val viewModelModule = module {
     viewModelOf(::LocalDiaListViewModel)
     viewModelOf(::LocalDiaEditViewModel)
     viewModelOf(::TextSizeSettingsViewModel)
+    viewModelOf(::ShiftColorSettingsViewModel)
     viewModel { WorkAlarmSettingsViewModel(get(), androidContext()) }
     viewModel { com.sonbum.diacalendar2.presentation.alarm.ScheduledAlarmListViewModel(get(), get(), androidContext()) }
     viewModelOf(::CustomShiftListViewModel)
@@ -326,6 +341,7 @@ val viewModelModule = module {
     viewModelOf(::CoworkerEditViewModel)
     viewModelOf(::PaywallViewModel)
     viewModelOf(::AnniversaryViewModel)
+    viewModelOf(::TrainFormationListViewModel)
     viewModelOf(::DocumentViewModel)
 }
 

@@ -19,13 +19,14 @@ import com.sonbum.diacalendar2.presentation.recipedetails.RecipeDetailsScreen
 import com.sonbum.diacalendar2.presentation.savedrecipes.SavedRecipesRoot
 import com.sonbum.diacalendar2.presentation.shift.ShiftSelectionScreen
 import com.sonbum.diacalendar2.presentation.signin.SignInScreen
-import com.sonbum.diacalendar2.presentation.diatable.DiaTableScreen
+import com.sonbum.diacalendar2.presentation.diatable.DiaTableActivity
 import com.sonbum.diacalendar2.presentation.localdia.LocalDiaEditScreen
 import com.sonbum.diacalendar2.presentation.localdia.LocalDiaListScreen
 import com.sonbum.diacalendar2.presentation.localoffice.LocalOfficeEditScreen
 import com.sonbum.diacalendar2.presentation.localoffice.LocalOfficeListScreen
 import com.sonbum.diacalendar2.presentation.vacation.VacationSettingScreen
 import com.sonbum.diacalendar2.presentation.textsize.TextSizeSettingsScreen
+import com.sonbum.diacalendar2.presentation.shiftcolor.ShiftColorSettingsScreen
 import com.sonbum.diacalendar2.presentation.alarm.WorkAlarmSettingsScreen
 import com.sonbum.diacalendar2.presentation.alarm.ScheduledAlarmListScreen
 import com.sonbum.diacalendar2.presentation.customshift.CustomShiftListScreen
@@ -38,8 +39,6 @@ import com.sonbum.diacalendar2.presentation.community.CommunityScreen
 import com.sonbum.diacalendar2.presentation.board.PostDetailScreen
 import com.sonbum.diacalendar2.presentation.board.PostEditScreen
 import com.sonbum.diacalendar2.presentation.board.PostWriteScreen
-import com.sonbum.diacalendar2.presentation.diatable.ServerDiaEditScreen
-import com.sonbum.diacalendar2.presentation.diatable.ServerOfficeEditScreen
 import com.sonbum.diacalendar2.presentation.menu.MenuScreen
 import android.content.Intent
 import com.sonbum.diacalendar2.presentation.officewebsite.OfficeWebsiteActivity
@@ -52,6 +51,7 @@ import com.sonbum.diacalendar2.presentation.subscription.PaywallScreen
 import com.sonbum.diacalendar2.domain.repository.SubscriptionRepository
 import com.sonbum.diacalendar2.core.util.DeviceIdProvider
 import com.sonbum.diacalendar2.presentation.anniversary.AnniversaryScreen
+import com.sonbum.diacalendar2.presentation.trainformation.TrainFormationListScreen
 import com.sonbum.diacalendar2.presentation.notifications.DocumentDetailScreen
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.layout.Box
@@ -116,10 +116,12 @@ fun NavigationRoot(
 			entry<Route.SignIn> {
 				SignInScreen(
 					onLogin = {
-						// 백스택을 [Route.Main]으로 원자적 교체 (snapshot 트랜잭션)
+						// 백스택을 [Route.Main]으로 교체.
+						// clear() 후 add()는 중간에 빈 백스택 상태가 관찰되어
+						// NavDisplay가 crash하므로, 먼저 채운 뒤 나머지를 제거한다.
 						Snapshot.withMutableSnapshot {
-							topLevelBackStack.clear()
 							topLevelBackStack.add(Route.Main)
+							topLevelBackStack.retainAll { it == Route.Main }
 						}
 					}
 				)
@@ -245,6 +247,20 @@ fun NavigationRoot(
 				)
 			}
 
+			// 편성 기록 목록/검색 화면
+			entry<Route.TrainFormationList> {
+				TrainFormationListScreen(
+					onBack = {
+						if (topLevelBackStack.size > 1) {
+							topLevelBackStack.removeAt(topLevelBackStack.lastIndex)
+						}
+					},
+					onNavigateToDate = { dateString ->
+						openDateDetail(Route.DateDetail(dateString))
+					}
+				)
+			}
+
 			// 승무소 선택 화면
 			entry<Route.ShiftSelection> {
 				ShiftSelectionScreen(
@@ -276,47 +292,6 @@ fun NavigationRoot(
 					},
 					onNavigateToCustomShiftList = {
 						topLevelBackStack.add(Route.CustomShiftList)
-					}
-				)
-			}
-
-			// 근무표 화면
-			entry<Route.DiaTable> {
-				DiaTableScreen(
-					onBack = {
-						if (topLevelBackStack.size > 1) {
-							topLevelBackStack.removeAt(topLevelBackStack.lastIndex)
-						}
-					},
-					onNavigateToServerDiaEdit = { diaId ->
-						topLevelBackStack.add(Route.ServerDiaEdit(diaId))
-					},
-					onNavigateToServerOfficeEdit = { officeCode ->
-						topLevelBackStack.add(Route.ServerOfficeEdit(officeCode))
-					}
-				)
-			}
-
-			// 서버 근무표 편집
-			entry<Route.ServerDiaEdit> { key ->
-				ServerDiaEditScreen(
-					diaId = key.diaId,
-					onBack = {
-						if (topLevelBackStack.size > 1) {
-							topLevelBackStack.removeAt(topLevelBackStack.lastIndex)
-						}
-					}
-				)
-			}
-
-			// 서버 승무소 교번 패턴 편집
-			entry<Route.ServerOfficeEdit> { key ->
-				ServerOfficeEditScreen(
-					officeCode = key.officeCode,
-					onBack = {
-						if (topLevelBackStack.size > 1) {
-							topLevelBackStack.removeAt(topLevelBackStack.lastIndex)
-						}
 					}
 				)
 			}
@@ -435,6 +410,17 @@ fun NavigationRoot(
 				)
 			}
 
+			// 근무 색상 설정 화면
+			entry<Route.ShiftColorSettings> {
+				ShiftColorSettingsScreen(
+					onNavigateBack = {
+						if (topLevelBackStack.size > 1) {
+							topLevelBackStack.removeAt(topLevelBackStack.lastIndex)
+						}
+					}
+				)
+			}
+
 			// 근무 알람 설정 화면
 			entry<Route.WorkAlarmSettings> {
 				WorkAlarmSettingsScreen(
@@ -471,7 +457,10 @@ fun NavigationRoot(
 					onNavigateToNicknameSetup = {
 						Snapshot.withMutableSnapshot {
 							topLevelBackStack.add(Route.NicknameSetup)
-							topLevelBackStack.removeAll { it is Route.Auth }
+							// 마지막 하나까지 지워 백스택이 비지 않도록 보호
+							if (topLevelBackStack.size > 1) {
+								topLevelBackStack.removeAll { it is Route.Auth }
+							}
 						}
 					},
 					onNavigateToBoard = {
@@ -591,6 +580,9 @@ fun NavigationRoot(
 									onNavigateToAnniversary = {
 										topLevelBackStack.add(Route.Anniversary)
 									},
+									onNavigateToTrainFormation = {
+										topLevelBackStack.add(Route.TrainFormationList)
+									},
 									onNavigateToShiftSelection = {
 										topLevelBackStack.add(Route.ShiftSelection)
 									},
@@ -604,13 +596,19 @@ fun NavigationRoot(
 										topLevelBackStack.add(Route.DateDetail(dateString, openEventDialog = true))
 									},
 									onNavigateToDiaTable = {
-										topLevelBackStack.add(Route.DiaTable)
+										val intent = Intent(appContext, DiaTableActivity::class.java).apply {
+											addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_NEW_TASK)
+										}
+										appContext.startActivity(intent)
 									},
 									onNavigateToVacationSetting = {
 										topLevelBackStack.add(Route.VacationSetting)
 									},
 									onNavigateToTextSizeSettings = {
 										topLevelBackStack.add(Route.TextSizeSettings)
+									},
+									onNavigateToShiftColorSettings = {
+										topLevelBackStack.add(Route.ShiftColorSettings)
 									},
 									onNavigateToWorkAlarmSettings = {
 										topLevelBackStack.add(Route.WorkAlarmSettings)
@@ -646,8 +644,8 @@ fun NavigationRoot(
 											onSubscribed = { isSubscribed = true },
 											onDismiss = {
 												Snapshot.withMutableSnapshot {
-													backStack.clear()
 													backStack.add(Route.Home)
+													backStack.retainAll { it == Route.Home }
 												}
 											}
 										)
@@ -690,7 +688,13 @@ fun NavigationRoot(
 								entry<Route.DocumentDetail> {
 									DocumentDetailScreen(
 										documentId = it.documentId,
-										onBack = { topLevelBackStack.removeLastOrNull() }
+										onBack = {
+											// DocumentDetail은 내부(backStack) 엔트리이므로
+											// topLevelBackStack이 아니라 backStack을 pop해야 한다.
+											if (backStack.size > 1) {
+												backStack.removeAt(backStack.lastIndex)
+											}
+										}
 									)
 								}
 
@@ -714,8 +718,8 @@ fun NavigationRoot(
 											// URL 없음 확정 → Home으로 리다이렉트
 											LaunchedEffect(Unit) {
 												Snapshot.withMutableSnapshot {
-													backStack.clear()
 													backStack.add(Route.Home)
+													backStack.retainAll { it == Route.Home }
 												}
 											}
 										}

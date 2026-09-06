@@ -66,4 +66,13 @@ interface DeviceCalendarRepository {
      * 특정 이벤트 조회
      */
     suspend fun getEventById(eventId: Long): CalendarEvent?
+
+    // ===== 근무 동기화 =====
+
+    /**
+     * 특정 캘린더에서 DiaCalendar가 등록한 근무 이벤트만 삭제.
+     * (마커 description으로 식별하여, 사용자의 다른 일정은 건드리지 않음)
+     * 재동기화 시 기존 근무를 비우는 용도.
+     */
+    suspend fun deleteShiftSyncEvents(calendarId: Long): Int
 }

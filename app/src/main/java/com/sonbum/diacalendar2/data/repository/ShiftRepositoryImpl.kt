@@ -8,6 +8,8 @@ import com.sonbum.diacalendar2.data.local.mapper.toDomain
 import com.sonbum.diacalendar2.data.local.mapper.toEntity
 import com.sonbum.diacalendar2.domain.model.ShiftSchedule
 import com.sonbum.diacalendar2.domain.model.UserShiftConfig
+import com.sonbum.diacalendar2.domain.repository.DiaRepository
+import com.sonbum.diacalendar2.domain.repository.OfficeRepository
 import com.sonbum.diacalendar2.domain.repository.ShiftRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -18,7 +20,9 @@ private const val TAG = "ShiftRepository"
 
 class ShiftRepositoryImpl(
     private val userShiftConfigDao: UserShiftConfigDao,
-    private val shiftScheduleDao: ShiftScheduleDao
+    private val shiftScheduleDao: ShiftScheduleDao,
+    private val officeRepository: OfficeRepository,
+    private val diaRepository: DiaRepository
 ) : ShiftRepository {
 
     private val dateFormatter = DateTimeFormatter.ISO_LOCAL_DATE
@@ -175,5 +179,68 @@ class ShiftRepositoryImpl(
 
     override suspend fun getScheduleCount(): Int {
         return shiftScheduleDao.getCount()
+    }
+
+    override suspend fun refreshScheduleFromServer(): Result<Int> {
+        return try {
+            val config = getUserConfigOnce()
+                ?: return Result.failure(Exception("저장된 근무 설정이 없습니다"))
+
+            // 서버 승무소만 갱신 가능 (내부 승무소/교대근무자는 서버 데이터 없음)
+            if (config.officeCode < 0) {
+                return Result.failure(Exception("서버 승무소만 갱신할 수 있습니다"))
+            }
+
+            Log.d(TAG, "refreshScheduleFromServer() - 승무소 ${config.officeName}(${config.officeCode}) 갱신 시작")
+
+            // 1. 서버에서 승무소 패턴 최신화 (diaTurns 변경 반영)
+            officeRepository.refreshOffices()
+            val office = officeRepository.getOfficeByCode(config.officeCode)
+                ?: return Result.failure(Exception("승무소를 찾을 수 없습니다"))
+
+            // 2. 포지션별 최신 패턴 재추출 (서버 패턴 비면 기존 유지)
+            val serverPatternRaw = when (config.position) {
+                UserShiftConfig.Position.ENGINEER -> office.diaTurns1
+                UserShiftConfig.Position.CONDUCTOR -> office.diaTurns2
+                UserShiftConfig.Position.FOUR_SHIFT -> office.subTurns
+            }
+            val pattern = parseShiftList(serverPatternRaw).ifEmpty { config.shiftPattern }
+            Log.d(TAG, "refreshScheduleFromServer() - 최신 패턴: $pattern")
+
+            // 3. dia(근무표) 데이터 갱신
+            diaRepository.refreshDiasByOfficeId(config.officeCode.toInt())
+
+            // 4. 갱신된 패턴을 config에 반영하여 저장
+            saveUserConfig(config.copy(shiftPattern = pattern))
+
+            // 5. 시작 날짜 이후 스케줄 재생성 (이전 스케줄은 generateAndSaveSchedules 내부 deleteFromDate로 보존)
+            val count = generateAndSaveSchedules(
+                shiftPattern = pattern,
+                startDate = config.startDate,
+                todayShift = config.todayShift,
+                referenceDate = config.referenceDate,
+                todayShiftIndex = config.todayShiftIndex
+            )
+
+            Log.d(TAG, "refreshScheduleFromServer() - 갱신 완료 ($count 일)")
+            Result.success(count)
+        } catch (e: Exception) {
+            Log.e(TAG, "refreshScheduleFromServer() - 오류: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+
+    /** Supabase 패턴 문자열 파싱 (JSON 배열/중괄호/CSV 모두 지원). ShiftSelectionViewModel과 동일 로직. */
+    private fun parseShiftList(input: String?): List<String> {
+        if (input.isNullOrBlank()) return emptyList()
+        return input
+            .replace("[", "")
+            .replace("]", "")
+            .replace("{", "")
+            .replace("}", "")
+            .replace("\"", "")
+            .split(",")
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
     }
 }
