@@ -48,19 +48,16 @@ dependencies {
 	implementation(libs.play.services.wearable)
 
 	// play-services-wearable가 transitive로 끌어오는 fragment:1.1.0 경고 해소
-	implementation("androidx.fragment:fragment:1.8.9")
+	implementation(libs.androidx.fragment)
 
 	// Wear OS Tiles
-	implementation("androidx.wear.tiles:tiles:1.6.0")
-	implementation("androidx.wear.protolayout:protolayout:1.4.0")
-	implementation("androidx.wear.protolayout:protolayout-material:1.4.0")
-	implementation("androidx.wear.protolayout:protolayout-expression:1.4.0")
+	implementation(libs.bundles.wear.protolayout)
 
 	// Guava (ListenableFuture)
-	implementation("com.google.guava:guava:33.6.0-android")
+	implementation(libs.guava)
 
 	// Coroutines (play-services await)
-	implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.11.0")
+	implementation(libs.kotlinx.coroutines.play.services)
 
 	implementation(platform(libs.androidx.compose.bom))
 	implementation(libs.androidx.compose.ui)

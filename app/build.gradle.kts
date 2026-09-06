@@ -12,7 +12,7 @@ plugins {
 
 	alias(libs.plugins.jetbrains.kotlin.serialization)
 
-	id("com.google.gms.google-services")
+	alias(libs.plugins.google.services)
 }
 
 // [추가] local.properties 파일 로드 로직
@@ -78,27 +78,25 @@ kotlin {
 
 dependencies {
 
-	implementation("com.kizitonwose.calendar:compose:2.10.1")
+	// 캘린더 UI
+	implementation(libs.kizitonwose.calendar.compose)
 
-	implementation("com.google.android.material:material:1.14.0")
-
-
-
-	implementation("androidx.compose.material:material-icons-extended:1.7.8")
+	// Material
+	implementation(libs.google.android.material)
+	implementation(libs.androidx.compose.material.icons.extended)
 
 	// 음력-양력 변환
-	implementation("com.github.usingsky:KoreanLunarCalendar:0.3.1")
+	implementation(libs.korean.lunar.calendar)
 
-	//datestore
-	implementation("androidx.datastore:datastore-preferences:1.2.1")
+	// DataStore
+	implementation(libs.androidx.datastore.preferences)
 
 	// Google Play In-App Updates
-	implementation("com.google.android.play:app-update:2.1.0")
-	implementation("com.google.android.play:app-update-ktx:2.1.0")
+	implementation(libs.bundles.play.app.update)
 
-	//권한
-	implementation ("com.google.accompanist:accompanist-permissions:0.37.3")
-	implementation ("com.google.accompanist:accompanist-systemuicontroller:0.36.0")
+	// 권한
+	implementation(libs.accompanist.permissions)
+	implementation(libs.accompanist.systemuicontroller)
 
 	// Retrofit
 	implementation(libs.bundles.rerofit)
@@ -106,46 +104,41 @@ dependencies {
 	// Koin
 	implementation(libs.bundles.koin)
 
-	//드래그앤 드롭
-	implementation("sh.calvin.reorderable:reorderable:3.1.0")
+	// 드래그앤드롭
+	implementation(libs.reorderable)
 
-    //glance widget
-	implementation("androidx.glance:glance-appwidget:1.1.1")
-	implementation("androidx.glance:glance-material3:1.1.1")
+	// Glance 위젯
+	implementation(libs.bundles.glance)
 
-	//이미지 불러오기
-	implementation("io.coil-kt:coil-compose:2.7.0")
+	// 이미지 불러오기
+	implementation(libs.coil.compose)
 
 	// EncryptedSharedPreferences
-	implementation("androidx.security:security-crypto:1.1.0")
+	implementation(libs.androidx.security.crypto)
 
-	//결제시스템
-	implementation("com.revenuecat.purchases:purchases:10.19.1")
-	implementation("com.revenuecat.purchases:purchases-ui:10.19.1")
-
+	// 결제시스템
+	implementation(libs.bundles.revenuecat)
 
 	// Google Credential Manager (Google Sign-In)
-	implementation("androidx.credentials:credentials:1.6.0")
-	implementation("androidx.credentials:credentials-play-services-auth:1.6.0")
-	implementation("com.google.android.libraries.identity.googleid:googleid:1.2.0")
+	implementation(libs.bundles.credentials)
 
 	// Firebase
-	implementation(platform("com.google.firebase:firebase-bom:34.13.0"))
-	implementation("com.google.firebase:firebase-messaging")
+	implementation(platform(libs.firebase.bom))
+	implementation(libs.firebase.messaging)
 
 	// WorkManager
-	implementation("androidx.work:work-runtime-ktx:2.11.2")
+	implementation(libs.androidx.work.runtime.ktx)
 
-	// ✅ Wearable Data Layer 추가
-	implementation("com.google.android.gms:play-services-wearable:20.0.1")
-	implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.11.0")
+	// Wearable Data Layer
+	implementation(libs.play.services.wearable)
+	implementation(libs.kotlinx.coroutines.play.services)
 
-	// Room (버전 카탈로그 사용)
+	// Room
 	implementation(libs.androidx.room.runtime)
 	implementation(libs.androidx.room.ktx)
 	implementation(libs.androidx.compose.ui.unit)
-	implementation(libs.androidx.compose.ui.text)     // 코루틴 지원
-	ksp(libs.androidx.room.compiler)           // KSP 컴파일러
+	implementation(libs.androidx.compose.ui.text)
+	ksp(libs.androidx.room.compiler)
 
 	implementation(libs.androidx.navigation3.ui)
 	implementation(libs.androidx.navigation3.runtime)
