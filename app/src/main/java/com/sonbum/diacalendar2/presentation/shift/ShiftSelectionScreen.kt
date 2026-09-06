@@ -297,7 +297,7 @@ fun ShiftSelectionScreen(
 	            if (state.officeSource == OfficeSource.SERVER) {
 		            // 2. UriHandler 인스턴스 가져오기
 		            val uriHandler = LocalUriHandler.current
-		            val targetUrl = "https://diacalendar.co.kr" // 여기에 이동하고 싶은 웹사이트 주소를 넣으세요.
+		            val targetUrl = "https://diacalendar.co.kr/login" // 여기에 이동하고 싶은 웹사이트 주소를 넣으세요.
 
 		            Button(
 			            onClick = { uriHandler.openUri(targetUrl) },

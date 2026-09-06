@@ -74,8 +74,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.FilterChip
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -120,6 +122,9 @@ import com.sonbum.diacalendar2.domain.model.Dia
 import com.sonbum.diacalendar2.domain.util.SubwayTrainParser
 import com.sonbum.diacalendar2.domain.model.Memo
 import com.sonbum.diacalendar2.domain.model.ShiftSwapRecord
+import com.sonbum.diacalendar2.domain.model.TrainFormation
+import com.sonbum.diacalendar2.domain.model.TrainHalf
+import com.sonbum.diacalendar2.presentation.trainformation.TrainFormationEditDialog
 import com.sonbum.diacalendar2.domain.model.VacationType
 import com.sonbum.diacalendar2.domain.model.LateWorkRecord
 import com.sonbum.diacalendar2.domain.model.LateWorkType
@@ -198,6 +203,9 @@ fun DateDetailScreen(
 
     // 휴가 입력 다이얼로그 상태
     var showVacationDialog by remember { mutableStateOf(false) }
+
+    // 편성 입력 다이얼로그 상태
+    var formationDialogTarget by remember { mutableStateOf<FormationDialogTarget?>(null) }
 
     // 지근/지휴 입력 다이얼로그 상태 (제거됨 - 바로 토글)
 
@@ -389,7 +397,11 @@ fun DateDetailScreen(
 						        state.holidayWorkShifts.contains(state.effectiveShiftName) &&
 						        (isHoliday || isSaturday || isSunday),
 						    officeName = state.officeName,
-						    onNavigateToSubway = onNavigateToSubway
+						    onNavigateToSubway = onNavigateToSubway,
+						    formations = state.trainFormations,
+						    onFormationClick = { half, existing ->
+							    formationDialogTarget = FormationDialogTarget(half, existing)
+						    }
 					    )
 				    }
 			    //}
@@ -843,6 +855,32 @@ fun DateDetailScreen(
         )
     }
 
+    // 편성 입력 다이얼로그
+    formationDialogTarget?.let { target ->
+        TrainFormationEditDialog(
+            half = target.half,
+            initial = target.existing,
+            onConfirm = { formationNo, note ->
+                val existing = target.existing
+                if (existing == null) {
+                    viewModel.addFormation(target.half, formationNo, note)
+                } else {
+                    viewModel.updateFormation(
+                        existing.copy(formationNo = formationNo, note = note.trim())
+                    )
+                }
+                formationDialogTarget = null
+            },
+            onDelete = target.existing?.let { existing ->
+                {
+                    viewModel.deleteFormation(existing.id)
+                    formationDialogTarget = null
+                }
+            },
+            onDismiss = { formationDialogTarget = null }
+        )
+    }
+
     // 교번교체 다이얼로그
     if (showShiftSwapDialog) {
         ShiftSwapInputDialog(
@@ -903,7 +941,9 @@ fun WorkTimeCard(
     shiftInputRecord: ShiftInputRecord? = null,
     isHolidayWork: Boolean = false,
     officeName: String? = null,
-    onNavigateToSubway: (String, Int, String) -> Unit = { _, _, _ -> }
+    onNavigateToSubway: (String, Int, String) -> Unit = { _, _, _ -> },
+    formations: List<TrainFormation> = emptyList(),
+    onFormationClick: (TrainHalf, TrainFormation?) -> Unit = { _, _ -> }
 ) {
     val hasVacation = vacationRecord != null
     val hasSwap = shiftSwapRecord != null
@@ -917,6 +957,13 @@ fun WorkTimeCard(
         hasVacation || hasLateHoliday -> 0.35f
         hasLateWork && !hasShiftInput -> 0.35f  // 지근만 있고 충당이 없을 때
         else -> 1f
+    }
+
+    val firstHalfFormations = remember(formations) {
+        formations.filter { it.half == TrainHalf.FIRST }.sortedBy { it.sortOrder }
+    }
+    val secondHalfFormations = remember(formations) {
+        formations.filter { it.half == TrainHalf.SECOND }.sortedBy { it.sortOrder }
     }
 
     Card(
@@ -1426,14 +1473,17 @@ fun WorkTimeCard(
 			                colors = sectionCardColors
 		                ) {
 			                Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-				                if (!dia.numTr1.isNullOrBlank()) {
-					                TrainNumberRow(
-						                label = "전반",
-						                numTr = dia.numTr1,
-						                officeName = officeName,
-						                onNavigateToSubway = onNavigateToSubway
-					                )
-				                }
+				                // 열번이 없는 승무소(예: 대기근무)에서도 편성은 기록할 수 있어야 하므로
+				                // numTr 유무와 무관하게 항상 표시한다.
+				                TrainNumberRow(
+					                label = "전반",
+					                numTr = dia.numTr1,
+					                officeName = officeName,
+					                onNavigateToSubway = onNavigateToSubway,
+					                formations = firstHalfFormations,
+					                onAddFormation = { onFormationClick(TrainHalf.FIRST, null) },
+					                onFormationClick = { onFormationClick(TrainHalf.FIRST, it) }
+				                )
 				                if (!dia.firstTime.isNullOrBlank()) {
 					                ShiftAlarmRow(label = "전반", value = dia.firstTime)
 				                }
@@ -1448,14 +1498,17 @@ fun WorkTimeCard(
 			                colors = sectionCardColors
 		                ) {
 			                Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-				                if (!dia.numTr2.isNullOrBlank()) {
-					                TrainNumberRow(
-						                label = "후반",
-						                numTr = dia.numTr2,
-						                officeName = officeName,
-						                onNavigateToSubway = onNavigateToSubway
-					                )
-				                }
+				                // 열번이 없는 승무소(예: 대기근무)에서도 편성은 기록할 수 있어야 하므로
+				                // numTr 유무와 무관하게 항상 표시한다.
+				                TrainNumberRow(
+					                label = "후반",
+					                numTr = dia.numTr2,
+					                officeName = officeName,
+					                onNavigateToSubway = onNavigateToSubway,
+					                formations = secondHalfFormations,
+					                onAddFormation = { onFormationClick(TrainHalf.SECOND, null) },
+					                onFormationClick = { onFormationClick(TrainHalf.SECOND, it) }
+				                )
 				                if (!dia.secondTime.isNullOrBlank()) {
 					                ShiftAlarmRow(label = "후반", value = dia.secondTime)
 				                }
@@ -1668,6 +1721,12 @@ private fun TrNumRow(label: String, value: String) {
 	}
 }
 
+/** 편성 다이얼로그 대상: 어느 반(半)의, 어떤 기존 기록(null이면 추가)인지 */
+private data class FormationDialogTarget(
+	val half: TrainHalf,
+	val existing: TrainFormation?
+)
+
 /**
  * 열번(numTr 원본) 표시 + 오른쪽 끝 실시간 위치 버튼.
  * 첫 토큰이 숫자(=호선 파싱 가능)이고 officeName이 있을 때만 tram 버튼 노출.
@@ -1675,41 +1734,127 @@ private fun TrNumRow(label: String, value: String) {
 @Composable
 private fun TrainNumberRow(
 	label: String,
-	numTr: String,
+	numTr: String?,
 	officeName: String?,
-	onNavigateToSubway: (String, Int, String) -> Unit
+	onNavigateToSubway: (String, Int, String) -> Unit,
+	formations: List<TrainFormation> = emptyList(),
+	onAddFormation: (() -> Unit)? = null,
+	onFormationClick: (TrainFormation) -> Unit = {}
 ) {
-	Row(
-		modifier = Modifier
-			.fillMaxWidth()
-			.padding(vertical = 2.dp),
-		verticalAlignment = Alignment.CenterVertically
-	) {
-		Text(
-			text = label,
-			style = MaterialTheme.typography.labelLarge,
-			color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
-			modifier = Modifier.width(40.dp)
-		)
-		Text(
-			text = numTr,
-			style = MaterialTheme.typography.bodyMedium,
-			fontWeight = FontWeight.SemiBold,
-			color = MaterialTheme.colorScheme.onPrimaryContainer
-		)
-		Spacer(modifier = Modifier.weight(1f))
+	Column(modifier = Modifier.fillMaxWidth()) {
+		Row(
+			modifier = Modifier
+				.fillMaxWidth()
+				.padding(vertical = 2.dp),
+			verticalAlignment = Alignment.CenterVertically
+		) {
+			Text(
+				text = label,
+				style = MaterialTheme.typography.labelLarge,
+				color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+				modifier = Modifier.width(40.dp)
+			)
+			if (!numTr.isNullOrBlank()) {
+				Text(
+					text = numTr,
+					style = MaterialTheme.typography.bodyMedium,
+					fontWeight = FontWeight.SemiBold,
+					color = MaterialTheme.colorScheme.onPrimaryContainer
+				)
+			}
 
-		val myTrainNo = SubwayTrainParser.firstToken(numTr)
-		val line = myTrainNo?.let { SubwayTrainParser.line(it) }
-		if (myTrainNo != null && line != null && !officeName.isNullOrBlank()) {
-			IconButton(
-				onClick = { onNavigateToSubway(myTrainNo, line, officeName) },
-				modifier = Modifier.size(32.dp)
+			// 편성 추가 버튼: 열번 바로 오른쪽 (열번이 없는 승무소에서도 표시)
+			// IconButton 대신 clickable Box를 써서 48dp 최소 터치영역으로 인한
+			// 불필요한 세로 여백을 없앤다.
+			if (onAddFormation != null) {
+				Box(
+					modifier = Modifier
+						.padding(start = 4.dp)
+						.size(24.dp)
+						.clickable(
+							interactionSource = remember { MutableInteractionSource() },
+							indication = null,
+							onClick = onAddFormation
+						),
+					contentAlignment = Alignment.Center
+				) {
+					Icon(
+						imageVector = Icons.Filled.AddCircleOutline,
+						contentDescription = "$label 편성 추가",
+						tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+						modifier = Modifier.size(18.dp)
+					)
+				}
+			}
+
+			Spacer(modifier = Modifier.weight(1f))
+
+			val myTrainNo = numTr?.let { SubwayTrainParser.firstToken(it) }
+			val line = myTrainNo?.let { SubwayTrainParser.line(it) }
+			if (myTrainNo != null && line != null && !officeName.isNullOrBlank()) {
+				IconButton(
+					onClick = { onNavigateToSubway(myTrainNo, line, officeName) },
+					modifier = Modifier.size(32.dp)
+				) {
+					Icon(
+						imageVector = Icons.Filled.Tram,
+						contentDescription = "실시간 열차 위치",
+						tint = MaterialTheme.colorScheme.primary
+					)
+				}
+			}
+		}
+
+		// 저장된 편성 칩
+		if (formations.isNotEmpty()) {
+			FlowRow(
+				modifier = Modifier
+					.fillMaxWidth()
+					.padding(start = 40.dp, bottom = 2.dp),
+				horizontalArrangement = Arrangement.spacedBy(6.dp),
+				verticalArrangement = Arrangement.spacedBy(2.dp)
 			) {
-				Icon(
-					imageVector = Icons.Filled.Tram,
-					contentDescription = "실시간 열차 위치",
-					tint = MaterialTheme.colorScheme.primary
+				formations.forEach { formation ->
+					FormationChip(
+						formation = formation,
+						onClick = { onFormationClick(formation) }
+					)
+				}
+			}
+		}
+	}
+}
+
+/** 저장된 편성 1건을 나타내는 칩. 탭하면 수정/삭제 다이얼로그. */
+@Composable
+private fun FormationChip(
+	formation: TrainFormation,
+	onClick: () -> Unit
+) {
+	Surface(
+		onClick = onClick,
+		shape = RoundedCornerShape(12.dp),
+		color = MaterialTheme.colorScheme.secondaryContainer,
+		contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+	) {
+		Row(
+			modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+			verticalAlignment = Alignment.CenterVertically,
+			horizontalArrangement = Arrangement.spacedBy(4.dp)
+		) {
+			Text(
+				text = "${formation.formationNo}편성",
+				style = MaterialTheme.typography.bodyMedium,
+				fontWeight = FontWeight.SemiBold
+			)
+			if (formation.note.isNotBlank()) {
+				Text(
+					text = formation.note,
+					style = MaterialTheme.typography.bodySmall,
+					color = LocalContentColor.current.copy(alpha = 0.7f),
+					maxLines = 1,
+					overflow = TextOverflow.Ellipsis,
+					modifier = Modifier.widthIn(max = 120.dp)
 				)
 			}
 		}

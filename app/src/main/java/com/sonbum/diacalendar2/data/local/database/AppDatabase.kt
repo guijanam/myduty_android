@@ -14,6 +14,7 @@ import com.sonbum.diacalendar2.data.local.dao.ShiftScheduleDao
 import com.sonbum.diacalendar2.data.local.dao.ShiftSwapRecordDao
 import com.sonbum.diacalendar2.data.local.dao.SubShiftConfigDao
 import com.sonbum.diacalendar2.data.local.dao.SubShiftScheduleDao
+import com.sonbum.diacalendar2.data.local.dao.TrainFormationDao
 import com.sonbum.diacalendar2.data.local.dao.UserShiftConfigDao
 import com.sonbum.diacalendar2.data.local.dao.VacationRecordDao
 import com.sonbum.diacalendar2.data.local.dao.VacationTypeDao
@@ -34,6 +35,7 @@ import com.sonbum.diacalendar2.data.local.entity.ShiftScheduleEntity
 import com.sonbum.diacalendar2.data.local.entity.ShiftSwapRecordEntity
 import com.sonbum.diacalendar2.data.local.entity.SubShiftConfigEntity
 import com.sonbum.diacalendar2.data.local.entity.SubShiftScheduleEntity
+import com.sonbum.diacalendar2.data.local.entity.TrainFormationEntity
 import com.sonbum.diacalendar2.data.local.entity.UserShiftConfigEntity
 import com.sonbum.diacalendar2.data.local.entity.VacationRecordEntity
 import com.sonbum.diacalendar2.data.local.entity.VacationTypeEntity
@@ -87,9 +89,10 @@ import com.sonbum.diacalendar2.data.local.dao.ScheduledAlarmDao
         AnniversaryEntity::class,
         ScheduledAlarmEntity::class,
         SubShiftConfigEntity::class,
-        SubShiftScheduleEntity::class
+        SubShiftScheduleEntity::class,
+        TrainFormationEntity::class
     ],
-    version = 28,
+    version = 29,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -120,6 +123,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun scheduledAlarmDao(): ScheduledAlarmDao
     abstract fun subShiftConfigDao(): SubShiftConfigDao
     abstract fun subShiftScheduleDao(): SubShiftScheduleDao
+    abstract fun trainFormationDao(): TrainFormationDao
 
     companion object {
         // 버전 2 → 3: holidays 테이블에 isUserCreated 컬럼 추가
@@ -544,6 +548,27 @@ abstract class AppDatabase : RoomDatabase() {
                     )
                 """)
                 db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_sub_shift_schedules_date ON sub_shift_schedules(date)")
+            }
+        }
+
+        // 버전 28 → 29: 열차 편성 기록 테이블 추가
+        val MIGRATION_28_29 = object : Migration(28, 29) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS train_formations (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        date TEXT NOT NULL,
+                        half TEXT NOT NULL,
+                        formationNo INTEGER NOT NULL,
+                        note TEXT NOT NULL DEFAULT '',
+                        shiftName TEXT NOT NULL DEFAULT '',
+                        numTr TEXT NOT NULL DEFAULT '',
+                        sortOrder INTEGER NOT NULL DEFAULT 0,
+                        createdAt INTEGER NOT NULL
+                    )
+                """)
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_train_formations_date ON train_formations(date)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_train_formations_formationNo ON train_formations(formationNo)")
             }
         }
 

@@ -50,6 +50,7 @@ import com.sonbum.diacalendar2.presentation.subscription.PaywallScreen
 import com.sonbum.diacalendar2.domain.repository.SubscriptionRepository
 import com.sonbum.diacalendar2.core.util.DeviceIdProvider
 import com.sonbum.diacalendar2.presentation.anniversary.AnniversaryScreen
+import com.sonbum.diacalendar2.presentation.trainformation.TrainFormationListScreen
 import com.sonbum.diacalendar2.presentation.notifications.DocumentDetailScreen
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.layout.Box
@@ -114,10 +115,12 @@ fun NavigationRoot(
 			entry<Route.SignIn> {
 				SignInScreen(
 					onLogin = {
-						// 백스택을 [Route.Main]으로 원자적 교체 (snapshot 트랜잭션)
+						// 백스택을 [Route.Main]으로 교체.
+						// clear() 후 add()는 중간에 빈 백스택 상태가 관찰되어
+						// NavDisplay가 crash하므로, 먼저 채운 뒤 나머지를 제거한다.
 						Snapshot.withMutableSnapshot {
-							topLevelBackStack.clear()
 							topLevelBackStack.add(Route.Main)
+							topLevelBackStack.retainAll { it == Route.Main }
 						}
 					}
 				)
@@ -239,6 +242,20 @@ fun NavigationRoot(
 						if (topLevelBackStack.size > 1) {
 							topLevelBackStack.removeAt(topLevelBackStack.lastIndex)
 						}
+					}
+				)
+			}
+
+			// 편성 기록 목록/검색 화면
+			entry<Route.TrainFormationList> {
+				TrainFormationListScreen(
+					onBack = {
+						if (topLevelBackStack.size > 1) {
+							topLevelBackStack.removeAt(topLevelBackStack.lastIndex)
+						}
+					},
+					onNavigateToDate = { dateString ->
+						openDateDetail(Route.DateDetail(dateString))
 					}
 				)
 			}
@@ -428,7 +445,10 @@ fun NavigationRoot(
 					onNavigateToNicknameSetup = {
 						Snapshot.withMutableSnapshot {
 							topLevelBackStack.add(Route.NicknameSetup)
-							topLevelBackStack.removeAll { it is Route.Auth }
+							// 마지막 하나까지 지워 백스택이 비지 않도록 보호
+							if (topLevelBackStack.size > 1) {
+								topLevelBackStack.removeAll { it is Route.Auth }
+							}
 						}
 					},
 					onNavigateToBoard = {
@@ -548,6 +568,9 @@ fun NavigationRoot(
 									onNavigateToAnniversary = {
 										topLevelBackStack.add(Route.Anniversary)
 									},
+									onNavigateToTrainFormation = {
+										topLevelBackStack.add(Route.TrainFormationList)
+									},
 									onNavigateToShiftSelection = {
 										topLevelBackStack.add(Route.ShiftSelection)
 									},
@@ -606,8 +629,8 @@ fun NavigationRoot(
 											onSubscribed = { isSubscribed = true },
 											onDismiss = {
 												Snapshot.withMutableSnapshot {
-													backStack.clear()
 													backStack.add(Route.Home)
+													backStack.retainAll { it == Route.Home }
 												}
 											}
 										)
@@ -650,7 +673,13 @@ fun NavigationRoot(
 								entry<Route.DocumentDetail> {
 									DocumentDetailScreen(
 										documentId = it.documentId,
-										onBack = { topLevelBackStack.removeLastOrNull() }
+										onBack = {
+											// DocumentDetail은 내부(backStack) 엔트리이므로
+											// topLevelBackStack이 아니라 backStack을 pop해야 한다.
+											if (backStack.size > 1) {
+												backStack.removeAt(backStack.lastIndex)
+											}
+										}
 									)
 								}
 
@@ -674,8 +703,8 @@ fun NavigationRoot(
 											// URL 없음 확정 → Home으로 리다이렉트
 											LaunchedEffect(Unit) {
 												Snapshot.withMutableSnapshot {
-													backStack.clear()
 													backStack.add(Route.Home)
+													backStack.retainAll { it == Route.Home }
 												}
 											}
 										}

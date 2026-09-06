@@ -126,6 +126,9 @@ sealed interface Route : NavKey {
 	data object Anniversary : Route
 
 	@Serializable
+	data object TrainFormationList : Route
+
+	@Serializable
 	data object CoworkerGroup : Route
 
 	@Serializable

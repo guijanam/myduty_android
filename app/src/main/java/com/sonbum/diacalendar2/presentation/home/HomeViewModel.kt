@@ -139,7 +139,14 @@ class HomeViewModel(
 
     private fun loadAllMemos() {
         viewModelScope.launch {
-            memoRepository.getAllMemos().collect { memos ->
+            // 달력은 표시 구간의 메모만 조회하면 되므로 전체를 힙에 올리지 않는다.
+            // 오늘 기준 ±MEMO_WINDOW_MONTHS 개월만 구독한다.
+            val today = LocalDate.now()
+            val windowStart = today.minusMonths(MEMO_WINDOW_MONTHS).withDayOfMonth(1)
+            val windowEnd = today.plusMonths(MEMO_WINDOW_MONTHS)
+                .withDayOfMonth(today.plusMonths(MEMO_WINDOW_MONTHS).lengthOfMonth())
+
+            memoRepository.getMemosBetween(windowStart, windowEnd).collect { memos ->
                 val grouped = memos.groupBy { it.date }
                 _state.update { it.copy(memosByDate = grouped) }
             }
@@ -454,5 +461,13 @@ class HomeViewModel(
                 _event.emit(HomeEvent.ShowMessage("복원 실패: ${restoreResult.exceptionOrNull()?.message}"))
             }
         }
+    }
+
+    companion object {
+        /**
+         * 달력 메모를 구독할 오늘 기준 전후 개월 수.
+         * HomeScreen 달력의 스크롤 범위(startMonth/endMonth = ±60개월)와 일치시킨다.
+         */
+        private const val MEMO_WINDOW_MONTHS = 60L
     }
 }

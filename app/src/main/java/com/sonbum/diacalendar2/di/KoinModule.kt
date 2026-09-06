@@ -75,6 +75,7 @@ import com.sonbum.diacalendar2.presentation.coworker.CoworkerGroupViewModel
 import com.sonbum.diacalendar2.presentation.coworker.CoworkerEditViewModel
 import com.sonbum.diacalendar2.presentation.calendar.CalendarSelectionViewModel
 import com.sonbum.diacalendar2.presentation.home.DateDetailViewModel
+import com.sonbum.diacalendar2.presentation.trainformation.TrainFormationListViewModel
 import com.sonbum.diacalendar2.presentation.home.HomeViewModel
 import com.sonbum.diacalendar2.presentation.memo.MemoEditViewModel
 import com.sonbum.diacalendar2.presentation.profile.ProfileViewModel
@@ -116,7 +117,9 @@ import com.sonbum.diacalendar2.data.local.datastore.CrewPatternPreferences
 import com.sonbum.diacalendar2.data.local.datastore.NotificationPreferences
 import androidx.work.WorkManager
 import com.sonbum.diacalendar2.data.repository.AnniversaryRepositoryImpl
+import com.sonbum.diacalendar2.data.repository.TrainFormationRepositoryImpl
 import com.sonbum.diacalendar2.domain.repository.AnniversaryRepository
+import com.sonbum.diacalendar2.domain.repository.TrainFormationRepository
 import com.sonbum.diacalendar2.presentation.anniversary.AnniversaryViewModel
 import com.sonbum.diacalendar2.data.repository.DocumentRepositoryImpl
 import com.sonbum.diacalendar2.domain.repository.DocumentRepository
@@ -170,7 +173,8 @@ val databaseModule = module {
                 AppDatabase.MIGRATION_24_25,
                 AppDatabase.MIGRATION_25_26,
                 AppDatabase.MIGRATION_26_27,
-                AppDatabase.MIGRATION_27_28
+                AppDatabase.MIGRATION_27_28,
+                AppDatabase.MIGRATION_28_29
             )
             .fallbackToDestructiveMigration()
             .build()
@@ -202,6 +206,7 @@ val databaseModule = module {
     single { get<AppDatabase>().scheduledAlarmDao() }
     single { get<AppDatabase>().subShiftConfigDao() }
     single { get<AppDatabase>().subShiftScheduleDao() }
+    single { get<AppDatabase>().trainFormationDao() }
     single {
         com.sonbum.diacalendar2.widget.data.WidgetDataProvider(
             get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()
@@ -275,6 +280,7 @@ val repositoryModule = module {
             localDiaDao = get(),
             chatNoteDao = get(),
             anniversaryDao = get(),
+            trainFormationDao = get(),
             coworkerDao = get(),
             coworkerGroupDao = get()
         )
@@ -288,6 +294,7 @@ val repositoryModule = module {
     single<CoworkerRepository> { CoworkerRepositoryImpl(get(), get(), get()) }
     single<SubscriptionRepository> { SubscriptionRepositoryImpl(get(), get()) }
     single<AnniversaryRepository> { AnniversaryRepositoryImpl(get()) }
+    single<TrainFormationRepository> { TrainFormationRepositoryImpl(get()) }
     single<DocumentRepository> { DocumentRepositoryImpl(get()) }
 }
 
@@ -298,7 +305,7 @@ val repositoryModule = module {
 val viewModelModule = module {
     viewModelOf(::HomeViewModel)
     viewModelOf(::SubwayPositionViewModel)
-    viewModel { DateDetailViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), androidContext()) }
+    viewModel { DateDetailViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), androidContext()) }
     viewModel { MemoEditViewModel(get(), get(), androidContext()) }
     viewModelOf(::CalendarSelectionViewModel)
     viewModel { ProfileViewModel(get(), get(), get(), get(), get(), androidContext()) }
@@ -330,6 +337,7 @@ val viewModelModule = module {
     viewModelOf(::CoworkerEditViewModel)
     viewModelOf(::PaywallViewModel)
     viewModelOf(::AnniversaryViewModel)
+    viewModelOf(::TrainFormationListViewModel)
     viewModelOf(::DocumentViewModel)
 }
 

@@ -8,6 +8,7 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Train
 import androidx.compose.material3.IconButton
 import com.sonbum.diacalendar2.core.util.DeviceIdProvider
 import com.sonbum.diacalendar2.domain.repository.SubscriptionRepository
@@ -95,6 +96,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
@@ -146,6 +148,7 @@ import com.sonbum.diacalendar2.rememberFirstCompletelyVisibleMonth
 import com.sonbum.diacalendar2.data.local.datastore.CalendarTextSizes
 import com.sonbum.diacalendar2.data.local.datastore.ThemeMode
 import com.sonbum.diacalendar2.presentation.shared.ShiftBadge
+import com.sonbum.diacalendar2.presentation.shared.VacationBadge
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
@@ -186,6 +189,7 @@ fun HomeScreen(
 	onVisibleYearChanged: (Int) -> Unit = {},
 	onNavigateToCalendarSelection: () -> Unit = {},
 	onNavigateToAnniversary: () -> Unit = {},
+	onNavigateToTrainFormation: () -> Unit = {},
 	onNavigateToShiftSelection: () -> Unit = {},
 	onNavigateToSubShiftSelection: () -> Unit = {},
 	onToggleSubShift: (Boolean) -> Unit = {},
@@ -223,8 +227,8 @@ fun HomeScreen(
 		}
 	}
 	val currentMonth = remember(today) { today.yearMonth }
-	val startMonth = remember { currentMonth.minusMonths(500) }
-	val endMonth = remember { currentMonth.plusMonths(500) }
+	val startMonth = remember { currentMonth.minusMonths(60) }
+	val endMonth = remember { currentMonth.plusMonths(60) }
 	val selections = remember { mutableStateListOf<CalendarDay>() }
 	val daysOfWeek = remember { daysOfWeek() }
 
@@ -272,6 +276,7 @@ fun HomeScreen(
 						when (item) {
 							DrawerItem.CALENDAR -> onNavigateToCalendarSelection()
 							DrawerItem.ANNIVERSARY -> onNavigateToAnniversary()
+							DrawerItem.TRAIN_FORMATION -> onNavigateToTrainFormation()
 							DrawerItem.SHIFT -> onNavigateToShiftSelection()
 							DrawerItem.SUB_SHIFT -> onNavigateToSubShiftSelection()
 							DrawerItem.HOLIDAY_REFRESH -> onRefreshHolidays()
@@ -363,6 +368,7 @@ fun HomeScreen(
 					},
 					restCount = titleRestCount,
 					coverCount = titleCoverCount,
+					isCurrentMonth = visibleMonth.yearMonth == currentMonth,
 				)
 			FullScreenCalendar(
 				modifier = Modifier
@@ -664,7 +670,7 @@ private fun ExpandableFab(
 }
 
 private enum class DrawerItem {
-	CALENDAR, ANNIVERSARY, SHIFT, SUB_SHIFT, HOLIDAY_REFRESH, SHIFT_REFRESH, SETTINGS, VACATION, TEXT_SIZE, WORK_ALARM, BACKUP, RESTORE, MENU_UPLOAD
+	CALENDAR, ANNIVERSARY, TRAIN_FORMATION, SHIFT, SUB_SHIFT, HOLIDAY_REFRESH, SHIFT_REFRESH, SETTINGS, VACATION, TEXT_SIZE, WORK_ALARM, BACKUP, RESTORE, MENU_UPLOAD
 }
 
 @Composable
@@ -786,6 +792,14 @@ private fun HomeDrawerContent(
 				label = { Text("기념일 관리") },
 				selected = false,
 				onClick = { onItemClick(DrawerItem.ANNIVERSARY) },
+				modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+			)
+
+			NavigationDrawerItem(
+				icon = { Icon(Icons.Default.Train, contentDescription = null) },
+				label = { Text("편성 기록") },
+				selected = false,
+				onClick = { onItemClick(DrawerItem.TRAIN_FORMATION) },
 				modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
 			)
 
@@ -1165,9 +1179,20 @@ private fun Day(
 ) {
 	val isHoliday = holidayName != null
 
-	// 강조하고 싶은 오늘 날짜 테두리 색상과 두께를 정의합니다.
-	val todayBorderWidth = 1.dp
-	val todayBorderColor = colorResource(id = R.color.example_2_red) // 혹은 원하는 테두리 색상 (예: R.color.today_border_color)
+	// 강조하고 싶은 오늘 날짜 테두리 두께와 무지개 그라데이션을 정의합니다.
+	val todayBorderWidth = 2.dp
+	val rainbowBorderBrush = Brush.sweepGradient(
+		listOf(
+			Color(0xFFFF0000), // 빨
+			Color(0xFFFF9800), // 주
+			Color(0xFFFFEB3B), // 노
+			Color(0xFF4CAF50), // 초
+			Color(0xFF2196F3), // 파
+			Color(0xFF3F51B5), // 남
+			Color(0xFF9C27B0), // 보
+			Color(0xFFFF0000), // 빨 (시작 색으로 닫아 이음새 제거)
+		)
+	)
 
 	Column(
 		Modifier
@@ -1178,12 +1203,12 @@ private fun Day(
 				color = colorResource(id = R.color.calendarBorder_color),
 				shape = RectangleShape
 			)
-			// 2. 오늘 날짜일 경우 강조 테두리 추가 적용
+			// 2. 오늘 날짜일 경우 무지개 그라데이션 테두리 추가 적용
 			.then(
 				if (isToday) {
 					Modifier.border(
 						width = todayBorderWidth,
-						color = todayBorderColor,
+						brush = rainbowBorderBrush,
 						shape = RectangleShape
 					)
 				} else {
@@ -1193,7 +1218,6 @@ private fun Day(
 			.background(
 				color = when {
 					isSelected -> colorResource(R.color.example_1_selection_color)
-					isToday -> colorResource(id = R.color.today_backgroundColor)
 					else -> Color.Transparent
 				},
 			)
@@ -1424,34 +1448,8 @@ private fun CrewPatternBadge(label: String, fontSize: Float = 9f) {
 }
 
 
-@Composable
-private fun VacationBadge(shortName: String, fontSize: Float = 14f) {
-	Box(
-		modifier = Modifier
-			.clip(RoundedCornerShape(3.dp))
-			.background(MaterialTheme.colorScheme.errorContainer)
-			.padding(horizontal = 4.dp, vertical = 1.dp),
-		contentAlignment = Alignment.Center
-	) {
-		Text(
-			text = shortName,
-			fontSize = fontSize.sp,
-			lineHeight = (fontSize - 4).coerceAtLeast(8f).sp,
-			fontWeight = FontWeight.Bold,
-			color = MaterialTheme.colorScheme.onErrorContainer,
-			maxLines = 1,
-			style = TextStyle(
-				platformStyle = PlatformTextStyle(includeFontPadding = false),
-				lineHeightStyle = LineHeightStyle(
-					alignment = LineHeightStyle.Alignment.Center,
-					trim = LineHeightStyle.Trim.Both
-				)
-			)
-		)
-	}
-}
-
 // ShiftBadge는 presentation/shared/ShiftBadge.kt 로 이동되었습니다.
+// VacationBadge는 presentation/shared/VacationBadge.kt 로 이동되었습니다.
 
 @Composable
 private fun MemoIndicator(memo: Memo, fontSize: Float = 8f) {

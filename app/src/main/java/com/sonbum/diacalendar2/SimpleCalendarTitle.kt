@@ -65,6 +65,7 @@ fun SimpleCalendarTitle(
 	onMonthSelected: (YearMonth) -> Unit = {},
 	restCount: Int? = null,
 	coverCount: Int? = null,
+	isCurrentMonth: Boolean = true,
 ) {
 	var showMonthPicker by remember { mutableStateOf(false) }
 
@@ -101,14 +102,25 @@ fun SimpleCalendarTitle(
 				modifier = Modifier
 					.testTag("MonthTitle")
 					.clip(RoundedCornerShape(10.dp))
-					.background(MaterialTheme.colorScheme.primaryContainer)
-					.border(
-						BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
-						RoundedCornerShape(10.dp)
+					.then(
+						if (isCurrentMonth) {
+							Modifier
+								.background(MaterialTheme.colorScheme.primaryContainer)
+								.border(
+									BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+									RoundedCornerShape(10.dp)
+								)
+						} else {
+							Modifier
+						}
 					)
 					.padding(horizontal = 12.dp, vertical = 2.dp),
 				text = currentMonth.displayText(),
-				color = MaterialTheme.colorScheme.onPrimaryContainer,
+				color = if (isCurrentMonth) {
+					MaterialTheme.colorScheme.onPrimaryContainer
+				} else {
+					MaterialTheme.colorScheme.onBackground
+				},
 				fontSize = 22.sp,
 				textAlign = TextAlign.Center,
 				fontWeight = FontWeight.Bold,
@@ -123,12 +135,21 @@ fun SimpleCalendarTitle(
 				)
 			}
 		}
-		CalendarNavigationIcon(
-			imageVector = Icons.Default.Today,
-			contentDescription = "Today",
-			onClick = goToday,
-			isHorizontal = true,
-		)
+		// 오늘로 이동 버튼: 현재 달이 아닐 때만 표시, 현재 달이면 공간만 유지
+		if (isCurrentMonth) {
+			Spacer(
+				modifier = Modifier
+					.fillMaxHeight()
+					.aspectRatio(1f),
+			)
+		} else {
+			CalendarNavigationIcon(
+				imageVector = Icons.Default.Today,
+				contentDescription = "Today",
+				onClick = goToday,
+				isHorizontal = true,
+			)
+		}
 	}
 
 	if (showMonthPicker) {

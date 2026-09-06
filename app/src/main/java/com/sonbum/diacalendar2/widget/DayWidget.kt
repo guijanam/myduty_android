@@ -3,6 +3,8 @@ package com.sonbum.diacalendar2.widget
 import android.annotation.SuppressLint
 import android.content.Context
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.graphics.Color
 import androidx.core.graphics.toColorInt
 import androidx.compose.ui.unit.dp
@@ -57,14 +59,21 @@ class DayWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         Log.d("DayWidget", "provideGlance() called - reloading data")
 
+        // 최초 데이터는 suspend 컨텍스트(백그라운드)에서 미리 로딩한다.
+        val initialData = loadData()
+
         provideContent {
             // currentState를 읽어서 상태 변경 시 recomposition 트리거
             val prefs = currentState<Preferences>()
             val lastUpdated = prefs[longPreferencesKey("last_updated")] ?: 0L
             Log.d("DayWidget", "provideContent() recomposing, lastUpdated=$lastUpdated")
 
-            // 데이터 로딩은 remember + produceState 대신 직접 로딩
-            val dayDataList = loadDataBlocking()
+            // lastUpdated가 바뀌면 백그라운드에서 다시 로딩한다(메인 스레드 차단 금지).
+            val dayDataList by produceState(initialValue = initialData, key1 = lastUpdated) {
+                if (lastUpdated != 0L) {
+                    value = loadData()
+                }
+            }
 
             val size = LocalSize.current
             // 너비/높이를 모두 고려해 글자 크기를 비례 조절한다.
@@ -88,7 +97,7 @@ class DayWidget : GlanceAppWidget() {
         }
     }
 
-    private fun loadDataBlocking(): List<WidgetDayData> {
+    private suspend fun loadData(): List<WidgetDayData> {
         return try {
             val koin = getKoin()
             val provider = WidgetDataProvider(
@@ -107,7 +116,7 @@ class DayWidget : GlanceAppWidget() {
             )
             val today = LocalDate.now(ZoneId.of("Asia/Seoul"))
             val tomorrow = today.plusDays(1)
-            kotlinx.coroutines.runBlocking(Dispatchers.IO) {
+            withContext(Dispatchers.IO) {
                 provider.loadDayDataList(listOf(today, tomorrow))
             }
         } catch (e: Exception) {

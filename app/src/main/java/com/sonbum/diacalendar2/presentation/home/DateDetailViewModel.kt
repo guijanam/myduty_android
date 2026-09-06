@@ -36,6 +36,9 @@ import com.sonbum.diacalendar2.domain.repository.LateHolidayTypeRepository
 import com.sonbum.diacalendar2.domain.repository.ShiftInputRecordRepository
 import com.sonbum.diacalendar2.domain.repository.ShiftInputTypeRepository
 import com.sonbum.diacalendar2.domain.repository.AnniversaryRepository
+import com.sonbum.diacalendar2.domain.model.TrainFormation
+import com.sonbum.diacalendar2.domain.model.TrainHalf
+import com.sonbum.diacalendar2.domain.repository.TrainFormationRepository
 import com.sonbum.diacalendar2.data.local.OfficeWebsiteRegistry
 import com.sonbum.diacalendar2.domain.util.DayTypeResolver
 import com.sonbum.diacalendar2.widget.WidgetUpdater
@@ -85,7 +88,8 @@ data class DateDetailState(
     val isCustomShift: Boolean = false,
     val officeName: String? = null,
     val officeWebsiteUrl: String? = null,
-    val viewMode: DayViewMode = DayViewMode.LIST
+    val viewMode: DayViewMode = DayViewMode.LIST,
+    val trainFormations: List<TrainFormation> = emptyList()
 )
 
 class DateDetailViewModel(
@@ -109,6 +113,7 @@ class DateDetailViewModel(
     private val officeWebsiteRegistry: OfficeWebsiteRegistry,
     private val anniversaryRepository: AnniversaryRepository,
     private val alarmScheduler: AlarmScheduler,
+    private val trainFormationRepository: TrainFormationRepository,
     private val appContext: Context
 ) : ViewModel() {
 
@@ -145,6 +150,52 @@ class DateDetailViewModel(
         loadShiftInputInfo(date)
         loadShiftInputTypes()
         loadAnniversaryInfo(date)
+        loadTrainFormations(date)
+    }
+
+    private fun loadTrainFormations(date: LocalDate) {
+        viewModelScope.launch {
+            trainFormationRepository.observeByDate(date.toString()).collect { list ->
+                _state.update { it.copy(trainFormations = list) }
+            }
+        }
+    }
+
+    /**
+     * 편성 기록 추가.
+     * 기록 당시의 유효 교번/열번을 스냅샷으로 함께 저장한다 — Dia 는 날짜 키가 아니라
+     * (diaId, officeName, typeName) 로 조회되므로 나중에 재조회하면 값이 달라질 수 있다.
+     * numTr 은 없는 승무소(대기근무 등)도 있으므로 빈 문자열일 수 있다.
+     */
+    fun addFormation(half: TrainHalf, formationNo: Int, note: String) {
+        viewModelScope.launch {
+            val current = _state.value
+            val dateStr = current.date.toString()
+            val numTr = when (half) {
+                TrainHalf.FIRST -> current.shiftDia?.numTr1
+                TrainHalf.SECOND -> current.shiftDia?.numTr2
+            }.orEmpty()
+            trainFormationRepository.add(
+                TrainFormation(
+                    date = dateStr,
+                    half = half,
+                    formationNo = formationNo,
+                    note = note.trim(),
+                    shiftName = current.effectiveShiftName ?: current.shiftName.orEmpty(),
+                    numTr = numTr,
+                    sortOrder = trainFormationRepository.nextSortOrder(dateStr, half)
+                )
+            )
+        }
+    }
+
+    /** 편성번호/메모만 수정. 스냅샷(shiftName, numTr)은 재계산하지 않는다. */
+    fun updateFormation(formation: TrainFormation) {
+        viewModelScope.launch { trainFormationRepository.update(formation) }
+    }
+
+    fun deleteFormation(id: Long) {
+        viewModelScope.launch { trainFormationRepository.delete(id) }
     }
 
     private fun loadAnniversaryInfo(date: LocalDate) {
@@ -239,7 +290,9 @@ class DateDetailViewModel(
         var carryOverNumTr: String? = null
         if (isCarryOverDay) {
             val prevDate = date.minusDays(1)
-            val prevShiftName = shiftRepository.getScheduleByDate(prevDate)?.shiftName
+            // 전날 근무도 교체/충당/지근/지휴/근태가 반영된 "유효 근무"로 조회해야 한다.
+            // (원래 교번만 보면 이미 교체된 옛 근무의 후반이 계속 표시된다)
+            val prevShiftName = resolveEffectiveShiftName(prevDate)
             if (!prevShiftName.isNullOrBlank()) {
                 val prevDia = fetchDia(prevShiftName.removeSuffix("~"), prevDate, effectiveConfig)
                 if (prevDia != null && DayTypeResolver.isCrossDayType(prevDia.typeName)) {
@@ -256,6 +309,22 @@ class DateDetailViewModel(
                 carryOverNumTr = carryOverNumTr
             )
         }
+    }
+
+    /**
+     * 특정 날짜의 유효 근무명을 조회한다.
+     * 우선순위: 근태(휴가) > 지휴 > 충당 > 지근 > 교번교체 > 원래 교번
+     *
+     * state의 레코드는 현재 날짜 것만 담고 있으므로, 다른 날짜(예: 전날)를 계산할 때는
+     * 반드시 이 함수처럼 날짜로 직접 조회해야 한다.
+     */
+    private suspend fun resolveEffectiveShiftName(date: LocalDate): String? {
+        vacationRecordRepository.getByDate(date)?.let { return it.shortName }
+        lateHolidayRecordRepository.getByDate(date)?.let { return it.lateHolidayName }
+        shiftInputRecordRepository.getByDate(date)?.let { return it.targetShiftName }
+        lateWorkRecordRepository.getByDate(date)?.let { return it.lateWorkName }
+        shiftSwapRecordRepository.getByDate(date)?.let { return it.swappedShiftName }
+        return shiftRepository.getScheduleByDate(date)?.shiftName
     }
 
     /**

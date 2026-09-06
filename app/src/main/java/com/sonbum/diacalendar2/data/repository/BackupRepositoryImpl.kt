@@ -7,9 +7,11 @@ import com.sonbum.diacalendar2.data.local.dao.*
 import com.sonbum.diacalendar2.data.local.entity.*
 import com.sonbum.diacalendar2.domain.model.*
 import com.sonbum.diacalendar2.data.local.dao.AnniversaryDao
+import com.sonbum.diacalendar2.data.local.dao.TrainFormationDao
 import com.sonbum.diacalendar2.data.local.dao.CoworkerDao
 import com.sonbum.diacalendar2.data.local.dao.CoworkerGroupDao
 import com.sonbum.diacalendar2.data.local.entity.AnniversaryEntity
+import com.sonbum.diacalendar2.data.local.entity.TrainFormationEntity
 import com.sonbum.diacalendar2.data.local.entity.CoworkerEntity
 import com.sonbum.diacalendar2.data.local.entity.CoworkerGroupEntity
 import com.sonbum.diacalendar2.domain.repository.BackupRepository
@@ -39,6 +41,7 @@ class BackupRepositoryImpl(
     private val lateHolidayRecordDao: LateHolidayRecordDao,
     private val chatNoteDao: ChatNoteDao,
     private val anniversaryDao: AnniversaryDao,
+    private val trainFormationDao: TrainFormationDao,
     private val coworkerDao: CoworkerDao,
     private val coworkerGroupDao: CoworkerGroupDao,
 ) : BackupRepository {
@@ -243,6 +246,21 @@ class BackupRepositoryImpl(
             )
         }
 
+        // TrainFormations
+        val trainFormationBackups = trainFormationDao.getAllOnce().map {
+            TrainFormationBackup(
+                id = it.id,
+                date = it.date,
+                half = it.half,
+                formationNo = it.formationNo,
+                note = it.note,
+                shiftName = it.shiftName,
+                numTr = it.numTr,
+                sortOrder = it.sortOrder,
+                createdAt = it.createdAt
+            )
+        }
+
         // CoworkerGroups
         val coworkerGroups = coworkerGroupDao.getAllOnce()
         val coworkerGroupBackups = coworkerGroups.map {
@@ -288,7 +306,8 @@ class BackupRepositoryImpl(
             chatNotes = chatNoteBackups,
             anniversaries = anniversaryBackups,
             coworkerGroups = coworkerGroupBackups,
-            coworkers = coworkerBackups
+            coworkers = coworkerBackups,
+            trainFormations = trainFormationBackups
         )
     }
 
@@ -342,6 +361,7 @@ class BackupRepositoryImpl(
                 localOfficeDao.deleteAll()
                 chatNoteDao.deleteAll()
                 anniversaryDao.deleteAll()
+                trainFormationDao.deleteAll()
                 coworkerDao.deleteAll()
                 coworkerGroupDao.deleteAll()
             }
@@ -577,6 +597,23 @@ class BackupRepositoryImpl(
                         day = ann.day,
                         isLunar = ann.isLunar,
                         createdAt = ann.createdAt
+                    )
+                )
+                restoredCount++
+            }
+
+            // TrainFormations 복원
+            backupData.trainFormations.forEach { formation ->
+                trainFormationDao.insert(
+                    TrainFormationEntity(
+                        date = formation.date,
+                        half = formation.half,
+                        formationNo = formation.formationNo,
+                        note = formation.note,
+                        shiftName = formation.shiftName,
+                        numTr = formation.numTr,
+                        sortOrder = formation.sortOrder,
+                        createdAt = formation.createdAt
                     )
                 )
                 restoredCount++

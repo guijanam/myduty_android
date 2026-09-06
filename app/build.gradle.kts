@@ -33,8 +33,8 @@ android {
 		applicationId = "com.sonbum.diacalendar2"
 		minSdk = 29
 		targetSdk = 36
-		versionCode = 57
-		versionName = "4.5"
+		versionCode = 61
+		versionName = "4.8"
 
 		testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -48,7 +48,10 @@ android {
 
 	buildTypes {
 		release {
-			isMinifyEnabled = false
+			// R8 코드 축소 + 난독화 (Play Console "앱 최적화" 요구사항)
+			isMinifyEnabled = true
+			// 사용하지 않는 리소스 제거 (minify와 함께여야 동작)
+			isShrinkResources = true
 			proguardFiles(
 				getDefaultProguardFile("proguard-android-optimize.txt"),
 				"proguard-rules.pro"
@@ -117,8 +120,8 @@ dependencies {
 	implementation("androidx.security:security-crypto:1.1.0")
 
 	//결제시스템
-	implementation("com.revenuecat.purchases:purchases:10.11.0")
-	implementation("com.revenuecat.purchases:purchases-ui:10.11.0")
+	implementation("com.revenuecat.purchases:purchases:10.19.1")
+	implementation("com.revenuecat.purchases:purchases-ui:10.19.1")
 
 
 	// Google Credential Manager (Google Sign-In)

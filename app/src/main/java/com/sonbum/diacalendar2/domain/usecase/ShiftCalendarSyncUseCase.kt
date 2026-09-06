@@ -9,6 +9,7 @@ import com.sonbum.diacalendar2.domain.repository.LateWorkRecordRepository
 import com.sonbum.diacalendar2.domain.repository.ShiftInputRecordRepository
 import com.sonbum.diacalendar2.domain.repository.ShiftRepository
 import com.sonbum.diacalendar2.domain.repository.ShiftSwapRecordRepository
+import com.sonbum.diacalendar2.domain.repository.VacationRecordRepository
 import kotlinx.coroutines.flow.first
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -31,7 +32,8 @@ class ShiftCalendarSyncUseCase(
     private val shiftSwapRecordRepository: ShiftSwapRecordRepository,
     private val shiftInputRecordRepository: ShiftInputRecordRepository,
     private val lateWorkRecordRepository: LateWorkRecordRepository,
-    private val lateHolidayRecordRepository: LateHolidayRecordRepository
+    private val lateHolidayRecordRepository: LateHolidayRecordRepository,
+    private val vacationRecordRepository: VacationRecordRepository
 ) {
 
     data class SyncResult(val eventCount: Int)
@@ -113,9 +115,11 @@ class ShiftCalendarSyncUseCase(
             .associate { it.date to it.shortName }
         val lateHolidayMap = lateHolidayRecordRepository.getAllRecords().first()
             .associate { it.date to it.shortName }
+        val vacationMap = vacationRecordRepository.getAllRecords().first()
+            .associate { it.date to it.shortName }
         return effectiveShiftUseCase.merge(
-            scheduleMap, swapMap, shiftInputMap, lateWorkMap, lateHolidayMap
-        )
+            scheduleMap, swapMap, shiftInputMap, lateWorkMap, lateHolidayMap, vacationMap
+        ).mapValues { it.value.name }
     }
 
     private fun buildAllDayEvent(

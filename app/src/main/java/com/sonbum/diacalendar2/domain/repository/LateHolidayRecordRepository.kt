@@ -7,6 +7,7 @@ import java.time.LocalDate
 interface LateHolidayRecordRepository {
     fun getAllRecords(): Flow<List<LateHolidayRecord>>
     fun observeByDate(date: LocalDate): Flow<LateHolidayRecord?>
+    suspend fun getByDate(date: LocalDate): LateHolidayRecord?
     suspend fun addLateHoliday(
         startDate: LocalDate,
         days: Int,

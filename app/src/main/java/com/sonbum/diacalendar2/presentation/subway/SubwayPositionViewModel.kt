@@ -77,7 +77,7 @@ class SubwayPositionViewModel(
         startAutoRefresh(myTrainNo, line, officeName)
     }
 
-    /** 10초마다 카운트다운 후 조용히 갱신하는 루프. */
+    /** 30초마다 카운트다운 후 조용히 갱신하는 루프. */
     private fun startAutoRefresh(myTrainNo: String, line: Int, officeName: String) {
         autoRefreshJob?.cancel()
         autoRefreshJob = viewModelScope.launch {

@@ -128,7 +128,7 @@ fun SubwayPositionScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    text = "위치 정보는 선택한 날짜와 무관하게 현재 시각 기준이며, 10초마다 자동 갱신됩니다.",
+                    text = "위치 정보는 선택한 날짜와 무관하게 현재 시각 기준이며, 30초마다 자동 갱신됩니다.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSecondaryContainer,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)

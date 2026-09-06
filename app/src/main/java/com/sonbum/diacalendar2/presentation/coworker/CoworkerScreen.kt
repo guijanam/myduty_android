@@ -76,7 +76,9 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sonbum.diacalendar2.domain.model.Coworker
 import com.sonbum.diacalendar2.domain.model.CoworkerGroup
+import com.sonbum.diacalendar2.domain.usecase.EffectiveShift
 import com.sonbum.diacalendar2.presentation.shared.ShiftBadge
+import com.sonbum.diacalendar2.presentation.shared.VacationBadge
 import org.koin.compose.viewmodel.koinViewModel
 import java.time.LocalDate
 import java.time.YearMonth
@@ -465,7 +467,7 @@ private fun CoworkerCalendarGrid(
     modifier: Modifier = Modifier,
     year: Int,
     month: Int,
-    myScheduleMap: Map<LocalDate, String>,
+    myScheduleMap: Map<LocalDate, EffectiveShift>,
     coworkers: List<Coworker>,
     coworkerSchedules: Map<Long, Map<LocalDate, String>>,
     holidayMap: Map<LocalDate, String> = emptyMap()
@@ -527,12 +529,14 @@ private fun CoworkerCalendarGrid(
         }
 
         // ── 달력 본문 ──────────────────────────────────────────────────────
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
+        // 주(row) 단위 LazyColumn: 화면 밖 주는 구성 해제되어 노드 수가 유지됨
+        LazyColumn(
+            modifier = Modifier.fillMaxSize()
         ) {
-            (0 until rows).forEach { row ->
+            items(
+                count = rows,
+                key = { row -> "${year}_${month}_week_$row" }
+            ) { row ->
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -607,7 +611,9 @@ private fun CoworkerCalendarGrid(
                     }
                 }
             }
-            Spacer(Modifier.height(88.dp))
+            item(key = "bottom_spacer") {
+                Spacer(Modifier.height(88.dp))
+            }
         }
     }
 }
@@ -619,7 +625,7 @@ private fun CoworkerDayCell(
     isSunday: Boolean,
     isSaturday: Boolean,
     isHoliday: Boolean,
-    myShift: String?,
+    myShift: EffectiveShift?,
     coworkers: List<Coworker>,
     coworkerSchedules: Map<Long, Map<LocalDate, String>>,
     rowHeight: androidx.compose.ui.unit.Dp,
@@ -665,7 +671,13 @@ private fun CoworkerDayCell(
                 ),
             contentAlignment = Alignment.Center
         ) {
-            if (myShift != null) ShiftBadge(shiftName = myShift, fontSize = 10f)
+            if (myShift != null) {
+                if (myShift.isVacation) {
+                    VacationBadge(shortName = myShift.name, fontSize = 10f)
+                } else {
+                    ShiftBadge(shiftName = myShift.name, fontSize = 10f)
+                }
+            }
         }
         // 동료 근무 (18dp × N)
         coworkers.forEach { coworker ->
@@ -687,7 +699,7 @@ private fun CoworkerDayCell(
 @Composable
 private fun CoworkerDayDetailDialog(
     date: LocalDate,
-    myShift: String?,
+    myShift: EffectiveShift?,
     coworkers: List<Coworker>,
     coworkerSchedules: Map<Long, Map<LocalDate, String>>,
     onDismiss: () -> Unit
@@ -743,7 +755,11 @@ private fun CoworkerDayDetailDialog(
                         modifier = Modifier.weight(1f)
                     )
                     if (myShift != null) {
-                        ShiftBadge(shiftName = myShift, fontSize = 14f)
+                        if (myShift.isVacation) {
+                            VacationBadge(shortName = myShift.name, fontSize = 14f)
+                        } else {
+                            ShiftBadge(shiftName = myShift.name, fontSize = 14f)
+                        }
                     } else {
                         Text(
                             text = "-",
