@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
 	alias(libs.plugins.android.application)
 	alias(libs.plugins.kotlin.android)
@@ -40,7 +42,9 @@ android {
 
 kotlin {
 	compilerOptions {
-		jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11
+		// compileOptions의 Java 17과 일치시켜야 함.
+		// 불일치 시 "Inconsistent JVM-target compatibility" 오류로 빌드 실패.
+		jvmTarget = JvmTarget.JVM_17
 	}
 }
 
