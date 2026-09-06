@@ -3,6 +3,8 @@ package com.sonbum.diacalendar2.presentation.coworker
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sonbum.diacalendar2.data.local.datastore.CoworkerPreferences
+import com.sonbum.diacalendar2.data.local.datastore.ShiftColorPreferences
+import com.sonbum.diacalendar2.data.local.datastore.ShiftDisplayColors
 import com.sonbum.diacalendar2.domain.model.Coworker
 import com.sonbum.diacalendar2.domain.model.CoworkerGroup
 import com.sonbum.diacalendar2.domain.repository.CoworkerRepository
@@ -12,6 +14,8 @@ import com.sonbum.diacalendar2.domain.usecase.EffectiveShiftUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -41,11 +45,16 @@ class CoworkerViewModel(
     private val coworkerRepository: CoworkerRepository,
     private val holidayRepository: HolidayRepository,
     private val effectiveShiftUseCase: EffectiveShiftUseCase,
-    private val coworkerPreferences: CoworkerPreferences
+    private val coworkerPreferences: CoworkerPreferences,
+    private val shiftColorPreferences: ShiftColorPreferences
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(CoworkerUiState())
     val state = _state.asStateFlow()
+
+    /** 사용자 설정 주간/야간 근무 배경색 (달력 셀과 동일하게 적용) */
+    val shiftDisplayColors = shiftColorPreferences.colors
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ShiftDisplayColors.DEFAULT)
 
     init {
         viewModelScope.launch {

@@ -9,6 +9,7 @@ import com.sonbum.diacalendar2.data.local.datastore.CalendarPreferences
 import com.sonbum.diacalendar2.data.local.datastore.CoworkerPreferences
 import com.sonbum.diacalendar2.data.local.datastore.MenuPreferences
 import com.sonbum.diacalendar2.data.local.datastore.OnboardingPreferences
+import com.sonbum.diacalendar2.data.local.datastore.ShiftColorPreferences
 import com.sonbum.diacalendar2.data.local.datastore.TextSizePreferences
 import com.sonbum.diacalendar2.data.local.datastore.ThemePreferences
 import com.sonbum.diacalendar2.data.remote.SubwayApiConfig
@@ -89,6 +90,7 @@ import com.sonbum.diacalendar2.presentation.localoffice.LocalOfficeListViewModel
 import com.sonbum.diacalendar2.presentation.customshift.CustomShiftListViewModel
 import com.sonbum.diacalendar2.presentation.customshift.CustomShiftEditViewModel
 import com.sonbum.diacalendar2.presentation.shift.ShiftSelectionViewModel
+import com.sonbum.diacalendar2.presentation.shiftcolor.ShiftColorSettingsViewModel
 import com.sonbum.diacalendar2.presentation.textsize.TextSizeSettingsViewModel
 import com.sonbum.diacalendar2.presentation.alarm.WorkAlarmSettingsViewModel
 import com.sonbum.diacalendar2.presentation.vacation.VacationSettingViewModel
@@ -223,6 +225,7 @@ val dataStoreModule = module {
     single { ThemePreferences(androidContext()) }
     single { OnboardingPreferences(androidContext()) }
     single { TextSizePreferences(androidContext()) }
+    single { ShiftColorPreferences(androidContext()) }
     single { NotificationPreferences(androidContext()) }
     single { AuthPreferences(androidContext()) }
     single { CrewPatternPreferences(androidContext()) }
@@ -305,7 +308,7 @@ val repositoryModule = module {
 val viewModelModule = module {
     viewModelOf(::HomeViewModel)
     viewModelOf(::SubwayPositionViewModel)
-    viewModel { DateDetailViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), androidContext()) }
+    viewModel { DateDetailViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), androidContext()) }
     viewModel { MemoEditViewModel(get(), get(), androidContext()) }
     viewModelOf(::CalendarSelectionViewModel)
     viewModel { ProfileViewModel(get(), get(), get(), get(), get(), androidContext()) }
@@ -317,6 +320,7 @@ val viewModelModule = module {
     viewModelOf(::LocalDiaListViewModel)
     viewModelOf(::LocalDiaEditViewModel)
     viewModelOf(::TextSizeSettingsViewModel)
+    viewModelOf(::ShiftColorSettingsViewModel)
     viewModel { WorkAlarmSettingsViewModel(get(), androidContext()) }
     viewModel { com.sonbum.diacalendar2.presentation.alarm.ScheduledAlarmListViewModel(get(), get(), androidContext()) }
     viewModelOf(::CustomShiftListViewModel)

@@ -99,6 +99,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -188,6 +189,14 @@ fun DateDetailScreen(
 	viewModel: DateDetailViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val shiftDisplayColors by viewModel.shiftDisplayColors.collectAsStateWithLifecycle()
+    // 달력 셀과 동일한 사용자 설정 주간/야간 근무 배경색
+    val dayShiftBackgroundColor = remember(shiftDisplayColors.dayShiftColorHex) {
+        shiftDisplayColors.dayShiftColorHex.toComposeColorOrNull()
+    }
+    val nightShiftBackgroundColor = remember(shiftDisplayColors.nightShiftColorHex) {
+        shiftDisplayColors.nightShiftColorHex.toComposeColorOrNull()
+    }
 
     // 캘린더 이벤트 다이얼로그 상태
     var showEventDialog by remember { mutableStateOf(false) }
@@ -397,6 +406,9 @@ fun DateDetailScreen(
 						        state.holidayWorkShifts.contains(state.effectiveShiftName) &&
 						        (isHoliday || isSaturday || isSunday),
 						    officeName = state.officeName,
+						    dayShiftBackgroundColor = dayShiftBackgroundColor,
+						    nightShiftBackgroundColor = nightShiftBackgroundColor,
+						    isNightShift = state.isNightShift,
 						    onNavigateToSubway = onNavigateToSubway,
 						    formations = state.trainFormations,
 						    onFormationClick = { half, existing ->
@@ -943,7 +955,10 @@ fun WorkTimeCard(
     officeName: String? = null,
     onNavigateToSubway: (String, Int, String) -> Unit = { _, _, _ -> },
     formations: List<TrainFormation> = emptyList(),
-    onFormationClick: (TrainHalf, TrainFormation?) -> Unit = { _, _ -> }
+    onFormationClick: (TrainHalf, TrainFormation?) -> Unit = { _, _ -> },
+    dayShiftBackgroundColor: Color? = null,
+    nightShiftBackgroundColor: Color? = null,
+    isNightShift: Boolean = false
 ) {
     val hasVacation = vacationRecord != null
     val hasSwap = shiftSwapRecord != null
@@ -1015,7 +1030,28 @@ fun WorkTimeCard(
                                 }
                             }
                         }
-                        else -> MaterialTheme.colorScheme.primary to MaterialTheme.colorScheme.onPrimary
+                        shiftName == "지근" ->
+                            if (isDarkTheme) Color(0xFF0288D1) to Color.White
+                            else Color(0xFF81D4FA) to Color.Black
+                        shiftName == "지휴" ->
+                            if (isDarkTheme) Color(0xFFC62828) to Color.White
+                            else Color(0xFFFFCDD2) to Color.Black
+                        shiftName.contains("휴") ->
+                            MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.onErrorContainer
+                        shiftName.contains("대") ->
+                            if (isDarkTheme) Color(0xFF2E7D32) to Color.White
+                            else Color(0xFFC8E6C9) to Color(0xFF1B5E20)
+                        else -> {
+                            // 달력 셀과 동일하게 사용자 설정 주간/야간 색상 적용
+                            val customBackgroundColor =
+                                if (isNightShift) nightShiftBackgroundColor else dayShiftBackgroundColor
+                            if (customBackgroundColor != null) {
+                                customBackgroundColor to
+                                    (if (customBackgroundColor.luminance() > 0.5f) Color.Black else Color.White)
+                            } else {
+                                MaterialTheme.colorScheme.primary to MaterialTheme.colorScheme.onPrimary
+                            }
+                        }
                     }
 
                     Box(
@@ -3725,4 +3761,14 @@ private fun OfficeWebsitePasswordDialog(
 			}
 		}
 	)
+}
+
+private fun String.toComposeColorOrNull(): Color? {
+    // 빈 값(테마 기본색)이면 null을 돌려주고, 잘못된 값도 예외로 앱이 죽지 않게 한다.
+    if (isBlank()) return null
+    return try {
+        Color(toColorInt())
+    } catch (e: RuntimeException) {
+        null
+    }
 }

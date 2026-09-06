@@ -146,6 +146,7 @@ import java.time.ZoneId
 import androidx.core.graphics.toColorInt
 import com.sonbum.diacalendar2.rememberFirstCompletelyVisibleMonth
 import com.sonbum.diacalendar2.data.local.datastore.CalendarTextSizes
+import com.sonbum.diacalendar2.data.local.datastore.ShiftDisplayColors
 import com.sonbum.diacalendar2.data.local.datastore.ThemeMode
 import com.sonbum.diacalendar2.presentation.shared.ShiftBadge
 import com.sonbum.diacalendar2.presentation.shared.VacationBadge
@@ -156,6 +157,7 @@ import androidx.compose.material.icons.filled.DeviceThermostat
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.HolidayVillage
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.AlertDialog
@@ -202,8 +204,10 @@ fun HomeScreen(
 	onNavigateToDiaTable: () -> Unit = {},
 	onNavigateToVacationSetting: () -> Unit = {},
 	onNavigateToTextSizeSettings: () -> Unit = {},
+	onNavigateToShiftColorSettings: () -> Unit = {},
 	onNavigateToWorkAlarmSettings: () -> Unit = {},
 	textSizes: CalendarTextSizes = CalendarTextSizes.DEFAULT,
+	shiftDisplayColors: ShiftDisplayColors = ShiftDisplayColors.DEFAULT,
 	onBackup: () -> Unit = {},
 	onRestore: () -> Unit = {},
 	horizontal: Boolean? = null,
@@ -243,6 +247,12 @@ fun HomeScreen(
 
 	// 테마 설정 다이얼로그 상태
 	var showThemeDialog by remember { mutableStateOf(false) }
+	val dayShiftBackgroundColor = remember(shiftDisplayColors.dayShiftColorHex) {
+		shiftDisplayColors.dayShiftColorHex.toComposeColorOrNull()
+	}
+	val nightShiftBackgroundColor = remember(shiftDisplayColors.nightShiftColorHex) {
+		shiftDisplayColors.nightShiftColorHex.toComposeColorOrNull()
+	}
 
 	StatusBarColorUpdateEffect(MaterialTheme.colorScheme.background)
 
@@ -284,6 +294,7 @@ fun HomeScreen(
 							DrawerItem.SETTINGS -> showThemeDialog = true
 							DrawerItem.VACATION -> onNavigateToVacationSetting()
 							DrawerItem.TEXT_SIZE -> onNavigateToTextSizeSettings()
+							DrawerItem.SHIFT_COLOR -> onNavigateToShiftColorSettings()
 							DrawerItem.WORK_ALARM -> onNavigateToWorkAlarmSettings()
 							DrawerItem.BACKUP -> onBackup()
 							DrawerItem.RESTORE -> onRestore()
@@ -385,6 +396,10 @@ fun HomeScreen(
 					val anniversaryName = anniversaryMap[day.date]
 					val shiftName = shiftScheduleMap[day.date]
 					val subShiftName = if (showSubShift) subShiftScheduleMap[day.date] else null
+					val isNightShift = shiftName != null &&
+						shiftScheduleMap[day.date.plusDays(1)]?.contains("~") == true
+					val isSubNightShift = subShiftName != null &&
+						subShiftScheduleMap[day.date.plusDays(1)]?.contains("~") == true
 					val vacationShortName = vacationMap[day.date]
 					val shiftInputInfo = shiftInputMap[day.date]
 					// 근무조 패턴 계산
@@ -405,6 +420,8 @@ fun HomeScreen(
 						anniversaryName = anniversaryName,
 						shiftName = shiftName,
 						subShiftName = subShiftName,
+						isNightShift = isNightShift,
+						isSubNightShift = isSubNightShift,
 						swapDates = swapDates,
 						shiftInputInfo = shiftInputInfo?.let { it.shortName to it.colorHex },
 						holidayWorkShifts = holidayWorkShifts,
@@ -412,6 +429,8 @@ fun HomeScreen(
 						memos = memosForDay,
 						events = eventsForDay,
 						textSizes = textSizes,
+						dayShiftBackgroundColor = dayShiftBackgroundColor,
+						nightShiftBackgroundColor = nightShiftBackgroundColor,
 						crewPatternLabel = crewPatternLabel
 					) { clicked ->
 						onAction(HomeAction.OnDateClick(clicked.date))
@@ -670,7 +689,7 @@ private fun ExpandableFab(
 }
 
 private enum class DrawerItem {
-	CALENDAR, ANNIVERSARY, TRAIN_FORMATION, SHIFT, SUB_SHIFT, HOLIDAY_REFRESH, SHIFT_REFRESH, SETTINGS, VACATION, TEXT_SIZE, WORK_ALARM, BACKUP, RESTORE, MENU_UPLOAD
+	CALENDAR, ANNIVERSARY, TRAIN_FORMATION, SHIFT, SUB_SHIFT, HOLIDAY_REFRESH, SHIFT_REFRESH, SETTINGS, VACATION, TEXT_SIZE, SHIFT_COLOR, WORK_ALARM, BACKUP, RESTORE, MENU_UPLOAD
 }
 
 @Composable
@@ -901,6 +920,14 @@ private fun HomeDrawerContent(
 				label = { Text("텍스트 크기 설정") },
 				selected = false,
 				onClick = { onItemClick(DrawerItem.TEXT_SIZE) },
+				modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+			)
+
+			NavigationDrawerItem(
+				icon = { Icon(Icons.Default.Palette, contentDescription = null) },
+				label = { Text("근무 색상 설정") },
+				selected = false,
+				onClick = { onItemClick(DrawerItem.SHIFT_COLOR) },
 				modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
 			)
 			HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
@@ -1167,6 +1194,8 @@ private fun Day(
 	anniversaryName: String? = null,
 	shiftName: String? = null,
 	subShiftName: String? = null,
+	isNightShift: Boolean = false,
+	isSubNightShift: Boolean = false,
 	swapDates: Set<LocalDate> = emptySet(),
 	shiftInputInfo: Pair<String, String>? = null, // (shortName, colorHex) for 충당
 	holidayWorkShifts: List<String> = emptyList(),
@@ -1174,6 +1203,8 @@ private fun Day(
 	memos: List<Memo> = emptyList(),
 	events: List<CalendarEvent> = emptyList(),
 	textSizes: CalendarTextSizes = CalendarTextSizes.DEFAULT,
+	dayShiftBackgroundColor: Color? = null,
+	nightShiftBackgroundColor: Color? = null,
 	crewPatternLabel: String? = null,
 	onClick: (CalendarDay) -> Unit,
 ) {
@@ -1333,7 +1364,10 @@ private fun Day(
 						isShiftInput = isShiftInput,
 						shiftInputColorHex = shiftInputColorHex,
 						isHolidayWork = isHolidayWork,
-						fontSize = textSizes.shiftFontSize
+						fontSize = textSizes.shiftFontSize,
+						dayShiftBackgroundColor = dayShiftBackgroundColor,
+						nightShiftBackgroundColor = nightShiftBackgroundColor,
+						isNightShift = isNightShift
 					)
 				}
 			}
@@ -1350,7 +1384,10 @@ private fun Day(
 			) {
 				ShiftBadge(
 					shiftName = subShiftName,
-					fontSize = (textSizes.shiftFontSize * 0.8f).coerceAtLeast(8f)
+					fontSize = (textSizes.shiftFontSize * 0.8f).coerceAtLeast(8f),
+					dayShiftBackgroundColor = dayShiftBackgroundColor,
+					nightShiftBackgroundColor = nightShiftBackgroundColor,
+					isNightShift = isSubNightShift
 				)
 			}
 		}
@@ -1625,5 +1662,15 @@ private fun FooterActionButton(
 				style = TextStyle(platformStyle = PlatformTextStyle(includeFontPadding = false))
 			)
 		}
+	}
+}
+
+private fun String.toComposeColorOrNull(): Color? {
+	// 빈 값(테마 기본색)이면 null을 돌려주고, 잘못된 값도 예외로 앱이 죽지 않게 한다.
+	if (isBlank()) return null
+	return try {
+		Color(toColorInt())
+	} catch (e: RuntimeException) {
+		null
 	}
 }

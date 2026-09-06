@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sonbum.diacalendar2.data.local.datastore.CalendarTextSizes
 import com.sonbum.diacalendar2.data.local.datastore.CrewPatternPreferences
+import com.sonbum.diacalendar2.data.local.datastore.ShiftColorPreferences
+import com.sonbum.diacalendar2.data.local.datastore.ShiftDisplayColors
 import com.sonbum.diacalendar2.data.local.datastore.TextSizePreferences
 import com.sonbum.diacalendar2.data.local.datastore.ThemeMode
 import com.sonbum.diacalendar2.data.local.datastore.ThemePreferences
@@ -81,6 +83,7 @@ class HomeViewModel(
     private val backupRepository: BackupRepository,
     private val crewPatternPreferences: CrewPatternPreferences,
     private val anniversaryRepository: AnniversaryRepository,
+    private val shiftColorPreferences: ShiftColorPreferences,
     private val shiftCalendarSyncUseCase: ShiftCalendarSyncUseCase
 ) : ViewModel() {
 
@@ -107,6 +110,9 @@ class HomeViewModel(
 
     val showSubShift = crewPatternPreferences.showSubShift
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val shiftDisplayColors = shiftColorPreferences.colors
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ShiftDisplayColors.DEFAULT)
 
     // 현재 캘린더에 표시 중인 연도 (HomeScreen에서 갱신) - init 이전에 초기화 필요
     private val _visibleYear = MutableStateFlow(LocalDate.now().year)

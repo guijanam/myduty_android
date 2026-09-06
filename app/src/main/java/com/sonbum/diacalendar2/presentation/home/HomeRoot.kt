@@ -32,6 +32,7 @@ fun HomeRoot(
 	onNavigateToDiaTable: () -> Unit = {},
 	onNavigateToVacationSetting: () -> Unit = {},
 	onNavigateToTextSizeSettings: () -> Unit = {},
+	onNavigateToShiftColorSettings: () -> Unit = {},
 	onNavigateToWorkAlarmSettings: () -> Unit = {},
 	modifier: Modifier,
 	viewModel: HomeViewModel = koinViewModel()
@@ -39,6 +40,7 @@ fun HomeRoot(
 	val state by viewModel.state.collectAsStateWithLifecycle()
 	val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
 	val textSizes by viewModel.textSizes.collectAsStateWithLifecycle()
+	val shiftDisplayColors by viewModel.shiftDisplayColors.collectAsStateWithLifecycle()
 	val showCrewPattern by viewModel.showCrewPattern.collectAsStateWithLifecycle()
 	val crewPattern by viewModel.crewPattern.collectAsStateWithLifecycle()
 	val crewPatternStartDate by viewModel.crewPatternStartDate.collectAsStateWithLifecycle()
@@ -135,8 +137,10 @@ fun HomeRoot(
 		onNavigateToDiaTable = onNavigateToDiaTable,
 		onNavigateToVacationSetting = onNavigateToVacationSetting,
 		onNavigateToTextSizeSettings = onNavigateToTextSizeSettings,
+		onNavigateToShiftColorSettings = onNavigateToShiftColorSettings,
 		onNavigateToWorkAlarmSettings = onNavigateToWorkAlarmSettings,
 		textSizes = textSizes,
+		shiftDisplayColors = shiftDisplayColors,
 		onBackup = {
 			// 파일 이름에 현재 날짜/시간 포함
 			val timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"))

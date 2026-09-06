@@ -41,6 +41,8 @@ import com.sonbum.diacalendar2.domain.model.TrainHalf
 import com.sonbum.diacalendar2.domain.repository.TrainFormationRepository
 import com.sonbum.diacalendar2.data.local.OfficeWebsiteRegistry
 import com.sonbum.diacalendar2.domain.util.DayTypeResolver
+import com.sonbum.diacalendar2.data.local.datastore.ShiftColorPreferences
+import com.sonbum.diacalendar2.data.local.datastore.ShiftDisplayColors
 import com.sonbum.diacalendar2.widget.WidgetUpdater
 import com.sonbum.diacalendar2.core.notification.ShiftReminderWorker
 import android.content.Context
@@ -48,6 +50,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -89,6 +93,8 @@ data class DateDetailState(
     val officeName: String? = null,
     val officeWebsiteUrl: String? = null,
     val viewMode: DayViewMode = DayViewMode.LIST,
+    // 다음날 근무명이 "~"로 시작/포함하면 이 날은 야간 근무다 (달력 셀과 동일한 판별)
+    val isNightShift: Boolean = false,
     val trainFormations: List<TrainFormation> = emptyList()
 )
 
@@ -114,8 +120,12 @@ class DateDetailViewModel(
     private val anniversaryRepository: AnniversaryRepository,
     private val alarmScheduler: AlarmScheduler,
     private val trainFormationRepository: TrainFormationRepository,
+    private val shiftColorPreferences: ShiftColorPreferences,
     private val appContext: Context
 ) : ViewModel() {
+
+    val shiftDisplayColors = shiftColorPreferences.colors
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ShiftDisplayColors.DEFAULT)
 
     private val _state = MutableStateFlow(DateDetailState())
     val state = _state.asStateFlow()
@@ -266,6 +276,14 @@ class DateDetailViewModel(
             shiftRepository.observeScheduleByDate(date).collect { schedule ->
                 _state.update { it.copy(shiftName = schedule?.shiftName) }
                 updateEffectiveShift()
+            }
+        }
+
+        // 다음날 근무명에 "~"가 있으면 이 날은 야간 근무 (HomeScreen 달력 셀과 동일한 판별)
+        viewModelScope.launch {
+            shiftRepository.observeScheduleByDate(date.plusDays(1)).collect { nextSchedule ->
+                val isNight = nextSchedule?.shiftName?.contains("~") == true
+                _state.update { it.copy(isNightShift = isNight) }
             }
         }
     }

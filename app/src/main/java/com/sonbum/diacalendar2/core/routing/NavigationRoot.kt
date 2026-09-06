@@ -26,6 +26,7 @@ import com.sonbum.diacalendar2.presentation.localoffice.LocalOfficeEditScreen
 import com.sonbum.diacalendar2.presentation.localoffice.LocalOfficeListScreen
 import com.sonbum.diacalendar2.presentation.vacation.VacationSettingScreen
 import com.sonbum.diacalendar2.presentation.textsize.TextSizeSettingsScreen
+import com.sonbum.diacalendar2.presentation.shiftcolor.ShiftColorSettingsScreen
 import com.sonbum.diacalendar2.presentation.alarm.WorkAlarmSettingsScreen
 import com.sonbum.diacalendar2.presentation.alarm.ScheduledAlarmListScreen
 import com.sonbum.diacalendar2.presentation.customshift.CustomShiftListScreen
@@ -409,6 +410,17 @@ fun NavigationRoot(
 				)
 			}
 
+			// 근무 색상 설정 화면
+			entry<Route.ShiftColorSettings> {
+				ShiftColorSettingsScreen(
+					onNavigateBack = {
+						if (topLevelBackStack.size > 1) {
+							topLevelBackStack.removeAt(topLevelBackStack.lastIndex)
+						}
+					}
+				)
+			}
+
 			// 근무 알람 설정 화면
 			entry<Route.WorkAlarmSettings> {
 				WorkAlarmSettingsScreen(
@@ -594,6 +606,9 @@ fun NavigationRoot(
 									},
 									onNavigateToTextSizeSettings = {
 										topLevelBackStack.add(Route.TextSizeSettings)
+									},
+									onNavigateToShiftColorSettings = {
+										topLevelBackStack.add(Route.ShiftColorSettings)
 									},
 									onNavigateToWorkAlarmSettings = {
 										topLevelBackStack.add(Route.WorkAlarmSettings)
