@@ -154,22 +154,18 @@ fun NavigationRoot(
 						}
 						appContext.startActivity(intent)
 					},
-					onNavigateToSubway = { trainNo, line, officeName ->
-						topLevelBackStack.add(Route.SubwayPosition(trainNo, line, officeName))
+					onNavigateToSubway = { trainNo, line, officeName, allTrainNos ->
+						topLevelBackStack.add(
+							Route.SubwayPosition(trainNo, line, officeName, allTrainNos)
+						)
 					},
 					openEventDialogOnStart = key.openEventDialog
 				)
 
 				if (showDateDetailPaywall) {
 					DateDetailPaywallSheet(
-						onDismiss = {
-							showDateDetailPaywall = false
-							dateDetailOpenCount = 0          // 닫으면 카운터 리셋
-						},
-						onSubscribed = {
-							showDateDetailPaywall = false
-							dateDetailOpenCount = 0          // 구독 완료 후에도 리셋(이후 isSubscribed로 차단됨)
-						}
+						onDismiss = { showDateDetailPaywall = false },
+						onSubscribed = { showDateDetailPaywall = false }
 					)
 				}
 			}
@@ -193,6 +189,7 @@ fun NavigationRoot(
 					myTrainNo = key.myTrainNo,
 					line = key.line,
 					officeName = key.officeName,
+					allTrainNos = key.allTrainNos,
 					onBack = {
 						if (topLevelBackStack.size > 1) {
 							topLevelBackStack.removeAt(topLevelBackStack.lastIndex)

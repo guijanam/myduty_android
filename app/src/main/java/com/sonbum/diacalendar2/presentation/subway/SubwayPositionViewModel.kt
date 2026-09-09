@@ -44,6 +44,10 @@ data class SubwayPositionState(
 	val isLoading: Boolean = true,
 	val errorMessage: String? = null,
 	val myTrainNo: String = "",
+	/** 이 근무의 전체 열번. 모두 "내 열차"로 강조한다. */
+	val myTrainNos: List<String> = emptyList(),
+	/** 그중 지금 실제 운행 중인 열번들. */
+	val runningTrainNos: List<String> = emptyList(),
 	val line: Int = 0,
 	val tabs: List<SubwayTabUi> = emptyList(),
 	val selectedTabKey: String? = null,
@@ -77,6 +81,7 @@ class SubwayPositionViewModel(
 	private var loadJob: Job? = null
 
 	private var myTrainNo: String = ""
+	private var myTrainNos: List<String> = emptyList()
 	private var line: Int = 0
 	private var officeName: String = ""
 
@@ -84,9 +89,16 @@ class SubwayPositionViewModel(
 	private var userSelectedTab: String? = null
 
 	/** 화면 진입 시 1회 호출: 조회 대상 파라미터를 보관한다. */
-	fun initialize(myTrainNo: String, line: Int, officeName: String) {
-		_state.update { it.copy(myTrainNo = myTrainNo, line = line) }
+	fun initialize(myTrainNo: String, line: Int, officeName: String, allTrainNos: String = "") {
+		// 근무 열번이 여러 개면 전부 내 열차로 취급한다. 비어 있으면 첫 열번만.
+		val nos = allTrainNos.split(',')
+			.map { it.trim() }
+			.filter { it.isNotBlank() }
+			.ifEmpty { listOf(myTrainNo) }
+			.distinct()
+		_state.update { it.copy(myTrainNo = myTrainNo, myTrainNos = nos, line = line) }
 		this.myTrainNo = myTrainNo
+		this.myTrainNos = nos
 		this.line = line
 		this.officeName = officeName
 	}
@@ -183,6 +195,12 @@ class SubwayPositionViewModel(
 		}
 	}
 
+	/** 내 열번 중 지금 실제 운행 중인 것들. */
+	private fun runningTrainNos(all: List<SubwayPositionDto>): List<String> =
+		myTrainNos.filter { no ->
+			all.any { dto -> dto.trainNo?.let { SubwayTrainParser.sameTrain(it, no) } == true }
+		}
+
 	private fun applyResult(
 		all: List<SubwayPositionDto>,
 		myTrainNo: String,
@@ -226,6 +244,7 @@ class SubwayPositionViewModel(
 					.takeIf { idx -> idx >= 0 },
 				totalTrainCount = all.size,
 				baseTimeText = baseTime(all),
+				runningTrainNos = runningTrainNos(all),
 				isLoop = seg?.loop == true,
 				stationDataMissing = false,
 				notRunning = all.isEmpty()
@@ -252,9 +271,7 @@ class SubwayPositionViewModel(
 		myTrainNo: String,
 		prevTrainNo: String?
 	) {
-		val mine = all.filter { dto ->
-			dto.trainNo?.let { SubwayTrainParser.sameTrain(it, myTrainNo) } == true
-		}
+		val mine = all.filter { dto -> isMine(dto.trainNo) }
 		val dir = mine.firstOrNull()?.updnLine
 		val visible = (if (dir != null) all.filter { it.updnLine == dir } else all)
 			.sortedBy { legacySeq(it) }
@@ -279,6 +296,7 @@ class SubwayPositionViewModel(
 					.takeIf { idx -> idx >= 0 },
 				totalTrainCount = all.size,
 				baseTimeText = baseTime(all),
+				runningTrainNos = runningTrainNos(all),
 				isLoop = false,
 				stationDataMissing = true,
 				notRunning = stations.isEmpty()
@@ -362,14 +380,21 @@ class SubwayPositionViewModel(
 		myTrainNo: String,
 		line: Int
 	): String {
-		val mine = all.firstOrNull { dto ->
-			dto.trainNo?.let { SubwayTrainParser.sameTrain(it, myTrainNo) } == true
-		}
-		if (mine != null) {
+		// 근무 열번 순서대로 먼저 잡히는 운행 열차의 탭을 연다.
+		for (no in myTrainNos) {
+			val mine = all.firstOrNull { dto ->
+				dto.trainNo?.let { SubwayTrainParser.sameTrain(it, no) } == true
+			} ?: continue
 			val hit = tabs.firstOrNull { matches(mine, line, it.segmentId, it.updnLine) }
 			if (hit != null) return hit.key
 		}
 		return tabs.maxByOrNull { it.trainCount }?.key ?: tabs.first().key
+	}
+
+	/** 이 근무의 열번 중 하나라도 일치하면 내 열차. */
+	private fun isMine(trainNo: String?): Boolean {
+		if (trainNo == null) return false
+		return myTrainNos.any { SubwayTrainParser.sameTrain(trainNo, it) }
 	}
 
 	private fun toUi(
@@ -378,7 +403,7 @@ class SubwayPositionViewModel(
 		prevTrainNo: String?
 	): SubwayTrainUi = SubwayTrainUi(
 		dto = dto,
-		isMine = dto.trainNo?.let { SubwayTrainParser.sameTrain(it, myTrainNo) } ?: false,
+		isMine = isMine(dto.trainNo),
 		isPrevious = prevTrainNo != null &&
 			(dto.trainNo?.let { SubwayTrainParser.sameTrain(it, prevTrainNo) } ?: false),
 		seq = legacySeq(dto)

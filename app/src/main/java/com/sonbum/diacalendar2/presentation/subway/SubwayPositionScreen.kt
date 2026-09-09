@@ -41,6 +41,9 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -71,13 +74,14 @@ fun SubwayPositionScreen(
 	line: Int,
 	officeName: String,
 	onBack: () -> Unit,
+	allTrainNos: String = "",
 	modifier: Modifier = Modifier,
 	viewModel: SubwayPositionViewModel = koinViewModel(),
 ) {
 	val state by viewModel.state.collectAsStateWithLifecycle()
 
-	LaunchedEffect(myTrainNo, line, officeName) {
-		viewModel.initialize(myTrainNo, line, officeName)
+	LaunchedEffect(myTrainNo, line, officeName, allTrainNos) {
+		viewModel.initialize(myTrainNo, line, officeName, allTrainNos)
 	}
 
 	// 화면이 보일 때(ON_RESUME)만 조회/자동 갱신, 가려지면(ON_PAUSE) 중단한다.
@@ -103,7 +107,14 @@ fun SubwayPositionScreen(
 		modifier = modifier,
 		topBar = {
 			TopAppBar(
-				title = { Text("${line}호선 ${myTrainNo}열차") },
+				title = {
+					val shown = state.runningTrainNos.ifEmpty { state.myTrainNos }
+					Text(
+						text = if (shown.size > 1) "${line}호선 ${shown.joinToString(" · ")}"
+						else "${line}호선 ${shown.firstOrNull() ?: myTrainNo}열차",
+						maxLines = 1
+					)
+				},
 				navigationIcon = {
 					IconButton(onClick = onBack) {
 						Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "뒤로")
@@ -144,6 +155,16 @@ fun SubwayPositionScreen(
 				count = state.totalTrainCount,
 				accent = lineColor
 			)
+
+			// 내 열번이 지금 어디에 있는지(또는 왜 없는지)를 목록보다 먼저 알린다.
+			if (state.myTrainNos.isNotEmpty() && !state.isLoading) {
+				MyTrainSummary(
+					myTrainNos = state.myTrainNos,
+					runningTrainNos = state.runningTrainNos,
+					stations = state.stations,
+					accent = lineColor
+				)
+			}
 
 			when {
 				state.isLoading && state.stations.isEmpty() ->
@@ -200,6 +221,75 @@ fun SubwayPositionScreen(
 						accent = lineColor,
 						modifier = Modifier.fillMaxSize()
 					)
+			}
+		}
+	}
+}
+
+/**
+ * 내 근무 열번의 현재 위치 요약.
+ * 운행 중이면 어느 역에 있는지 바로 보여주고, 아니면 그 사실을 명확히 알린다
+ * (그렇지 않으면 "열차 제일 많은 탭"이 열려 무관한 화면으로 보인다).
+ */
+@Composable
+private fun MyTrainSummary(
+	myTrainNos: List<String>,
+	runningTrainNos: List<String>,
+	stations: List<SubwayStationUi>,
+	accent: Color
+) {
+	// 열번 -> 현재 역명
+	val whereByTrainNo = remember(stations) {
+		buildMap {
+			stations.forEach { st ->
+				st.trains.filter { it.isMine }.forEach { t ->
+					t.dto.trainNo?.let { no -> put(no, st.name) }
+				}
+			}
+		}
+	}
+
+	Surface(
+		color = if (runningTrainNos.isEmpty()) MaterialTheme.colorScheme.surfaceVariant
+		else accent.copy(alpha = 0.12f),
+		modifier = Modifier.fillMaxWidth()
+	) {
+		Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+			if (runningTrainNos.isEmpty()) {
+				Text(
+					text = "내 열번 ${myTrainNos.joinToString(" · ")} 은(는) 지금 운행 중이 아닙니다.",
+					style = MaterialTheme.typography.bodySmall,
+					color = MaterialTheme.colorScheme.onSurfaceVariant
+				)
+				Text(
+					text = "아래는 현재 운행 중인 다른 열차입니다.",
+					style = MaterialTheme.typography.labelSmall,
+					color = MaterialTheme.colorScheme.onSurfaceVariant
+				)
+			} else {
+				runningTrainNos.forEach { no ->
+					// matchKey(뒤 3자리)로 매칭되므로 표시용 실제 열번을 찾아 쓴다.
+					val entry = whereByTrainNo.entries.firstOrNull { (apiNo, _) ->
+						apiNo.takeLast(3) == no.takeLast(3)
+					}
+					Row(verticalAlignment = Alignment.CenterVertically) {
+						Surface(color = accent, shape = RoundedCornerShape(5.dp)) {
+							Text(
+								text = entry?.key ?: no,
+								style = MaterialTheme.typography.labelMedium,
+								fontWeight = FontWeight.Bold,
+								fontFamily = FontFamily.Monospace,
+								color = Color.White,
+								modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+							)
+						}
+						Text(
+							text = entry?.value?.let { "  $it 부근" } ?: "  다른 방향/지선에서 운행 중",
+							style = MaterialTheme.typography.bodySmall,
+							fontWeight = FontWeight.SemiBold
+						)
+					}
+				}
 			}
 		}
 	}
@@ -273,11 +363,18 @@ private fun SubwayLinearDiagram(
 	modifier: Modifier = Modifier
 ) {
 	val listState = rememberLazyListState()
+	// 첫 진입은 애니메이션 없이 즉시 내 열차 위치로 보낸다(긴 목록을 훑는 연출 방지).
+	var landed by rememberSaveable { mutableStateOf(false) }
 
 	// 탭 전환 또는 내 열차 위치 변동 시에만 스크롤. stations에 key를 걸면 30초마다 화면이 튄다.
 	LaunchedEffect(selectedTabKey, myTrainIndex) {
-		myTrainIndex?.let {
-			listState.animateScrollToItem(index = it.coerceAtLeast(0), scrollOffset = -240)
+		val target = myTrainIndex ?: return@LaunchedEffect
+		val index = target.coerceAtLeast(0)
+		if (landed) {
+			listState.animateScrollToItem(index = index, scrollOffset = -240)
+		} else {
+			listState.scrollToItem(index = index, scrollOffset = -240)
+			landed = true
 		}
 	}
 
@@ -313,12 +410,17 @@ private fun SubwayLoopDiagram(
 	val leftColumn = stations.take(half)                       // 위 → 아래
 	val rightColumn = stations.drop(half).reversed()           // 아래 → 위
 
+	var landed by rememberSaveable(selectedTabKey) { mutableStateOf(false) }
+
 	LaunchedEffect(selectedTabKey, myTrainIndex, rowOffsets.size) {
 		val target = myTrainIndex ?: return@LaunchedEffect
 		// 고리에서의 인덱스를 화면상의 행 번호로 환산한다.
 		val row = if (target < half) target else stations.lastIndex - target
 		rowOffsets[row]?.let { y ->
-			scrollState.animateScrollTo((y - 240).coerceAtLeast(0))
+			val to = (y - 240).coerceAtLeast(0)
+			// 첫 진입은 즉시 이동, 이후 갱신만 애니메이션.
+			if (landed) scrollState.animateScrollTo(to) else scrollState.scrollTo(to)
+			landed = true
 		}
 	}
 

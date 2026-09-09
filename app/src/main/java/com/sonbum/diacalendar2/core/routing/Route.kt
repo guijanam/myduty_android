@@ -111,9 +111,12 @@ sealed interface Route : NavKey {
 
 	@Serializable
 	data class SubwayPosition(
+		/** 교대 시작 열번(첫 토큰). 화면 제목/기본 강조에 쓴다. */
 		val myTrainNo: String,
 		val line: Int,
-		val officeName: String
+		val officeName: String,
+		/** 해당 근무의 전체 열번을 콤마로 이은 값. 비어 있으면 myTrainNo만 사용. */
+		val allTrainNos: String = ""
 	) : Route
 
 	@Serializable

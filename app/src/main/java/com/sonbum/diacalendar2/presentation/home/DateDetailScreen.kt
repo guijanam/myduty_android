@@ -183,7 +183,7 @@ fun DateDetailScreen(
 	onEditMemo: (String) -> Unit,
 	onNavigateToMenu: () -> Unit = {},
 	onNavigateToOfficeWebsite: (String, String) -> Unit = { _, _ -> },
-	onNavigateToSubway: (String, Int, String) -> Unit = { _, _, _ -> },
+	onNavigateToSubway: (String, Int, String, String) -> Unit = { _, _, _, _ -> },
 	openEventDialogOnStart: Boolean = false,
 	modifier: Modifier = Modifier,
 	viewModel: DateDetailViewModel = koinViewModel(),
@@ -953,7 +953,7 @@ fun WorkTimeCard(
     shiftInputRecord: ShiftInputRecord? = null,
     isHolidayWork: Boolean = false,
     officeName: String? = null,
-    onNavigateToSubway: (String, Int, String) -> Unit = { _, _, _ -> },
+    onNavigateToSubway: (String, Int, String, String) -> Unit = { _, _, _, _ -> },
     formations: List<TrainFormation> = emptyList(),
     onFormationClick: (TrainHalf, TrainFormation?) -> Unit = { _, _ -> },
     dayShiftBackgroundColor: Color? = null,
@@ -1772,16 +1772,14 @@ private fun TrainNumberRow(
 	label: String,
 	numTr: String?,
 	officeName: String?,
-	onNavigateToSubway: (String, Int, String) -> Unit,
+	onNavigateToSubway: (String, Int, String, String) -> Unit,
 	formations: List<TrainFormation> = emptyList(),
 	onAddFormation: (() -> Unit)? = null,
 	onFormationClick: (TrainFormation) -> Unit = {}
 ) {
 	Column(modifier = Modifier.fillMaxWidth()) {
 		Row(
-			modifier = Modifier
-				.fillMaxWidth()
-				.padding(vertical = 2.dp),
+			modifier = Modifier.fillMaxWidth(),
 			verticalAlignment = Alignment.CenterVertically
 		) {
 			Text(
@@ -1827,9 +1825,11 @@ private fun TrainNumberRow(
 
 			val myTrainNo = numTr?.let { SubwayTrainParser.firstToken(it) }
 			val line = myTrainNo?.let { SubwayTrainParser.line(it) }
+			// 근무 열번이 여러 개면("2205 2239 2273") 전부 넘겨 실제 운행 중인 열차를 찾게 한다.
+			val allTrainNos = SubwayTrainParser.tokens(numTr).joinToString(",")
 			if (myTrainNo != null && line != null && !officeName.isNullOrBlank()) {
 				IconButton(
-					onClick = { onNavigateToSubway(myTrainNo, line, officeName) },
+					onClick = { onNavigateToSubway(myTrainNo, line, officeName, allTrainNos) },
 					modifier = Modifier.size(32.dp)
 				) {
 					Icon(
