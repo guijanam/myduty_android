@@ -4,6 +4,7 @@ import androidx.room.Room
 import okhttp3.logging.HttpLoggingInterceptor
 import com.sonbum.diacalendar2.data.local.OfficeWebsiteRegistry
 import com.sonbum.diacalendar2.data.local.DrawerWebsiteRegistry
+import com.sonbum.diacalendar2.data.local.SubwayStationRegistry
 import com.sonbum.diacalendar2.data.local.database.AppDatabase
 import com.sonbum.diacalendar2.data.local.datastore.CalendarPreferences
 import com.sonbum.diacalendar2.data.local.datastore.CoworkerPreferences
@@ -233,6 +234,7 @@ val dataStoreModule = module {
     single { CoworkerPreferences(androidContext()) }
     single { OfficeWebsiteRegistry(androidContext()) }
     single { DrawerWebsiteRegistry(androidContext()) }
+    single { SubwayStationRegistry(androidContext()) }
     single { VipPreferences(androidContext()) }
 }
 
