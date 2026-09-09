@@ -1,6 +1,7 @@
 package com.sonbum.diacalendar2.presentation.subway
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -50,6 +52,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.text.font.FontFamily
@@ -66,6 +69,8 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.koin.compose.viewmodel.koinViewModel
+import kotlin.math.cos
+import kotlin.math.sin
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -391,9 +396,11 @@ private fun SubwayLinearDiagram(
 }
 
 /**
- * 2호선 본선: 좌우 두 열의 순환 고리(TOPIS 노선도와 동일한 형태).
- * 좌열은 위→아래, 우열은 아래→위로 읽어 전체가 하나의 고리가 된다.
- * 역 수가 43개로 고정이라 LazyColumn 없이 스크롤 컬럼으로 충분하다.
+ * 2호선 본선: 실제 노선도처럼 원형 고리로 그린다.
+ *
+ * 시청(index 0)을 정상단(12시)에 두고 시계 방향으로
+ * 을지로입구 → 을지로3가 → … → 충정로 순서로 배치한다.
+ * 43개 역을 각도로 나눠 원주에 올리므로 순환선의 "끝이 없는" 성질이 그대로 드러난다.
  */
 @Composable
 private fun SubwayLoopDiagram(
@@ -403,115 +410,152 @@ private fun SubwayLoopDiagram(
 	accent: Color,
 	modifier: Modifier = Modifier
 ) {
+	if (stations.isEmpty()) return
+
+	// 원주에 43개 라벨이 겹치지 않으려면 역당 최소 호(弧) 길이가 필요하다.
+	// 지름 = (역 수 x 역당 호 길이) / PI 로 잡아 라벨 간격을 일정하게 유지한다.
+	val diameter = ((stations.size * LOOP_ARC_PER_STATION.value / Math.PI).toFloat())
+		.dp.coerceAtLeast(320.dp)
 	val scrollState = rememberScrollState()
-	val rowOffsets = remember(selectedTabKey) { mutableStateMapOf<Int, Int>() }
+	val hScrollState = rememberScrollState()
 
-	val half = (stations.size + 1) / 2
-	val leftColumn = stations.take(half)                       // 위 → 아래
-	val rightColumn = stations.drop(half).reversed()           // 아래 → 위
-
+	// 내 열차가 있으면 그 역이 화면에 오도록, 없으면 원 중앙이 보이도록 스크롤한다.
 	var landed by rememberSaveable(selectedTabKey) { mutableStateOf(false) }
-
-	LaunchedEffect(selectedTabKey, myTrainIndex, rowOffsets.size) {
-		val target = myTrainIndex ?: return@LaunchedEffect
-		// 고리에서의 인덱스를 화면상의 행 번호로 환산한다.
-		val row = if (target < half) target else stations.lastIndex - target
-		rowOffsets[row]?.let { y ->
-			val to = (y - 240).coerceAtLeast(0)
-			// 첫 진입은 즉시 이동, 이후 갱신만 애니메이션.
-			if (landed) scrollState.animateScrollTo(to) else scrollState.scrollTo(to)
+	LaunchedEffect(selectedTabKey, myTrainIndex, diameter, scrollState.maxValue) {
+		if (scrollState.maxValue == 0) return@LaunchedEffect
+		val (targetX, targetY) = if (myTrainIndex != null && stations.isNotEmpty()) {
+			// 역의 원주 좌표를 스크롤 좌표로 환산(원 중심 = 스크롤 중앙).
+			val rad = Math.toRadians((-90f + (360f / stations.size) * myTrainIndex).toDouble())
+			(hScrollState.maxValue / 2 + (hScrollState.maxValue / 2 * cos(rad)).toInt()) to
+				(scrollState.maxValue / 2 + (scrollState.maxValue / 2 * sin(rad)).toInt())
+		} else {
+			hScrollState.maxValue / 2 to scrollState.maxValue / 2
+		}
+		// 첫 진입은 즉시, 이후 갱신만 애니메이션.
+		if (landed) {
+			scrollState.animateScrollTo(targetY)
+			hScrollState.animateScrollTo(targetX)
+		} else {
+			scrollState.scrollTo(targetY)
+			hScrollState.scrollTo(targetX)
 			landed = true
 		}
 	}
 
-	Column(
+	Box(
 		modifier = modifier
 			.verticalScroll(scrollState)
-			.padding(vertical = 12.dp)
+			.horizontalScroll(hScrollState)
 	) {
-		LoopCap(text = "순환 계속", accent = accent)
-		val rows = maxOf(leftColumn.size, rightColumn.size)
-		repeat(rows) { row ->
-			Row(
-				modifier = Modifier
-					.fillMaxWidth()
-					.onGloballyPositioned { rowOffsets[row] = it.positionInParent().y.toInt() }
-			) {
-				LoopHalfRow(
-					station = leftColumn.getOrNull(row),
-					accent = accent,
-					alignEnd = true,
-					modifier = Modifier.weight(1f)
+		Box(
+			modifier = Modifier
+				.size(diameter + LOOP_LABEL_MARGIN * 2)
+				.padding(LOOP_LABEL_MARGIN)
+		) {
+			// 노선 원(레일).
+			Canvas(modifier = Modifier.fillMaxSize()) {
+				drawCircle(
+					color = accent,
+					radius = size.minDimension / 2f,
+					style = Stroke(width = LOOP_RAIL_STROKE.toPx())
 				)
-				LoopHalfRow(
-					station = rightColumn.getOrNull(row),
+			}
+
+			// 각 역을 원주 위 각도로 배치. 시청(0)이 12시, 시계 방향으로 증가.
+			stations.forEachIndexed { index, station ->
+				val angleDeg = -90f + (360f / stations.size) * index
+				val angleRad = Math.toRadians(angleDeg.toDouble())
+				val radius = diameter / 2
+				val dx = radius * cos(angleRad).toFloat()
+				val dy = radius * sin(angleRad).toFloat()
+
+				LoopStationNode(
+					station = station,
 					accent = accent,
-					alignEnd = false,
-					modifier = Modifier.weight(1f)
+					// 오른쪽 절반이면 라벨을 바깥(오른쪽), 왼쪽 절반이면 바깥(왼쪽)으로.
+					labelOnRight = cos(angleRad) >= 0,
+					modifier = Modifier
+						.align(Alignment.Center)
+						.offset(x = dx, y = dy)
+				)
+			}
+
+			// 원 안쪽 가운데에 방향 안내.
+			Column(
+				modifier = Modifier.align(Alignment.Center),
+				horizontalAlignment = Alignment.CenterHorizontally
+			) {
+				Text(
+					text = "2호선 순환",
+					style = MaterialTheme.typography.titleMedium,
+					fontWeight = FontWeight.Bold,
+					color = accent
+				)
+				Text(
+					text = "시청 기준 시계방향",
+					style = MaterialTheme.typography.labelSmall,
+					color = MaterialTheme.colorScheme.onSurfaceVariant
 				)
 			}
 		}
-		LoopCap(text = "순환 계속", accent = accent)
 	}
 }
 
+/** 원주 위 역 하나: 역 점 + 역명 + (있으면) 열차 pill. */
 @Composable
-private fun LoopCap(text: String, accent: Color) {
-	Row(
-		modifier = Modifier
-			.fillMaxWidth()
-			.padding(vertical = 6.dp),
-		horizontalArrangement = Arrangement.Center,
-		verticalAlignment = Alignment.CenterVertically
-	) {
-		Box(
-			modifier = Modifier
-				.height(3.dp)
-				.width(90.dp)
-				.background(accent, RoundedCornerShape(2.dp))
-		)
-		Text(
-			text = text,
-			style = MaterialTheme.typography.labelSmall,
-			color = MaterialTheme.colorScheme.onSurfaceVariant,
-			modifier = Modifier.padding(horizontal = 8.dp)
-		)
-		Box(
-			modifier = Modifier
-				.height(3.dp)
-				.width(90.dp)
-				.background(accent, RoundedCornerShape(2.dp))
-		)
-	}
-}
-
-/** 고리 한쪽 열의 한 행. alignEnd=true면 레일이 오른쪽(좌열), false면 왼쪽(우열). */
-@Composable
-private fun LoopHalfRow(
-	station: SubwayStationUi?,
+private fun LoopStationNode(
+	station: SubwayStationUi,
 	accent: Color,
-	alignEnd: Boolean,
+	labelOnRight: Boolean,
 	modifier: Modifier = Modifier
 ) {
-	if (station == null) {
-		Box(modifier = modifier.height(52.dp))
-		return
-	}
 	Row(
-		modifier = modifier,
-		verticalAlignment = Alignment.CenterVertically
+		modifier = modifier.width(LOOP_NODE_WIDTH),
+		verticalAlignment = Alignment.CenterVertically,
+		horizontalArrangement = if (labelOnRight) Arrangement.Start else Arrangement.End
 	) {
-		if (alignEnd) {
-			TrainPillStack(station, alignEnd = true, modifier = Modifier.weight(1f))
-			StationLabel(station, accent, alignEnd = true)
-			Rail(station, accent)
-		} else {
-			Rail(station, accent)
-			StationLabel(station, accent, alignEnd = false)
-			TrainPillStack(station, alignEnd = false, modifier = Modifier.weight(1f))
+		if (labelOnRight) {
+			StationDot(
+				color = accent,
+				pulsing = station.trains.any { it.isMine },
+				filled = station.trains.isNotEmpty()
+			)
+			Spacer(Modifier.width(4.dp))
+		}
+		Column(
+			horizontalAlignment = if (labelOnRight) Alignment.Start else Alignment.End
+		) {
+			Text(
+				text = station.name,
+				style = MaterialTheme.typography.labelMedium,
+				fontWeight = if (station.trains.isNotEmpty()) FontWeight.Bold
+				else FontWeight.Normal,
+				color = if (station.trains.isNotEmpty()) MaterialTheme.colorScheme.onSurface
+				else MaterialTheme.colorScheme.onSurfaceVariant,
+				maxLines = 1
+			)
+			station.trains.forEach { ui ->
+				TrainPill(ui = ui, alignEnd = !labelOnRight)
+			}
+		}
+		if (!labelOnRight) {
+			Spacer(Modifier.width(4.dp))
+			StationDot(
+				color = accent,
+				pulsing = station.trains.any { it.isMine },
+				filled = station.trains.isNotEmpty()
+			)
 		}
 	}
 }
+
+private val LOOP_RAIL_STROKE = 4.dp
+private val LOOP_LABEL_MARGIN = 96.dp
+private val LOOP_NODE_WIDTH = 180.dp
+
+/** 원주에서 역 하나가 차지할 호 길이. 라벨 겹침을 막는 기준. */
+private val LOOP_ARC_PER_STATION = 58.dp
+
 
 /** 세로 한 줄 노선도의 한 행: [좌 pill] [레일] [역명 + 우 pill]. */
 @Composable
