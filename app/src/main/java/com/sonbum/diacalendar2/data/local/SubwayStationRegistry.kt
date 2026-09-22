@@ -37,6 +37,15 @@ class SubwayStationRegistry(private val context: Context) {
 		}
 	}
 
+	/** 서울교통공사 HTML처럼 역명만 있는 데이터의 statnId 조회용 인덱스. */
+	private val stationNameIndex: Map<Int, Map<String, String>> by lazy {
+		asset.lines.associate { lineDef ->
+			lineDef.line to lineDef.segments
+				.flatMap { it.stations }
+				.associate { normalizeStationName(it.name) to it.statnId }
+		}
+	}
+
 	fun line(line: Int): SubwayLineDef? = lineIndex[line]
 
 	fun segments(line: Int): List<SubwaySegmentDef> = lineIndex[line]?.segments.orEmpty()
@@ -56,6 +65,12 @@ class SubwayStationRegistry(private val context: Context) {
 		return stationIndex[line]?.get(statnId).orEmpty()
 	}
 
+	/** 괄호 속 별칭, 공백, 끝의 '역' 표기를 무시하고 해당 호선 역을 찾는다. */
+	fun stationIdForName(line: Int, stationName: String?): String? {
+		if (stationName.isNullOrBlank()) return null
+		return stationNameIndex[line]?.get(normalizeStationName(stationName))
+	}
+
 	private fun load(): SubwayStationAsset {
 		return try {
 			context.assets.open(ASSET_NAME).bufferedReader().use { reader ->
@@ -71,5 +86,12 @@ class SubwayStationRegistry(private val context: Context) {
 		private const val ASSET_NAME = "subway_stations.json"
 		private const val TAG = "SubwayStationRegistry"
 		private val JSON = Json { ignoreUnknownKeys = true }
+		private val PARENTHESIZED_ALIAS = Regex("\\([^)]*\\)")
+		private val WHITESPACE = Regex("\\s+")
+
+		internal fun normalizeStationName(name: String): String = name
+			.replace(PARENTHESIZED_ALIAS, "")
+			.replace(WHITESPACE, "")
+			.removeSuffix("역")
 	}
 }

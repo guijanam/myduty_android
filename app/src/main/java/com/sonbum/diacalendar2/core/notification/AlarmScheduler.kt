@@ -18,6 +18,7 @@ class AlarmScheduler(private val context: Context) {
         const val EXTRA_SLOT = "alarm_slot"          // 출근/전반/후반 구분
         const val EXTRA_FULL_SCREEN = "alarm_full_screen"
         const val EXTRA_SOUND = "alarm_sound"
+        const val EXTRA_SOUND_URI = "alarm_sound_uri"
         const val EXTRA_VIBRATE = "alarm_vibrate"
         const val EXTRA_SNOOZE_MINUTES = "alarm_snooze_minutes"
 
@@ -81,6 +82,7 @@ class AlarmScheduler(private val context: Context) {
         slot: Int = SLOT_COMMUTE,
         fullScreen: Boolean = true,
         sound: Boolean = true,
+        soundUri: String? = null,
         vibrate: Boolean = true,
         snoozeMinutes: Int = 5
     ) {
@@ -93,6 +95,7 @@ class AlarmScheduler(private val context: Context) {
             putExtra(EXTRA_SLOT, slot)
             putExtra(EXTRA_FULL_SCREEN, fullScreen)
             putExtra(EXTRA_SOUND, sound)
+            putExtra(EXTRA_SOUND_URI, soundUri)
             putExtra(EXTRA_VIBRATE, vibrate)
             putExtra(EXTRA_SNOOZE_MINUTES, snoozeMinutes)
         }

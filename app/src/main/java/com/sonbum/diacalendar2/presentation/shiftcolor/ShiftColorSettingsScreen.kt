@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -27,7 +28,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -37,13 +38,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.toColorInt
@@ -170,6 +174,19 @@ private fun ShiftColorSection(
     selectedHex: String,
     onColorSelected: (String) -> Unit
 ) {
+    var showPicker by rememberSaveable { mutableStateOf(false) }
+    if (showPicker) {
+        ShiftColorPickerDialog(
+            title = title,
+            initialColor = selectedHex.toColorOrNull() ?: MaterialTheme.colorScheme.primaryContainer,
+            onDismiss = { showPicker = false },
+            onApply = { hex ->
+                onColorSelected(hex)
+                showPicker = false
+            }
+        )
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -194,83 +211,36 @@ private fun ShiftColorSection(
                 SelectedColorLabel(hex = selectedHex)
             }
 
-            ColorHexField(
-                selectedHex = selectedHex,
-                onValidHex = onColorSelected
-            )
-
-            Column(
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                maxItemsInEachRow = 5
             ) {
-                // 첫 칸은 "기본(테마 primary 색)" 선택지다.
                 val options = listOf(ShiftDisplayColors.DEFAULT_DAY_SHIFT_COLOR_HEX) + SHIFT_COLOR_OPTIONS
-                options.chunked(5).forEach { rowColors ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        rowColors.forEach { colorOption ->
-                            ColorOptionButton(
-                                hex = colorOption,
-                                selected = selectedHex.equals(colorOption, ignoreCase = true),
-                                onClick = { onColorSelected(colorOption) }
-                            )
-                        }
-                    }
+                options.forEach { colorOption ->
+                    ColorOptionButton(
+                        hex = colorOption,
+                        selected = selectedHex.equals(colorOption, ignoreCase = true),
+                        onClick = { onColorSelected(colorOption) }
+                    )
                 }
+            }
+
+            OutlinedButton(
+                onClick = { showPicker = true },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("직접 선택")
             }
         }
     }
 }
 
 @Composable
-private fun ColorHexField(
-    selectedHex: String,
-    onValidHex: (String) -> Unit
-) {
-    var text by remember(selectedHex) { mutableStateOf(selectedHex.uppercase()) }
-    // 비어 있으면 "기본(테마색)" 상태이므로 오류로 표시하지 않는다.
-    val isThemeDefault = text.isBlank() || text == "#"
-    val normalizedHex = text.toNormalizedColorHexOrNull()
-
-    OutlinedTextField(
-        value = text,
-        onValueChange = { rawValue ->
-            val sanitized = rawValue
-                .trim()
-                .uppercase()
-                .filter { it == '#' || it in '0'..'9' || it in 'A'..'F' }
-            val digits = sanitized.removePrefix("#").take(6)
-            // 모두 지우면 "기본(테마색)"으로 되돌린다.
-            if (digits.isEmpty()) {
-                text = ""
-                onValidHex(ShiftDisplayColors.DEFAULT_DAY_SHIFT_COLOR_HEX)
-                return@OutlinedTextField
-            }
-            val nextValue = "#" + digits
-            text = nextValue
-            nextValue.toNormalizedColorHexOrNull()?.let(onValidHex)
-        },
-        modifier = Modifier.fillMaxWidth(),
-        label = { Text("색상 코드") },
-        singleLine = true,
-        isError = normalizedHex == null && !isThemeDefault,
-        supportingText = {
-            Text(
-                when {
-                    isThemeDefault -> "비워두면 테마 기본색이 적용됩니다"
-                    normalizedHex == null -> "예: #FFF9C4"
-                    else -> " "
-                }
-            )
-        }
-    )
-}
-
-@Composable
 private fun SelectedColorLabel(hex: String) {
     val color = hex.toColorOrNull() ?: MaterialTheme.colorScheme.primaryContainer
-    val label = if (hex.isBlank()) "기본" else hex.uppercase()
+    val label = if (hex.isBlank()) "기본" else "선택한 색상"
 
     Row(
         verticalAlignment = Alignment.CenterVertically
@@ -304,7 +274,7 @@ private fun ColorOptionButton(
 
     Box(
         modifier = Modifier
-            .size(42.dp)
+            .size(48.dp)
             .clip(CircleShape)
             .background(color)
             .border(
@@ -312,7 +282,12 @@ private fun ColorOptionButton(
                 color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
                 shape = CircleShape
             )
-            .clickable(onClick = onClick),
+            .clickable(onClick = onClick)
+            .semantics {
+                contentDescription = if (isThemeDefault) "테마 기본색" else
+                    "추천 색상 ${SHIFT_COLOR_OPTIONS.indexOf(hex) + 1}"
+                this.selected = selected
+            },
         contentAlignment = Alignment.Center
     ) {
         when {
@@ -339,11 +314,6 @@ private fun String.toColorOrNull(): Color? {
     } catch (e: RuntimeException) {
         null
     }
-}
-
-private fun String.toNormalizedColorHexOrNull(): String? {
-    val value = uppercase()
-    return if (Regex("^#[0-9A-F]{6}$").matches(value)) value else null
 }
 
 private val SHIFT_COLOR_OPTIONS = listOf(

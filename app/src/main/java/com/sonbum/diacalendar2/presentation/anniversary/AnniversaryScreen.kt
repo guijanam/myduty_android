@@ -71,7 +71,7 @@ fun AnniversaryScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("기념일 관리") },
+                title = { Text("기념일 관리(음력지원)") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "뒤로")

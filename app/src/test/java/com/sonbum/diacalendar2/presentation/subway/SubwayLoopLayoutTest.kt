@@ -1,6 +1,7 @@
 package com.sonbum.diacalendar2.presentation.subway
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -69,6 +70,13 @@ class SubwayLoopLayoutTest {
 	}
 
 	@Test
+	fun `긴 역명은 한 화면용 표기로 줄인다`() {
+		assertEquals("동대문역사", compactLoopStationName("동대문역사문화공원"))
+		assertEquals("구로디지털", compactLoopStationName("구로디지털단지"))
+		assertEquals("시청", compactLoopStationName("시청"))
+	}
+
+	@Test
 	fun `내 열차의 원본 인덱스가 화면 행으로 환산된다`() {
 		val l = buildLoopLayout(line2)
 		assertEquals(0, l.rowOf(0))                       // 시청 = 최상단
@@ -76,6 +84,21 @@ class SubwayLoopLayoutTest {
 		assertEquals(1, l.rowOf(line2.size - 1))          // 충정로 = 1행(좌)
 		// 같은 행에 마주보는 두 역은 행 번호가 같아야 한다.
 		assertEquals(l.rowOf(2), l.rowOf(line2.size - 2))
+	}
+
+	@Test
+	fun `내 열차 역을 순환 노선도의 확대 중심 좌표로 환산한다`() {
+		val top = requireNotNull(loopStationFocusFraction(line2.size, 0))
+		val right = requireNotNull(loopStationFocusFraction(line2.size, 1))
+		val left = requireNotNull(loopStationFocusFraction(line2.size, line2.lastIndex))
+		val bottomRight = requireNotNull(loopStationFocusFraction(line2.size, 21))
+		val bottomLeft = requireNotNull(loopStationFocusFraction(line2.size, 22))
+
+		assertEquals(0.5f, top.x, 0.001f)
+		assertTrue(right.x > 0.5f)
+		assertTrue(left.x < 0.5f)
+		assertTrue(bottomLeft.x < bottomRight.x)
+		assertNull(loopStationFocusFraction(line2.size, line2.size))
 	}
 
 	@Test

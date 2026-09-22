@@ -181,6 +181,13 @@ class DateDetailViewModel(
         viewModelScope.launch {
             val current = _state.value
             val dateStr = current.date.toString()
+            val showsOriginalShift = current.lateHolidayRecord != null ||
+                (current.lateWorkRecord != null && current.shiftInputRecord == null)
+            val displayedShiftName = if (showsOriginalShift && !current.shiftName.isNullOrBlank()) {
+                current.shiftName
+            } else {
+                current.effectiveShiftName ?: current.shiftName.orEmpty()
+            }
             val numTr = when (half) {
                 TrainHalf.FIRST -> current.shiftDia?.numTr1
                 TrainHalf.SECOND -> current.shiftDia?.numTr2
@@ -191,7 +198,7 @@ class DateDetailViewModel(
                     half = half,
                     formationNo = formationNo,
                     note = note.trim(),
-                    shiftName = current.effectiveShiftName ?: current.shiftName.orEmpty(),
+                    shiftName = displayedShiftName,
                     numTr = numTr,
                     sortOrder = trainFormationRepository.nextSortOrder(dateStr, half)
                 )
@@ -762,11 +769,18 @@ class DateDetailViewModel(
                 swap != null -> swap.swappedShiftName
                 else -> originalShift
             }
+            // 지근·지휴는 유효 근무명으로 유지하되 상세 화면에서는 원래 근무표를 보여준다.
+            val showsOriginalShift = lateHoliday != null || (lateWork != null && shiftInput == null)
+            val displayedName = if (showsOriginalShift && !originalShift.isNullOrBlank()) {
+                originalShift
+            } else {
+                effectiveName
+            }
 
             _state.update { it.copy(effectiveShiftName = effectiveName) }
 
-            if (effectiveName != null) {
-                loadDiaForShift(effectiveName, state.date)
+            if (displayedName != null) {
+                loadDiaForShift(displayedName, state.date)
             } else {
                 _state.update {
                     it.copy(shiftDia = null, carryOverFirstTime = null, carryOverNumTr = null)

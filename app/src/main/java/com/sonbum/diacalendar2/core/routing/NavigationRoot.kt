@@ -28,7 +28,6 @@ import com.sonbum.diacalendar2.presentation.vacation.VacationSettingScreen
 import com.sonbum.diacalendar2.presentation.textsize.TextSizeSettingsScreen
 import com.sonbum.diacalendar2.presentation.shiftcolor.ShiftColorSettingsScreen
 import com.sonbum.diacalendar2.presentation.alarm.WorkAlarmSettingsScreen
-import com.sonbum.diacalendar2.presentation.alarm.ScheduledAlarmListScreen
 import com.sonbum.diacalendar2.presentation.customshift.CustomShiftListScreen
 import com.sonbum.diacalendar2.presentation.customshift.CustomShiftEditScreen
 import com.sonbum.diacalendar2.presentation.auth.AuthScreen
@@ -85,8 +84,7 @@ fun NavigationRoot(
 	val topLevelBackStack = rememberNavBackStack(Route.SignIn)
 	var boardRefreshTrigger by remember { mutableIntStateOf(0) }
 
-	//달력 셀 클릭으로 DateDetail 진입 시마다 카운트 → 일정 횟수 후 페이월 시트 노출 (세션 메모리, 미구독자 한정)
-	var dateDetailOpenCount by remember { mutableIntStateOf(0) }
+	//달력 셀 클릭으로 DateDetail 진입할 때마다 페이월 시트 노출 (미구독자 한정)
 	var showDateDetailPaywall by remember { mutableStateOf(false) }
 	val dateDetailSubscriptionRepository: SubscriptionRepository = koinInject()
 	val navigationScope = rememberCoroutineScope()
@@ -98,10 +96,7 @@ fun NavigationRoot(
 		navigationScope.launch {
 			val ssaid = DeviceIdProvider.getSsaid(appContext)
 			if (dateDetailSubscriptionRepository.isVip(ssaid)) return@launch
-			dateDetailOpenCount += 1
-			if (dateDetailOpenCount >= 3) {
-				showDateDetailPaywall = true
-			}
+			showDateDetailPaywall = true
 		}
 	}
 
@@ -425,20 +420,6 @@ fun NavigationRoot(
 						if (topLevelBackStack.size > 1) {
 							topLevelBackStack.removeAt(topLevelBackStack.lastIndex)
 						}
-					},
-					onNavigateToList = {
-						topLevelBackStack.add(Route.ScheduledAlarmList)
-					}
-				)
-			}
-
-			// 예정된 알람 리스트 화면
-			entry<Route.ScheduledAlarmList> {
-				ScheduledAlarmListScreen(
-					onNavigateBack = {
-						if (topLevelBackStack.size > 1) {
-							topLevelBackStack.removeAt(topLevelBackStack.lastIndex)
-						}
 					}
 				)
 			}
@@ -598,6 +579,14 @@ fun NavigationRoot(
 										}
 										appContext.startActivity(intent)
 									},
+									onNavigateToOfficeWebsite = { url, officeName ->
+										val intent = Intent(appContext, OfficeWebsiteActivity::class.java).apply {
+											putExtra("url", url)
+											putExtra("officeName", officeName)
+											addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_NEW_TASK)
+										}
+										appContext.startActivity(intent)
+									},
 									onNavigateToVacationSetting = {
 										topLevelBackStack.add(Route.VacationSetting)
 									},
@@ -699,7 +688,9 @@ fun NavigationRoot(
 									CommunityScreen(modifier = paddedModifier)
 								}
 
-								entry<Route.Profile> { ProfileScreen() }
+								entry<Route.Profile> {
+									ProfileScreen(modifier = paddedModifier)
+								}
 
 								// 승무소 사이트 탭 (URL이 등록된 승무소 사용자에게만 표시)
 								entry<Route.OfficeWebsiteTab> {

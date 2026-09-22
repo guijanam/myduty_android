@@ -82,15 +82,19 @@ class SubwayStationAssetTest {
 	}
 
 	@Test
-	fun `지선은 본선 분기역을 첫 역으로 포함한다`() {
+	fun `2호선 지선은 종점에서 본선 분기역 순서로 표시한다`() {
 		val line2 = asset.lines.first { it.line == 2 }
 		val seongsu = line2.segments.first { it.id == "seongsu" }
 		val sinjeong = line2.segments.first { it.id == "sinjeong" }
 
-		assertEquals("성수", seongsu.stations.first().name)
-		assertEquals("신설동", seongsu.stations.last().name)
-		assertEquals("신도림", sinjeong.stations.first().name)
-		assertEquals("까치산", sinjeong.stations.last().name)
+		assertEquals(
+			listOf("신설동", "용두", "신답", "용답", "성수"),
+			seongsu.stations.map { it.name }
+		)
+		assertEquals(
+			listOf("까치산", "신정네거리", "양천구청", "도림천", "신도림"),
+			sinjeong.stations.map { it.name }
+		)
 	}
 
 	@Test

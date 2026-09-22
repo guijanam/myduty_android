@@ -74,9 +74,6 @@ sealed interface Route : NavKey {
 	data object WorkAlarmSettings : Route
 
 	@Serializable
-	data object ScheduledAlarmList : Route
-
-	@Serializable
 	data object Auth : Route
 
 	@Serializable
@@ -115,7 +112,7 @@ sealed interface Route : NavKey {
 		val myTrainNo: String,
 		val line: Int,
 		val officeName: String,
-		/** 해당 근무의 전체 열번을 콤마로 이은 값. 비어 있으면 myTrainNo만 사용. */
+		/** 원본 열번 순서를 보존한 값. 위치 화면에서는 가장 앞 열번 하나만 사용한다. */
 		val allTrainNos: String = ""
 	) : Route
 

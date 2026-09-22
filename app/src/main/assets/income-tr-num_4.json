@@ -1,0 +1,79 @@
+{
+  "title": "입고 시간표",
+  "effective_date": "2026.8.1 시행",
+  "schedule": {
+    "weekday": {
+      "onam": [
+        { "type": "오남", "train_number": "4032", "arrival_time": "08:50", "station": "불암산 상선 도착" },
+        { "type": "오남", "train_number": "4530", "arrival_time": "09:07", "station": "불암산 상선 도착" },
+        { "type": "오남", "train_number": "4532", "arrival_time": "09:21", "station": "불암산 상선 도착" },
+        { "type": "오남", "train_number": "4534", "arrival_time": "09:34", "station": "불암산 상선 도착" },
+        { "type": "오남", "train_number": "4046", "arrival_time": "09:44", "station": "불암산 상선 도착" },
+        { "type": "오남", "train_number": "4538", "arrival_time": "09:47", "station": "불암산 상선 도착" },
+        { "type": "오남", "train_number": "4542", "arrival_time": "10:06", "station": "불암산 상선 도착" },
+        { "type": "오남", "train_number": "4054", "arrival_time": "10:10", "station": "불암산 상선 도착" },
+        { "type": "오남", "train_number": "4546", "arrival_time": "10:28", "station": "불암산 상선 도착" },
+        { "type": "오남", "train_number": "4060", "arrival_time": "10:31", "station": "불암산 상선 도착" },
+        { "type": "오남", "train_number": "4550", "arrival_time": "10:49", "station": "불암산 상선 도착" },
+        { "type": "오남", "train_number": "4064", "arrival_time": "10:53", "station": "불암산 상선 도착" },
+        { "type": "오남", "train_number": "4074", "arrival_time": "11:41", "station": "불암산 상선 도착" },
+        { "type": "오남", "train_number": "4152", "arrival_time": "19:20", "station": "불암산 상선 도착" },
+        { "type": "오남", "train_number": "4168", "arrival_time": "20:17", "station": "불암산 상선 도착" },
+        { "type": "오남", "train_number": "4172", "arrival_time": "20:32", "station": "불암산 상선 도착" },
+        { "type": "오남", "train_number": "4176", "arrival_time": "20:48", "station": "불암산 상선 도착" },
+        { "type": "오남", "train_number": "4182", "arrival_time": "21:13", "station": "불암산 상선 도착" },
+        { "type": "오남", "train_number": "4678", "arrival_time": "21:25", "station": "불암산 상선 도착" },
+        { "type": "오남", "train_number": "4186", "arrival_time": "21:29", "station": "불암산 상선 도착" },
+        { "type": "오남", "train_number": "4682", "arrival_time": "21:49", "station": "불암산 상선 도착" },
+        { "type": "오남", "train_number": "4192", "arrival_time": "21:52", "station": "불암산 상선 도착" },
+        { "type": "오남", "train_number": "4194", "arrival_time": "21:56", "station": "불암산 상선 도착" },
+        { "type": "오남", "train_number": "4198", "arrival_time": "22:14", "station": "불암산 상선 도착" },
+        { "type": "오남", "train_number": "4690", "arrival_time": "22:45", "station": "불암산 상선 도착" },
+        { "type": "오남", "train_number": "4332", "arrival_time": "23:13", "station": "불암산 상선 도착" },
+        { "type": "오남", "train_number": "4694", "arrival_time": "23:27", "station": "불암산 상선 도착" },
+        { "type": "오남", "train_number": "4334", "arrival_time": "23:41", "station": "불암산 상선 도착" },
+        { "type": "오남", "train_number": "4336", "arrival_time": "00:07", "station": "불암산 상선 도착" },
+        { "type": "오남", "train_number": "4698", "arrival_time": "00:21", "station": "불암산 상선 도착" },
+        { "type": "오남", "train_number": "4218", "arrival_time": "00:29", "station": "불암산 상선 도착" },
+        { "type": "오남", "train_number": "4220", "arrival_time": "00:44", "station": "불암산 상선 도착" },
+        { "type": "오남", "train_number": "4702", "arrival_time": "00:52", "station": "불암산 상선 도착" },
+        { "type": "오남", "train_number": "4222", "arrival_time": "01:05", "station": "불암산 상선 도착" }
+      ],
+      "jinjeop": [
+        { "type": "진접", "train_number": "4014", "arrival_time": "07:54", "station": "진접 상선 도착" },
+        { "type": "진접", "train_number": "4020", "arrival_time": "08:23", "station": "진접 상선 도착" },
+        { "type": "진접", "train_number": "4028", "arrival_time": "08:50", "station": "진접 상선 도착" },
+        { "type": "진접", "train_number": "4036", "arrival_time": "09:20", "station": "진접 상선 도착" },
+        { "type": "진접", "train_number": "4040", "arrival_time": "09:40", "station": "진접 상선 도착" },
+        { "type": "진접", "train_number": "4148", "arrival_time": "19:22", "station": "진접 상선 도착" },
+        { "type": "진접", "train_number": "4646", "arrival_time": "19:39", "station": "진접 상선 도착" },
+        { "type": "진접", "train_number": "4686", "arrival_time": "22:34", "station": "진접 상선 도착" },
+        { "type": "진접", "train_number": "4204", "arrival_time": "23:06", "station": "진접 상선 도착" },
+        { "type": "진접", "train_number": "4214", "arrival_time": "00:16", "station": "진접 상선 도착" }
+      ]
+    },
+    "holiday": {
+      "onam": [
+        { "type": "오남", "train_number": "4530", "arrival_time": "10:10", "station": "불암산 상선 도착" },
+        { "type": "오남", "train_number": "4112", "arrival_time": "16:55", "station": "불암산 상선 도착" },
+        { "type": "오남", "train_number": "4630", "arrival_time": "18:45", "station": "불암산 상선 도착" },
+        { "type": "오남", "train_number": "4330", "arrival_time": "19:56", "station": "불암산 상선 도착" },
+        { "type": "오남", "train_number": "4162", "arrival_time": "22:02", "station": "불암산 상선 도착" },
+        { "type": "오남", "train_number": "4666", "arrival_time": "22:20", "station": "불암산 상선 도착" },
+        { "type": "오남", "train_number": "4166", "arrival_time": "22:26", "station": "불암산 상선 도착" },
+        { "type": "오남", "train_number": "4670", "arrival_time": "22:44", "station": "불암산 상선 도착" },
+        { "type": "오남", "train_number": "4170", "arrival_time": "22:50", "station": "불암산 상선 도착" },
+        { "type": "오남", "train_number": "4674", "arrival_time": "23:08", "station": "불암산 상선 도착" },
+        { "type": "오남", "train_number": "4174", "arrival_time": "23:14", "station": "불암산 상선 도착" },
+        { "type": "오남", "train_number": "4176", "arrival_time": "23:28", "station": "불암산 상선 도착" },
+        { "type": "오남", "train_number": "4678", "arrival_time": "23:36", "station": "불암산 상선 도착" },
+        { "type": "오남", "train_number": "4680", "arrival_time": "23:55", "station": "불암산 상선 도착" },
+        { "type": "오남", "train_number": "4894", "arrival_time": "00:05", "station": "불암산 상선 도착" }
+      ],
+      "jinjeop": [
+        { "type": "진접", "train_number": "4128", "arrival_time": "18:40", "station": "진접 상선 도착" }
+      ]
+    }
+  }
+}
+

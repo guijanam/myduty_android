@@ -92,7 +92,7 @@ import com.sonbum.diacalendar2.data.local.dao.ScheduledAlarmDao
         SubShiftScheduleEntity::class,
         TrainFormationEntity::class
     ],
-    version = 29,
+    version = 30,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -569,6 +569,14 @@ abstract class AppDatabase : RoomDatabase() {
                 """)
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_train_formations_date ON train_formations(date)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_train_formations_formationNo ON train_formations(formationNo)")
+            }
+        }
+
+        // 버전 29 → 30: 예정 알람의 개별 시각·알람음 설정 추가
+        val MIGRATION_29_30 = object : Migration(29, 30) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE scheduled_alarms ADD COLUMN customTriggerAtMillis INTEGER")
+                db.execSQL("ALTER TABLE scheduled_alarms ADD COLUMN soundUri TEXT")
             }
         }
 

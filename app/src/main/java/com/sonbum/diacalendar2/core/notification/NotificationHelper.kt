@@ -1,14 +1,36 @@
 package com.sonbum.diacalendar2.core.notification
 
+import android.app.KeyguardManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.os.PowerManager
+import android.provider.Settings
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.sonbum.diacalendar2.MainActivity
 import com.sonbum.diacalendar2.R
 import com.sonbum.diacalendar2.presentation.alarm.AlarmRingActivity
+
+internal enum class ShiftAlarmPresentation {
+    SIMPLE_NOTIFICATION,
+    FULL_SCREEN_NOTIFICATION,
+    FULL_SCREEN_ACTIVITY
+}
+
+internal fun resolveShiftAlarmPresentation(
+    fullScreenEnabled: Boolean,
+    isInteractive: Boolean,
+    isKeyguardLocked: Boolean,
+    canDrawOverlays: Boolean
+): ShiftAlarmPresentation = when {
+    !fullScreenEnabled -> ShiftAlarmPresentation.SIMPLE_NOTIFICATION
+    isInteractive && !isKeyguardLocked && canDrawOverlays ->
+        ShiftAlarmPresentation.FULL_SCREEN_ACTIVITY
+    else -> ShiftAlarmPresentation.FULL_SCREEN_NOTIFICATION
+}
 
 class NotificationHelper(private val context: Context) {
 
@@ -19,6 +41,7 @@ class NotificationHelper(private val context: Context) {
         const val CHANNEL_FCM = "fcm_messages"
         private const val MEMO_NOTIFICATION_BASE_ID = 10000
         private const val SHIFT_NOTIFICATION_BASE_ID = 20000
+        private const val TAG = "NotificationHelper"
     }
 
     init {
@@ -100,27 +123,46 @@ class NotificationHelper(private val context: Context) {
         )
     }
 
-    /**
-     * 풀스크린 근무 알람.
-     * 백그라운드/잠금 상태에서 액티비티를 직접 실행할 수 없으므로(Android 10+ BAL 제한),
-     * full-screen intent를 단 고우선순위 노티로 AlarmRingActivity를 기동한다.
-     * 화면이 켜진 상태에서는 헤드업 노티로, 잠금/꺼짐 상태에서는 전체화면으로 나타난다.
-     */
+    /** 근무 알람을 기기 상태와 권한에 맞는 방식으로 표시한다. */
     fun showShiftAlarm(
         shiftName: String,
         dateString: String,
         slot: Int,
+        fullScreen: Boolean,
         sound: Boolean,
+        soundUri: String?,
         vibrate: Boolean,
         snoozeMinutes: Int = 5
     ) {
+        val presentation = if (fullScreen) {
+            val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+            val keyguardManager =
+                context.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+            resolveShiftAlarmPresentation(
+                fullScreenEnabled = true,
+                isInteractive = powerManager.isInteractive,
+                isKeyguardLocked = keyguardManager.isKeyguardLocked,
+                canDrawOverlays = Settings.canDrawOverlays(context)
+            )
+        } else {
+            ShiftAlarmPresentation.SIMPLE_NOTIFICATION
+        }
+
+        if (presentation == ShiftAlarmPresentation.SIMPLE_NOTIFICATION) {
+            showShiftNotificationSimple(shiftName, dateString, slot)
+            return
+        }
+
         val notiId = notificationId(dateString, slot)
         val fullScreenIntent = Intent(context, AlarmRingActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                Intent.FLAG_ACTIVITY_SINGLE_TOP
             putExtra(AlarmScheduler.EXTRA_SHIFT_NAME, shiftName)
             putExtra(AlarmScheduler.EXTRA_DATE_STRING, dateString)
             putExtra(AlarmScheduler.EXTRA_SLOT, slot)
             putExtra(AlarmScheduler.EXTRA_SOUND, sound)
+            putExtra(AlarmScheduler.EXTRA_SOUND_URI, soundUri)
             putExtra(AlarmScheduler.EXTRA_VIBRATE, vibrate)
             putExtra(AlarmScheduler.EXTRA_SNOOZE_MINUTES, snoozeMinutes)
         }
@@ -144,7 +186,16 @@ class NotificationHelper(private val context: Context) {
             .setContentIntent(fullScreenPendingIntent)
             .build()
 
+        // 직접 실행이 제조사 정책 등으로 차단되더라도 알람 전달 경로가 남도록 먼저 게시한다.
         notificationManager().notify(notiId, notification)
+
+        if (presentation == ShiftAlarmPresentation.FULL_SCREEN_ACTIVITY) {
+            try {
+                context.startActivity(fullScreenIntent)
+            } catch (e: RuntimeException) {
+                Log.w(TAG, "Unable to launch full-screen shift alarm activity", e)
+            }
+        }
     }
 
     /** 풀스크린 옵션 OFF일 때: 소리 나는 일반(헤드업) 노티 */

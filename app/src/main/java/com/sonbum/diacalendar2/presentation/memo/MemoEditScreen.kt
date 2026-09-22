@@ -58,9 +58,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -84,13 +86,7 @@ import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
@@ -637,82 +633,25 @@ private fun TimeSelector(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TimePickerDialog(
 	initialTime: LocalTime,
 	onTimeSelected: (LocalTime) -> Unit,
 	onDismiss: () -> Unit,
 ) {
-	var hourInput by remember { mutableStateOf("%02d".format(initialTime.hour)) }
-	var minuteInput by remember { mutableStateOf("%02d".format(initialTime.minute)) }
-
-	// 포커스 제어를 위한 객체
-	val hourFocusRequester = remember { FocusRequester() }
-	val minuteFocusRequester = remember { FocusRequester() }
+	val timePickerState = rememberTimePickerState(
+		initialHour = initialTime.hour,
+		initialMinute = initialTime.minute,
+		is24Hour = true
+	)
 
 	androidx.compose.material3.AlertDialog(
 		onDismissRequest = onDismiss,
-		title = { Text("시간 입력", style = MaterialTheme.typography.titleMedium) },
-		text = {
-			Row(
-				modifier = Modifier.fillMaxWidth(),
-				horizontalArrangement = Arrangement.Center,
-				verticalAlignment = Alignment.CenterVertically
-			) {
-				// [시] 입력 필드
-				EnhancedTimeField(
-					value = hourInput,
-					onValueChange = { newValue ->
-						if (newValue.length <= 2 && newValue.all { it.isDigit() }) {
-							val h = newValue.toIntOrNull() ?: 0
-							if (h in 0..23) {
-								hourInput = newValue
-								// 두 자리가 채워지면 자동으로 '분'으로 이동
-								if (newValue.length == 2) minuteFocusRequester.requestFocus()
-							}
-						}
-					},
-					focusRequester = hourFocusRequester,
-					onFocusLost = {
-						// 포커스를 잃을 때 1자리라면 0을 붙여줌 (예: "5" -> "05")
-						if (hourInput.isNotEmpty()) {
-							hourInput = hourInput.padStart(2, '0')
-						}
-					}
-				)
-
-				Text(
-					text = ":",
-					style = MaterialTheme.typography.headlineMedium,
-					modifier = Modifier.padding(horizontal = 12.dp)
-				)
-
-				// [분] 입력 필드
-				EnhancedTimeField(
-					value = minuteInput,
-					onValueChange = { newValue ->
-						if (newValue.length <= 2 && newValue.all { it.isDigit() }) {
-							val m = newValue.toIntOrNull() ?: 0
-							if (m in 0..59) {
-								minuteInput = newValue
-							}
-						}
-					},
-					focusRequester = minuteFocusRequester,
-					onFocusLost = {
-						if (minuteInput.isNotEmpty()) {
-							minuteInput = minuteInput.padStart(2, '0')
-						}
-					}
-				)
-			}
-		},
 		confirmButton = {
 			TextButton(
 				onClick = {
-					val h = hourInput.toIntOrNull() ?: 0
-					val m = minuteInput.toIntOrNull() ?: 0
-					onTimeSelected(LocalTime.of(h, m))
+					onTimeSelected(LocalTime.of(timePickerState.hour, timePickerState.minute))
 				}
 			) {
 				Text("확인")
@@ -722,106 +661,12 @@ fun TimePickerDialog(
 			TextButton(onClick = onDismiss) {
 				Text("취소")
 			}
+		},
+		text = {
+			TimePicker(state = timePickerState)
 		}
 	)
 }
-
-@Composable
-fun EnhancedTimeField(
-	value: String,
-	onValueChange: (String) -> Unit,
-	focusRequester: FocusRequester,
-	onFocusLost: () -> Unit
-) {
-	OutlinedTextField(
-		value = value,
-		onValueChange = onValueChange,
-		modifier = Modifier
-			.width(80.dp)
-			.focusRequester(focusRequester) // 포커스 요청자 연결
-			.onFocusChanged { focusState ->
-				if (!focusState.isFocused) {
-					onFocusLost() // 포커스를 잃었을 때 포맷팅 실행
-				}
-			},
-		textStyle = MaterialTheme.typography.headlineSmall.copy(
-			textAlign = TextAlign.Center,
-			fontWeight = FontWeight.Bold
-		),
-		keyboardOptions = KeyboardOptions(
-			keyboardType = KeyboardType.Number,
-			imeAction = ImeAction.Done
-		),
-		singleLine = true,
-		shape = RoundedCornerShape(12.dp)
-	)
-}
-
-//@Composable
-//private fun TimePickerDialog(
-//	initialTime: LocalTime,
-//	onTimeSelected: (LocalTime) -> Unit,
-//	onDismiss: () -> Unit,
-//) {
-//    var hour by remember { mutableIntStateOf(initialTime.hour) }
-//    var minute by remember { mutableIntStateOf(initialTime.minute) }
-//
-//    androidx.compose.material3.AlertDialog(
-//        onDismissRequest = onDismiss,
-//        title = { Text("시간 선택") },
-//        text = {
-//            Row(
-//                modifier = Modifier.fillMaxWidth(),
-//                horizontalArrangement = Arrangement.Center,
-//                verticalAlignment = Alignment.CenterVertically
-//            ) {
-//                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-//                    IconButton(onClick = { hour = (hour + 1) % 24 }) {
-//                        Text("▲")
-//                    }
-//                    Text(
-//                        text = "%02d".format(hour),
-//                        style = MaterialTheme.typography.headlineMedium
-//                    )
-//                    IconButton(onClick = { hour = if (hour == 0) 23 else hour - 1 }) {
-//                        Text("▼")
-//                    }
-//                }
-//
-//                Text(
-//                    text = ":",
-//                    style = MaterialTheme.typography.headlineMedium,
-//                    modifier = Modifier.padding(horizontal = 8.dp)
-//                )
-//
-//                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-//                    IconButton(onClick = { minute = (minute + 5) % 60 }) {
-//                        Text("▲")
-//                    }
-//                    Text(
-//                        text = "%02d".format(minute),
-//                        style = MaterialTheme.typography.headlineMedium
-//                    )
-//                    IconButton(onClick = { minute = if (minute < 5) 55 else minute - 5 }) {
-//                        Text("▼")
-//                    }
-//                }
-//            }
-//        },
-//        confirmButton = {
-//            TextButton(
-//                onClick = { onTimeSelected(LocalTime.of(hour, minute)) }
-//            ) {
-//                Text("확인")
-//            }
-//        },
-//        dismissButton = {
-//            TextButton(onClick = onDismiss) {
-//                Text("취소")
-//            }
-//        }
-//    )
-//}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

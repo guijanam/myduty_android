@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Wear OS branded launch guideline: circular app icon at 48x48dp. -->
+    <dimen name="splash_screen_icon_size">48dp</dimen>
+</resources>

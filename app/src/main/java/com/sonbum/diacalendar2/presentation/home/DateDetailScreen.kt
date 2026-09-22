@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -74,7 +75,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.FilterChip
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.LocalContentColor
@@ -125,6 +125,7 @@ import com.sonbum.diacalendar2.domain.model.Memo
 import com.sonbum.diacalendar2.domain.model.ShiftSwapRecord
 import com.sonbum.diacalendar2.domain.model.TrainFormation
 import com.sonbum.diacalendar2.domain.model.TrainHalf
+import com.sonbum.diacalendar2.presentation.subway.DEFAULT_SUBWAY_LINE
 import com.sonbum.diacalendar2.presentation.trainformation.TrainFormationEditDialog
 import com.sonbum.diacalendar2.domain.model.VacationType
 import com.sonbum.diacalendar2.domain.model.LateWorkRecord
@@ -966,13 +967,9 @@ fun WorkTimeCard(
     val hasLateHoliday = lateHolidayRecord != null
     val hasShiftInput = shiftInputRecord != null
 
-    // 휴가, 지휴가 있으면 내용은 흐리게 처리
-    // 지근은 충당이 없을 때만 흐리게 처리 (지근충당의 경우 충당이 우선이므로 흐리게 하지 않음)
-    val shiftContentAlpha = when {
-        hasVacation || hasLateHoliday -> 0.35f
-        hasLateWork && !hasShiftInput -> 0.35f  // 지근만 있고 충당이 없을 때
-        else -> 1f
-    }
+    // 지근·지휴를 설정해도 원래 근무표는 읽을 수 있어야 한다.
+    val shiftContentAlpha = if (hasVacation) 0.35f else 1f
+    val showOriginalShift = (hasLateWork || hasLateHoliday) && originalShiftName.isNotBlank()
 
     val firstHalfFormations = remember(formations) {
         formations.filter { it.half == TrainHalf.FIRST }.sortedBy { it.sortOrder }
@@ -1007,6 +1004,10 @@ fun WorkTimeCard(
                             if (isDarkTheme) Color(0xFFC62828) to Color.White
                             else Color(0xFFFFCDD2) to Color.Black
                         }
+                        hasLateHoliday && shiftName == lateHolidayRecord.lateHolidayName ->
+                            Color(0xFFB71C1C) to Color.White
+                        hasLateWork && shiftName == lateWorkRecord.lateWorkName ->
+                            Color(0xFF0D47A1) to Color.White
                         hasShiftInput -> {
                             // 충당 유형별 색상 (다크/라이트 모드 가독성 개선)
                             when (shiftInputRecord.colorHex.uppercase()) {
@@ -1082,7 +1083,7 @@ fun WorkTimeCard(
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                     }
-                    if (hasSwap) {
+                    if (hasSwap && !showOriginalShift) {
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = "(본:${originalShiftName})",
@@ -1098,59 +1099,36 @@ fun WorkTimeCard(
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     // 지근 버튼
-                    val lateWorkColor = if (androidx.compose.foundation.isSystemInDarkTheme()) Color(0xFF0288D1) else Color(0xFF81D4FA)
+                    val lateWorkColor = if (hasLateWork) Color(0xFF0D47A1) else Color(0xFF1976D2)
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(6.dp))
-                            .background(
-                                if (hasLateWork)
-                                    lateWorkColor
-                                else
-                                    MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f)
-                            )
+                            .background(lateWorkColor)
                             .clickable { onLateWorkClick() }
                             .padding(horizontal = 8.dp, vertical = 4.dp),
                         contentAlignment = Alignment.Center
                     ) {
 	                    Text(
 		                    text = if (hasLateWork) "지근삭제" else "지근",
-		                    color = if (hasLateWork) {
-			                    if (androidx.compose.foundation.isSystemInDarkTheme()) {
-				                    Color.White
-			                    } else {
-				                    Color.Black
-			                    }
-		                    } else {
-			                    MaterialTheme.colorScheme.onTertiaryContainer
-		                    },
+		                    color = Color.White,
 		                    fontWeight = FontWeight.Bold,
 		                    style = MaterialTheme.typography.bodyMedium
 	                    )
                     }
 
                     // 지휴 버튼
-                    val lateHolidayColor = if (androidx.compose.foundation.isSystemInDarkTheme()) Color(0xFFC62828) else Color(0xFFFFCDD2)
+                    val lateHolidayColor = if (hasLateHoliday) Color(0xFFB71C1C) else Color(0xFFD32F2F)
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(6.dp))
-                            .background(
-                                if (hasLateHoliday)
-                                    lateHolidayColor
-                                else
-                                    MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f)
-                            )
+                            .background(lateHolidayColor)
                             .clickable { onLateHolidayClick() }
                             .padding(horizontal = 8.dp, vertical = 4.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = if (hasLateHoliday) "지휴삭제" else "지휴",
-                            color = if (hasLateHoliday)
-                                if (androidx.compose.foundation.isSystemInDarkTheme()) Color.White else Color.Black
-                                // Light Red (FFCDD2) -> Black Text
-                                // Dark Red (C62828) -> White Text
-                            else
-                                MaterialTheme.colorScheme.onTertiaryContainer,
+                            color = Color.White,
                             fontWeight = FontWeight.Bold,
                             style = MaterialTheme.typography.bodyMedium
                         )
@@ -1183,6 +1161,24 @@ fun WorkTimeCard(
                 }
             }
 
+            if (showOriginalShift) {
+                Text(
+                    text = "원래 근무: $originalShiftName",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.padding(top = 6.dp)
+                )
+            }
+
+            if ((hasLateHoliday || (hasLateWork && !hasShiftInput)) && dia != null) {
+                Text(
+                    text = "원래 근무표",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
+
             // 전날 야간 근무가 이어지는 날(예: "59~")은 자체 Dia가 없으므로,
             // 전날에서 이어진 후반 근무만 표시한다.
             if (dia == null && (!carryOverNumTr.isNullOrBlank() || !carryOverFirstTime.isNullOrBlank())) {
@@ -1197,14 +1193,12 @@ fun WorkTimeCard(
                     colors = sectionCardColors
                 ) {
                     Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-                        if (!carryOverNumTr.isNullOrBlank()) {
-                            TrainNumberRow(
-                                label = "후반",
-                                numTr = carryOverNumTr,
-                                officeName = officeName,
-                                onNavigateToSubway = onNavigateToSubway
-                            )
-                        }
+                        TrainNumberRow(
+                            label = "후반",
+                            numTr = carryOverNumTr,
+                            officeName = officeName,
+                            onNavigateToSubway = onNavigateToSubway
+                        )
                         if (!carryOverFirstTime.isNullOrBlank()) {
                             ShiftAlarmRow(label = "후반", value = carryOverFirstTime)
                         }
@@ -1343,6 +1337,7 @@ fun WorkTimeCard(
 												onClick = { showImageDialog = false },
 												modifier = Modifier
 													.align(Alignment.TopEnd)
+													.safeDrawingPadding()
 													.padding(16.dp)
 													.size(40.dp)
 													.clip(CircleShape)
@@ -1471,6 +1466,7 @@ fun WorkTimeCard(
 												onClick = { showImageDialog = false },
 												modifier = Modifier
 													.align(Alignment.TopEnd)
+													.safeDrawingPadding()
 													.padding(16.dp)
 													.size(40.dp)
 													.clip(CircleShape)
@@ -1508,7 +1504,7 @@ fun WorkTimeCard(
 			                modifier = Modifier.fillMaxWidth(),
 			                colors = sectionCardColors
 		                ) {
-			                Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+			                Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
 				                // 열번이 없는 승무소(예: 대기근무)에서도 편성은 기록할 수 있어야 하므로
 				                // numTr 유무와 무관하게 항상 표시한다.
 				                TrainNumberRow(
@@ -1533,7 +1529,7 @@ fun WorkTimeCard(
 			                modifier = Modifier.fillMaxWidth(),
 			                colors = sectionCardColors
 		                ) {
-			                Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+			                Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
 				                // 열번이 없는 승무소(예: 대기근무)에서도 편성은 기록할 수 있어야 하므로
 				                // numTr 유무와 무관하게 항상 표시한다.
 				                TrainNumberRow(
@@ -1571,7 +1567,7 @@ private fun ShiftAlarmRow(label: String, value: String) {
     }
 
     Row(
-        modifier = Modifier.padding(vertical = 4.dp),
+        modifier = Modifier.padding(vertical = 2.dp),
         horizontalArrangement = Arrangement.Start,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -1588,11 +1584,24 @@ private fun ShiftAlarmRow(label: String, value: String) {
             color = MaterialTheme.colorScheme.onPrimaryContainer
         )
         if (start != null) {
-            IconButton(onClick = { showDialog = true }) {
+            // IconButton 대신 clickable Box를 써서 48dp 최소 터치영역으로 인한
+            // 불필요한 세로 여백을 없앤다.
+            Box(
+                modifier = Modifier
+                    .padding(start = 4.dp)
+                    .size(32.dp)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = { showDialog = true }
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
                 Icon(
                     imageVector = Icons.Default.Alarm,
                     contentDescription = "${label} 알람 설정",
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(22.dp)
                 )
             }
         }
@@ -1765,7 +1774,7 @@ private data class FormationDialogTarget(
 
 /**
  * 열번(numTr 원본) 표시 + 오른쪽 끝 실시간 위치 버튼.
- * 첫 토큰이 숫자(=호선 파싱 가능)이고 officeName이 있을 때만 tram 버튼 노출.
+ * 열번이 없어도 저장된 호선을 직접 조회할 수 있도록 tram 버튼은 항상 노출한다.
  */
 @Composable
 private fun TrainNumberRow(
@@ -1824,29 +1833,33 @@ private fun TrainNumberRow(
 			Spacer(modifier = Modifier.weight(1f))
 
 			val myTrainNo = numTr?.let { SubwayTrainParser.firstToken(it) }
-			val line = myTrainNo?.let { SubwayTrainParser.line(it) }
-			// 근무 열번이 여러 개면("2205 2239 2273") 전부 넘겨 실제 운행 중인 열차를 찾게 한다.
+			val inferredLine = myTrainNo?.let { SubwayTrainParser.line(it) }
+				?: DEFAULT_SUBWAY_LINE
+			// 원본 열번 순서를 넘기되 위치 화면에서는 가장 앞 열번 하나만 내 열차로 사용한다.
 			val allTrainNos = SubwayTrainParser.tokens(numTr).joinToString(",")
-			if (myTrainNo != null && line != null && !officeName.isNullOrBlank()) {
-				IconButton(
-					onClick = { onNavigateToSubway(myTrainNo, line, officeName, allTrainNos) },
-					modifier = Modifier.size(32.dp)
-				) {
-					Icon(
-						imageVector = Icons.Filled.Tram,
-						contentDescription = "실시간 열차 위치",
-						tint = MaterialTheme.colorScheme.primary
+			IconButton(
+				onClick = {
+					onNavigateToSubway(
+						myTrainNo.orEmpty(),
+						inferredLine,
+						officeName.orEmpty(),
+						allTrainNos
 					)
-				}
+				},
+				modifier = Modifier.size(32.dp)
+			) {
+				Icon(
+					imageVector = Icons.Filled.Tram,
+					contentDescription = "실시간 열차 위치",
+					tint = MaterialTheme.colorScheme.primary
+				)
 			}
 		}
 
 		// 저장된 편성 칩
 		if (formations.isNotEmpty()) {
 			FlowRow(
-				modifier = Modifier
-					.fillMaxWidth()
-					.padding(start = 40.dp, bottom = 2.dp),
+				modifier = Modifier.fillMaxWidth(),
 				horizontalArrangement = Arrangement.spacedBy(6.dp),
 				verticalArrangement = Arrangement.spacedBy(2.dp)
 			) {
@@ -1874,23 +1887,23 @@ private fun FormationChip(
 		contentColor = MaterialTheme.colorScheme.onSecondaryContainer
 	) {
 		Row(
-			modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+			modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
 			verticalAlignment = Alignment.CenterVertically,
 			horizontalArrangement = Arrangement.spacedBy(4.dp)
 		) {
 			Text(
 				text = "${formation.formationNo}편성",
 				style = MaterialTheme.typography.bodyMedium,
-				fontWeight = FontWeight.SemiBold
+				fontWeight = FontWeight.SemiBold,
+				maxLines = 1
 			)
 			if (formation.note.isNotBlank()) {
+				// 메모는 생략(Ellipsis) 없이 가로 여유만큼 쓰고, 넘치면 줄바꿈한다.
 				Text(
 					text = formation.note,
 					style = MaterialTheme.typography.bodySmall,
 					color = LocalContentColor.current.copy(alpha = 0.7f),
-					maxLines = 1,
-					overflow = TextOverflow.Ellipsis,
-					modifier = Modifier.widthIn(max = 120.dp)
+					modifier = Modifier.weight(1f, fill = false)
 				)
 			}
 		}
@@ -3685,6 +3698,7 @@ private fun FullScreenImageDialog(
 				onClick = onDismiss,
 				modifier = Modifier
 					.align(Alignment.TopEnd)
+					.safeDrawingPadding()
 					.padding(16.dp)
 					.background(
 						color = Color.Black.copy(alpha = 0.5f),
@@ -3701,14 +3715,14 @@ private fun FullScreenImageDialog(
 	}
 }
 
-private fun appendDateParam(url: String, date: java.time.LocalDate): String {
+fun appendDateParam(url: String, date: java.time.LocalDate): String {
 	val dateStr = date.toString() // YYYY-MM-DD
 	val separator = if (url.contains('?')) '&' else '?'
 	return "$url${separator}date=$dateStr"
 }
 
 @Composable
-private fun OfficeWebsitePasswordDialog(
+fun OfficeWebsitePasswordDialog(
 	officeName: String,
 	onDismiss: () -> Unit,
 	onConfirm: (String) -> Boolean,

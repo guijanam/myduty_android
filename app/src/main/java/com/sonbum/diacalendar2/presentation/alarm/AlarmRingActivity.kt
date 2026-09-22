@@ -5,6 +5,7 @@ import android.content.Context
 import android.media.AudioAttributes
 import android.media.Ringtone
 import android.media.RingtoneManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -15,6 +16,7 @@ import android.os.VibratorManager
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -22,6 +24,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -55,6 +58,7 @@ class AlarmRingActivity : ComponentActivity() {
     private var shiftName: String = ""
     private var slot: Int = AlarmScheduler.SLOT_COMMUTE
     private var sound: Boolean = true
+    private var soundUri: String? = null
     private var vibrate: Boolean = true
     private var snoozeMinutes: Int = 5
 
@@ -66,6 +70,7 @@ class AlarmRingActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         showWhenLockedAndTurnScreenOn()
 
@@ -73,6 +78,7 @@ class AlarmRingActivity : ComponentActivity() {
         dateString = intent.getStringExtra(AlarmScheduler.EXTRA_DATE_STRING) ?: ""
         slot = intent.getIntExtra(AlarmScheduler.EXTRA_SLOT, AlarmScheduler.SLOT_COMMUTE)
         sound = intent.getBooleanExtra(AlarmScheduler.EXTRA_SOUND, true)
+        soundUri = intent.getStringExtra(AlarmScheduler.EXTRA_SOUND_URI)
         vibrate = intent.getBooleanExtra(AlarmScheduler.EXTRA_VIBRATE, true)
         snoozeMinutes = intent.getIntExtra(AlarmScheduler.EXTRA_SNOOZE_MINUTES, 5)
 
@@ -122,18 +128,31 @@ class AlarmRingActivity : ComponentActivity() {
     }
 
     private fun startAlarmSound() {
-        try {
-            val uri = RingtoneManager.getActualDefaultRingtoneUri(this, RingtoneManager.TYPE_ALARM)
-                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-            ringtone = RingtoneManager.getRingtone(applicationContext, uri)?.apply {
-                audioAttributes = AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_ALARM)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                    .build()
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) isLooping = true
-                play()
+        val selectedUri = soundUri
+            ?.takeIf { it.isNotBlank() }
+            ?.let { runCatching { Uri.parse(it) }.getOrNull() }
+        val candidates = listOfNotNull(
+            selectedUri,
+            RingtoneManager.getActualDefaultRingtoneUri(this, RingtoneManager.TYPE_ALARM),
+            RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+        ).distinctBy(Uri::toString)
+
+        for (uri in candidates) {
+            try {
+                val candidate = RingtoneManager.getRingtone(applicationContext, uri) ?: continue
+                candidate.apply {
+                    audioAttributes = AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_ALARM)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build()
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) isLooping = true
+                    play()
+                }
+                ringtone = candidate
+                return
+            } catch (_: Exception) {
+                // 접근할 수 없는 사용자 지정 URI라면 다음 기본 알람음으로 폴백한다.
             }
-        } catch (_: Exception) {
         }
     }
 
@@ -181,6 +200,7 @@ class AlarmRingActivity : ComponentActivity() {
             slot = slot,
             fullScreen = true,
             sound = sound,
+            soundUri = soundUri,
             vibrate = vibrate
         )
         finish()
@@ -206,6 +226,7 @@ private fun AlarmRingScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .safeDrawingPadding()
                 .padding(32.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center

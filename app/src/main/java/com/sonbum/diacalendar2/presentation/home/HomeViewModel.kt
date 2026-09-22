@@ -2,6 +2,7 @@ package com.sonbum.diacalendar2.presentation.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.sonbum.diacalendar2.data.local.OfficeWebsiteRegistry
 import com.sonbum.diacalendar2.data.local.datastore.CalendarTextSizes
 import com.sonbum.diacalendar2.data.local.datastore.CrewPatternPreferences
 import com.sonbum.diacalendar2.data.local.datastore.ShiftColorPreferences
@@ -63,6 +64,7 @@ data class HomeCalendarState(
     val holidayWorkShifts: List<String> = emptyList(),
     val isCustomShift: Boolean = false,
     val officeName: String? = null,
+    val officeWebsiteUrl: String? = null,
     val anniversaryMap: Map<LocalDate, String> = emptyMap()
 )
 
@@ -73,6 +75,7 @@ class HomeViewModel(
     private val textSizePreferences: TextSizePreferences,
     private val holidayRepository: HolidayRepository,
     private val shiftRepository: ShiftRepository,
+    private val officeWebsiteRegistry: OfficeWebsiteRegistry,
     private val subShiftRepository: SubShiftRepository,
     private val vacationRecordRepository: VacationRecordRepository,
     private val shiftSwapRecordRepository: ShiftSwapRecordRepository,
@@ -397,7 +400,8 @@ class HomeViewModel(
                             shiftPattern = emptyList(),
                             holidayWorkShifts = emptyList(),
                             isCustomShift = false,
-                            officeName = null
+                            officeName = null,
+                            officeWebsiteUrl = null
                         )
                     }
                     return@collect
@@ -428,7 +432,10 @@ class HomeViewModel(
                         shiftPattern = pattern,
                         holidayWorkShifts = holidayWorkShifts,
                         isCustomShift = isCustomShiftConfig,
-                        officeName = config.officeName
+                        officeName = config.officeName,
+                        officeWebsiteUrl = if (!isCustomShiftConfig) {
+                            officeWebsiteRegistry.getUrl(config.officeName)
+                        } else null
                     )
                 }
             }

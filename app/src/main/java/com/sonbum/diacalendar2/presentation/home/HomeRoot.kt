@@ -34,6 +34,7 @@ fun HomeRoot(
 	onNavigateToTextSizeSettings: () -> Unit = {},
 	onNavigateToShiftColorSettings: () -> Unit = {},
 	onNavigateToWorkAlarmSettings: () -> Unit = {},
+	onNavigateToOfficeWebsite: (String, String) -> Unit = { _, _ -> },
 	modifier: Modifier,
 	viewModel: HomeViewModel = koinViewModel()
 ) {
@@ -116,7 +117,9 @@ fun HomeRoot(
 		shiftPattern = state.shiftPattern,
 		isCustomShift = state.isCustomShift,
 		officeName = state.officeName,
+		officeWebsiteUrl = state.officeWebsiteUrl,
 		onAction = viewModel::onAction,
+		onNavigateToOfficeWebsite = onNavigateToOfficeWebsite,
 		onVisibleYearChanged = viewModel::onVisibleYearChanged,
 		onNavigateToCalendarSelection = onNavigateToCalendarSelection,
 		onNavigateToAnniversary = onNavigateToAnniversary,
