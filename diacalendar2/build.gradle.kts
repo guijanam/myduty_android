@@ -16,14 +16,17 @@ android {
 		applicationId = "com.sonbum.diacalendar2"
 		minSdk = 28
 		targetSdk = 36
-		versionCode = 1011
-		versionName = "1.2.1"
+		versionCode = 1012
+		versionName = "1.2.2"
 
 	}
 
 	buildTypes {
 		release {
-			isMinifyEnabled = false
+			// R8 코드 축소, 최적화, 난독화 (Play Console DEX 코드 최적화)
+			isMinifyEnabled = true
+			// 사용하지 않는 리소스도 릴리스 번들에서 제거
+			isShrinkResources = true
 			proguardFiles(
 				getDefaultProguardFile("proguard-android-optimize.txt"),
 				"proguard-rules.pro"
