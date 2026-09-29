@@ -28,5 +28,8 @@ data class SubwayPositionDto(
     @SerializedName("statnTnm") val statnTnm: String? = null,    // 종착역
     @SerializedName("trainSttus") val trainSttus: String? = null, // 0진입 1도착 2출발 3전역출발
     @SerializedName("directAt") val directAt: String? = null,    // "1" 급행
-    @SerializedName("lstcarAt") val lstcarAt: String? = null      // "1" 막차
+    @SerializedName("lstcarAt") val lstcarAt: String? = null,     // "1" 막차
+    @SerializedName("recptnDt") val recptnDt: String? = null,     // "2026-09-09 22:07:25" 수신시각
+    /** 서울교통공사 HTML의 방향코드로 확인한 2호선 운행 구간(main/seongsu/sinjeong). */
+    @Transient val routeSegmentId: String? = null
 )

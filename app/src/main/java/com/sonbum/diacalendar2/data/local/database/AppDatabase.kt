@@ -14,6 +14,7 @@ import com.sonbum.diacalendar2.data.local.dao.ShiftScheduleDao
 import com.sonbum.diacalendar2.data.local.dao.ShiftSwapRecordDao
 import com.sonbum.diacalendar2.data.local.dao.SubShiftConfigDao
 import com.sonbum.diacalendar2.data.local.dao.SubShiftScheduleDao
+import com.sonbum.diacalendar2.data.local.dao.TrainFormationDao
 import com.sonbum.diacalendar2.data.local.dao.UserShiftConfigDao
 import com.sonbum.diacalendar2.data.local.dao.VacationRecordDao
 import com.sonbum.diacalendar2.data.local.dao.VacationTypeDao
@@ -34,6 +35,7 @@ import com.sonbum.diacalendar2.data.local.entity.ShiftScheduleEntity
 import com.sonbum.diacalendar2.data.local.entity.ShiftSwapRecordEntity
 import com.sonbum.diacalendar2.data.local.entity.SubShiftConfigEntity
 import com.sonbum.diacalendar2.data.local.entity.SubShiftScheduleEntity
+import com.sonbum.diacalendar2.data.local.entity.TrainFormationEntity
 import com.sonbum.diacalendar2.data.local.entity.UserShiftConfigEntity
 import com.sonbum.diacalendar2.data.local.entity.VacationRecordEntity
 import com.sonbum.diacalendar2.data.local.entity.VacationTypeEntity
@@ -58,6 +60,11 @@ import com.sonbum.diacalendar2.data.local.entity.AnniversaryEntity
 import com.sonbum.diacalendar2.data.local.dao.AnniversaryDao
 import com.sonbum.diacalendar2.data.local.entity.ScheduledAlarmEntity
 import com.sonbum.diacalendar2.data.local.dao.ScheduledAlarmDao
+import com.sonbum.diacalendar2.data.local.dao.BirthdayDao
+import com.sonbum.diacalendar2.data.local.entity.BirthdayGroupEntity
+import com.sonbum.diacalendar2.data.local.entity.BirthdayMilestoneEntity
+import com.sonbum.diacalendar2.data.local.entity.BirthdayPersonEntity
+import com.sonbum.diacalendar2.data.local.entity.BirthdayPersonGroupEntity
 
 @Database(
     entities = [
@@ -87,9 +94,14 @@ import com.sonbum.diacalendar2.data.local.dao.ScheduledAlarmDao
         AnniversaryEntity::class,
         ScheduledAlarmEntity::class,
         SubShiftConfigEntity::class,
-        SubShiftScheduleEntity::class
+        SubShiftScheduleEntity::class,
+        TrainFormationEntity::class,
+        BirthdayPersonEntity::class,
+        BirthdayGroupEntity::class,
+        BirthdayPersonGroupEntity::class,
+        BirthdayMilestoneEntity::class
     ],
-    version = 28,
+    version = 31,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -120,6 +132,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun scheduledAlarmDao(): ScheduledAlarmDao
     abstract fun subShiftConfigDao(): SubShiftConfigDao
     abstract fun subShiftScheduleDao(): SubShiftScheduleDao
+    abstract fun trainFormationDao(): TrainFormationDao
+    abstract fun birthdayDao(): BirthdayDao
 
     companion object {
         // 버전 2 → 3: holidays 테이블에 isUserCreated 컬럼 추가
@@ -544,6 +558,99 @@ abstract class AppDatabase : RoomDatabase() {
                     )
                 """)
                 db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_sub_shift_schedules_date ON sub_shift_schedules(date)")
+            }
+        }
+
+        // 버전 28 → 29: 열차 편성 기록 테이블 추가
+        val MIGRATION_28_29 = object : Migration(28, 29) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS train_formations (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        date TEXT NOT NULL,
+                        half TEXT NOT NULL,
+                        formationNo INTEGER NOT NULL,
+                        note TEXT NOT NULL DEFAULT '',
+                        shiftName TEXT NOT NULL DEFAULT '',
+                        numTr TEXT NOT NULL DEFAULT '',
+                        sortOrder INTEGER NOT NULL DEFAULT 0,
+                        createdAt INTEGER NOT NULL
+                    )
+                """)
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_train_formations_date ON train_formations(date)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_train_formations_formationNo ON train_formations(formationNo)")
+            }
+        }
+
+        // 버전 29 → 30: 예정 알람의 개별 시각·알람음 설정 추가
+        val MIGRATION_29_30 = object : Migration(29, 30) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE scheduled_alarms ADD COLUMN customTriggerAtMillis INTEGER")
+                db.execSQL("ALTER TABLE scheduled_alarms ADD COLUMN soundUri TEXT")
+            }
+        }
+
+        // 버전 30 → 31: 기존 기념일과 분리된 인물 기반 생일·나이 관리
+        val MIGRATION_30_31 = object : Migration(30, 31) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS birthday_people (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        name TEXT NOT NULL,
+                        photoPath TEXT,
+                        relationship TEXT NOT NULL,
+                        birthYear INTEGER NOT NULL,
+                        birthMonth INTEGER NOT NULL,
+                        birthDay INTEGER NOT NULL,
+                        calendarType TEXT NOT NULL,
+                        isLeapMonth INTEGER NOT NULL,
+                        timeZoneId TEXT NOT NULL,
+                        ageDisplayMode TEXT NOT NULL,
+                        leapMonthPolicy TEXT NOT NULL,
+                        feb29Policy TEXT NOT NULL,
+                        notificationEnabled INTEGER NOT NULL,
+                        notificationOffsetsCsv TEXT NOT NULL,
+                        notificationHour INTEGER NOT NULL,
+                        notificationMinute INTEGER NOT NULL,
+                        calendarSyncEnabled INTEGER NOT NULL,
+                        createdAt INTEGER NOT NULL,
+                        updatedAt INTEGER NOT NULL
+                    )
+                """.trimIndent())
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS birthday_groups (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        name TEXT NOT NULL,
+                        isDefault INTEGER NOT NULL,
+                        sortOrder INTEGER NOT NULL
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_birthday_groups_name ON birthday_groups(name)")
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS birthday_person_groups (
+                        personId INTEGER NOT NULL,
+                        groupId INTEGER NOT NULL,
+                        PRIMARY KEY(personId, groupId),
+                        FOREIGN KEY(personId) REFERENCES birthday_people(id) ON DELETE CASCADE,
+                        FOREIGN KEY(groupId) REFERENCES birthday_groups(id) ON DELETE CASCADE
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_birthday_person_groups_personId ON birthday_person_groups(personId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_birthday_person_groups_groupId ON birthday_person_groups(groupId)")
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS birthday_milestones (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        personId INTEGER NOT NULL,
+                        name TEXT NOT NULL,
+                        ruleType TEXT NOT NULL,
+                        ruleValue INTEGER NOT NULL,
+                        enabled INTEGER NOT NULL,
+                        notificationEnabled INTEGER NOT NULL,
+                        isDefault INTEGER NOT NULL,
+                        FOREIGN KEY(personId) REFERENCES birthday_people(id) ON DELETE CASCADE
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_birthday_milestones_personId ON birthday_milestones(personId)")
             }
         }
 

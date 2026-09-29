@@ -37,9 +37,7 @@ import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.SecondaryScrollableTabRow
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -282,23 +280,22 @@ private fun DiaTableContent(
                     }
                 }
 
+                // 페이저가 단일 진실 공급원(single source of truth).
+                // 탭 클릭은 페이저만 움직이고, ViewModel에는 스크롤이 완전히 멈춘 뒤(settledPage)에만 반영한다.
+                // 이전에는 currentPage 변화 → selectCategory → LaunchedEffect 재시작 → 진행 중이던
+                // animateScrollToPage 취소 순으로 서로를 되받아쳐서, 페이지가 중간에 걸치거나
+                // (기기 프레임레이트에 따라) 화면이 떨리는 현상이 있었다.
                 val pagerState = rememberPagerState(
-                    initialPage = state.selectedCategoryIndex,
+                    initialPage = state.selectedCategoryIndex
+                        .coerceIn(0, (state.categories.size - 1).coerceAtLeast(0)),
                     pageCount = { state.categories.size }
                 )
                 val coroutineScope = rememberCoroutineScope()
 
-                // 페이저 스와이프 → ViewModel 상태 동기화
+                // 페이저 정착 → ViewModel 상태 동기화 (재로딩 시 initialPage 복원용)
                 LaunchedEffect(pagerState) {
-                    snapshotFlow { pagerState.currentPage }.collect { page ->
+                    snapshotFlow { pagerState.settledPage }.collect { page ->
                         onCategorySelect(page)
-                    }
-                }
-
-                // ViewModel 상태 변경 → 페이저 동기화
-                LaunchedEffect(state.selectedCategoryIndex) {
-                    if (pagerState.currentPage != state.selectedCategoryIndex) {
-                        pagerState.animateScrollToPage(state.selectedCategoryIndex)
                     }
                 }
 
@@ -334,17 +331,18 @@ private fun DiaTableContent(
                 }
 
                 // 하단 탭
-                ScrollableTabRow(
-                    selectedTabIndex = state.selectedCategoryIndex,
+                // 탭 표시는 페이저의 currentPage를 그대로 따른다 (애니메이션 중에도 자연스럽게 이동)
+                val selectedTab = pagerState.currentPage
+                SecondaryScrollableTabRow(
+                    selectedTabIndex = selectedTab,
                     edgePadding = 8.dp,
                     containerColor = MaterialTheme.colorScheme.surface,
                     contentColor = MaterialTheme.colorScheme.primary
                 ) {
                     state.categories.forEachIndexed { index, category ->
                         Tab(
-                            selected = state.selectedCategoryIndex == index,
+                            selected = selectedTab == index,
                             onClick = {
-                                onCategorySelect(index)
                                 coroutineScope.launch {
                                     pagerState.animateScrollToPage(index)
                                 }
@@ -352,7 +350,7 @@ private fun DiaTableContent(
                             text = {
                                 Text(
                                     text = "${category.name} (${category.dias.size})",
-                                    fontWeight = if (state.selectedCategoryIndex == index)
+                                    fontWeight = if (selectedTab == index)
                                         FontWeight.Bold else FontWeight.Normal
                                 )
                             }
@@ -459,8 +457,8 @@ private fun DiaTableRow(
 					//.background(Color.LightGray.copy(0.5f)),
 				fontSize = baseSize,
 
-				// 일반 텍스트 색상
-				color = MaterialTheme.colorScheme.onSurface,
+				// 출근시간 색상 (primary)
+				color = MaterialTheme.colorScheme.primary,
 				textAlign = TextAlign.Start,
 				style = TextStyle(
 					platformStyle = PlatformTextStyle(includeFontPadding = false),
@@ -512,7 +510,7 @@ private fun DiaTableRow(
 				text = dia.secondTime ?: "-",
 				modifier = Modifier.weight(2.5f),
 				fontSize = baseSize,
-				color = MaterialTheme.colorScheme.onSurface,
+				color = MaterialTheme.colorScheme.tertiary,
 				textAlign = TextAlign.Start,
 				style = TextStyle(
 					platformStyle = PlatformTextStyle(includeFontPadding = false),

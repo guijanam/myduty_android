@@ -4,15 +4,20 @@ import androidx.room.Room
 import okhttp3.logging.HttpLoggingInterceptor
 import com.sonbum.diacalendar2.data.local.OfficeWebsiteRegistry
 import com.sonbum.diacalendar2.data.local.DrawerWebsiteRegistry
+import com.sonbum.diacalendar2.data.local.SubwayStationRegistry
 import com.sonbum.diacalendar2.data.local.database.AppDatabase
 import com.sonbum.diacalendar2.data.local.datastore.CalendarPreferences
 import com.sonbum.diacalendar2.data.local.datastore.CoworkerPreferences
 import com.sonbum.diacalendar2.data.local.datastore.MenuPreferences
 import com.sonbum.diacalendar2.data.local.datastore.OnboardingPreferences
+import com.sonbum.diacalendar2.data.local.datastore.ShiftColorPreferences
+import com.sonbum.diacalendar2.data.local.datastore.SubwayPreferences
 import com.sonbum.diacalendar2.data.local.datastore.TextSizePreferences
 import com.sonbum.diacalendar2.data.local.datastore.ThemePreferences
 import com.sonbum.diacalendar2.data.remote.SubwayApiConfig
+import com.sonbum.diacalendar2.data.remote.SeoulMetroApiConfig
 import com.sonbum.diacalendar2.data.remote.SupabaseConfig
+import com.sonbum.diacalendar2.data.remote.api.SeoulMetroTrainApi
 import com.sonbum.diacalendar2.data.remote.api.SubwayApi
 import com.sonbum.diacalendar2.data.remote.api.SupabaseApi
 import com.sonbum.diacalendar2.data.repository.SubwayRepositoryImpl
@@ -25,6 +30,9 @@ import com.sonbum.diacalendar2.data.repository.LocalDiaRepositoryImpl
 import com.sonbum.diacalendar2.data.repository.LocalOfficeRepositoryImpl
 import com.sonbum.diacalendar2.data.repository.MemoRepositoryImpl
 import com.sonbum.diacalendar2.domain.usecase.BackupRestoreUseCase
+import com.sonbum.diacalendar2.domain.usecase.EffectiveShiftUseCase
+import com.sonbum.diacalendar2.domain.usecase.ShiftCalendarSyncUseCase
+import com.sonbum.diacalendar2.domain.usecase.BirthdayCalendarSyncUseCase
 import com.sonbum.diacalendar2.data.repository.OfficeRepositoryImpl
 import com.sonbum.diacalendar2.data.repository.ShiftRepositoryImpl
 import com.sonbum.diacalendar2.data.repository.ShiftSwapRecordRepositoryImpl
@@ -73,6 +81,7 @@ import com.sonbum.diacalendar2.presentation.coworker.CoworkerGroupViewModel
 import com.sonbum.diacalendar2.presentation.coworker.CoworkerEditViewModel
 import com.sonbum.diacalendar2.presentation.calendar.CalendarSelectionViewModel
 import com.sonbum.diacalendar2.presentation.home.DateDetailViewModel
+import com.sonbum.diacalendar2.presentation.trainformation.TrainFormationListViewModel
 import com.sonbum.diacalendar2.presentation.home.HomeViewModel
 import com.sonbum.diacalendar2.presentation.memo.MemoEditViewModel
 import com.sonbum.diacalendar2.presentation.profile.ProfileViewModel
@@ -86,6 +95,7 @@ import com.sonbum.diacalendar2.presentation.localoffice.LocalOfficeListViewModel
 import com.sonbum.diacalendar2.presentation.customshift.CustomShiftListViewModel
 import com.sonbum.diacalendar2.presentation.customshift.CustomShiftEditViewModel
 import com.sonbum.diacalendar2.presentation.shift.ShiftSelectionViewModel
+import com.sonbum.diacalendar2.presentation.shiftcolor.ShiftColorSettingsViewModel
 import com.sonbum.diacalendar2.presentation.textsize.TextSizeSettingsViewModel
 import com.sonbum.diacalendar2.presentation.alarm.WorkAlarmSettingsViewModel
 import com.sonbum.diacalendar2.presentation.vacation.VacationSettingViewModel
@@ -100,6 +110,12 @@ import com.sonbum.diacalendar2.presentation.board.PostWriteViewModel
 import com.sonbum.diacalendar2.presentation.board.BlockedUsersViewModel
 import com.sonbum.diacalendar2.data.local.datastore.AuthPreferences
 import com.sonbum.diacalendar2.data.local.datastore.VipPreferences
+import com.sonbum.diacalendar2.data.local.datastore.BirthdayPreferences
+import com.sonbum.diacalendar2.data.repository.BirthdayRepositoryImpl
+import com.sonbum.diacalendar2.domain.repository.BirthdayRepository
+import com.sonbum.diacalendar2.domain.util.AgeCalculator
+import com.sonbum.diacalendar2.domain.util.BirthdayDateResolver
+import com.sonbum.diacalendar2.domain.util.MilestoneCalculator
 import com.sonbum.diacalendar2.data.remote.BoardSupabaseConfig
 import com.sonbum.diacalendar2.data.remote.MenuSupabaseConfig
 import com.sonbum.diacalendar2.data.remote.api.SupabaseBoardApi
@@ -110,12 +126,16 @@ import com.sonbum.diacalendar2.presentation.menu.MenuViewModel
 import org.koin.core.qualifier.named
 import com.sonbum.diacalendar2.core.notification.AlarmScheduler
 import com.sonbum.diacalendar2.core.notification.NotificationHelper
+import com.sonbum.diacalendar2.core.notification.BirthdayReminderScheduler
 import com.sonbum.diacalendar2.data.local.datastore.CrewPatternPreferences
 import com.sonbum.diacalendar2.data.local.datastore.NotificationPreferences
 import androidx.work.WorkManager
 import com.sonbum.diacalendar2.data.repository.AnniversaryRepositoryImpl
+import com.sonbum.diacalendar2.data.repository.TrainFormationRepositoryImpl
 import com.sonbum.diacalendar2.domain.repository.AnniversaryRepository
+import com.sonbum.diacalendar2.domain.repository.TrainFormationRepository
 import com.sonbum.diacalendar2.presentation.anniversary.AnniversaryViewModel
+import com.sonbum.diacalendar2.presentation.anniversary.BirthdayViewModel
 import com.sonbum.diacalendar2.data.repository.DocumentRepositoryImpl
 import com.sonbum.diacalendar2.domain.repository.DocumentRepository
 import com.sonbum.diacalendar2.presentation.notifications.DocumentViewModel
@@ -168,7 +188,10 @@ val databaseModule = module {
                 AppDatabase.MIGRATION_24_25,
                 AppDatabase.MIGRATION_25_26,
                 AppDatabase.MIGRATION_26_27,
-                AppDatabase.MIGRATION_27_28
+                AppDatabase.MIGRATION_27_28,
+                AppDatabase.MIGRATION_28_29,
+                AppDatabase.MIGRATION_29_30,
+                AppDatabase.MIGRATION_30_31
             )
             .fallbackToDestructiveMigration()
             .build()
@@ -200,6 +223,8 @@ val databaseModule = module {
     single { get<AppDatabase>().scheduledAlarmDao() }
     single { get<AppDatabase>().subShiftConfigDao() }
     single { get<AppDatabase>().subShiftScheduleDao() }
+    single { get<AppDatabase>().trainFormationDao() }
+    single { get<AppDatabase>().birthdayDao() }
     single {
         com.sonbum.diacalendar2.widget.data.WidgetDataProvider(
             get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()
@@ -216,6 +241,7 @@ val dataStoreModule = module {
     single { ThemePreferences(androidContext()) }
     single { OnboardingPreferences(androidContext()) }
     single { TextSizePreferences(androidContext()) }
+    single { ShiftColorPreferences(androidContext()) }
     single { NotificationPreferences(androidContext()) }
     single { AuthPreferences(androidContext()) }
     single { CrewPatternPreferences(androidContext()) }
@@ -223,7 +249,10 @@ val dataStoreModule = module {
     single { CoworkerPreferences(androidContext()) }
     single { OfficeWebsiteRegistry(androidContext()) }
     single { DrawerWebsiteRegistry(androidContext()) }
+    single { SubwayStationRegistry(androidContext()) }
+    single { SubwayPreferences(androidContext()) }
     single { VipPreferences(androidContext()) }
+    single { BirthdayPreferences(androidContext()) }
 }
 
 /**
@@ -236,8 +265,14 @@ val repositoryModule = module {
     single<HolidayRepository> { HolidayRepositoryImpl(get(), get()) }
     single<OfficeRepository> { OfficeRepositoryImpl(get(), get(), get()) }
     single<DiaRepository> { DiaRepositoryImpl(get(), get(), get()) }
-    single<SubwayRepository> { SubwayRepositoryImpl(get(named("subwayApi"))) }
-    single<ShiftRepository> { ShiftRepositoryImpl(get(), get()) }
+    single<SubwayRepository> {
+        SubwayRepositoryImpl(
+            api = get(named("subwayApi")),
+            seoulMetroApi = get(named("seoulMetroApi")),
+            stationRegistry = get()
+        )
+    }
+    single<ShiftRepository> { ShiftRepositoryImpl(get(), get(), get(), get()) }
     single<com.sonbum.diacalendar2.domain.repository.SubShiftRepository> {
         com.sonbum.diacalendar2.data.repository.SubShiftRepositoryImpl(get(), get())
     }
@@ -273,18 +308,29 @@ val repositoryModule = module {
             localDiaDao = get(),
             chatNoteDao = get(),
             anniversaryDao = get(),
+            trainFormationDao = get(),
             coworkerDao = get(),
-            coworkerGroupDao = get()
+            coworkerGroupDao = get(),
+            birthdayDao = get(),
+            birthdayPreferences = get()
         )
     }
     singleOf(::BackupRestoreUseCase)
+    singleOf(::EffectiveShiftUseCase)
+    singleOf(::ShiftCalendarSyncUseCase)
+    singleOf(::BirthdayCalendarSyncUseCase)
     single<AuthRepository> { AuthRepositoryImpl(get(named("boardApi")), get()) }
     single<BoardRepository> { BoardRepositoryImpl(get(named("boardApi")), get()) }
     single<MenuRepository> { MenuRepositoryImpl(get(named("menuApi"))) }
     single<CoworkerRepository> { CoworkerRepositoryImpl(get(), get(), get()) }
     single<SubscriptionRepository> { SubscriptionRepositoryImpl(get(), get()) }
     single<AnniversaryRepository> { AnniversaryRepositoryImpl(get()) }
+    single<TrainFormationRepository> { TrainFormationRepositoryImpl(get()) }
     single<DocumentRepository> { DocumentRepositoryImpl(get()) }
+    single { BirthdayDateResolver() }
+    single { AgeCalculator(get()) }
+    single { MilestoneCalculator(get()) }
+    single<BirthdayRepository> { BirthdayRepositoryImpl(get(), get(), get(), get()) }
 }
 
 /**
@@ -294,7 +340,7 @@ val repositoryModule = module {
 val viewModelModule = module {
     viewModelOf(::HomeViewModel)
     viewModelOf(::SubwayPositionViewModel)
-    viewModel { DateDetailViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), androidContext()) }
+    viewModel { DateDetailViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), androidContext()) }
     viewModel { MemoEditViewModel(get(), get(), androidContext()) }
     viewModelOf(::CalendarSelectionViewModel)
     viewModel { ProfileViewModel(get(), get(), get(), get(), get(), androidContext()) }
@@ -306,8 +352,16 @@ val viewModelModule = module {
     viewModelOf(::LocalDiaListViewModel)
     viewModelOf(::LocalDiaEditViewModel)
     viewModelOf(::TextSizeSettingsViewModel)
+    viewModelOf(::ShiftColorSettingsViewModel)
     viewModel { WorkAlarmSettingsViewModel(get(), androidContext()) }
-    viewModel { com.sonbum.diacalendar2.presentation.alarm.ScheduledAlarmListViewModel(get(), get(), androidContext()) }
+    viewModel {
+        com.sonbum.diacalendar2.presentation.alarm.ScheduledAlarmListViewModel(
+            get(),
+            get(),
+            get(),
+            androidContext()
+        )
+    }
     viewModelOf(::CustomShiftListViewModel)
     viewModelOf(::CustomShiftEditViewModel)
     viewModelOf(::MainViewModel)
@@ -326,6 +380,8 @@ val viewModelModule = module {
     viewModelOf(::CoworkerEditViewModel)
     viewModelOf(::PaywallViewModel)
     viewModelOf(::AnniversaryViewModel)
+    viewModel { BirthdayViewModel(get(), get(), get(), get(), get(), get(), get(), androidContext()) }
+    viewModelOf(::TrainFormationListViewModel)
     viewModelOf(::DocumentViewModel)
 }
 
@@ -432,6 +488,25 @@ val networkModule = module {
     single<SubwayApi>(named("subwayApi")) {
         get<Retrofit>(named("subwayRetrofit")).create(SubwayApi::class.java)
     }
+
+    // 서울교통공사 웹 노선도의 공사 구간 실시간 열차정보(1~8호선) 보조 소스.
+    // 비공식 HTML 엔드포인트 장애가 주 데이터 로딩을 오래 지연시키지 않게 짧게 제한한다.
+    single(named("seoulMetroOkHttp")) {
+        get<OkHttpClient>().newBuilder()
+            .callTimeout(5, TimeUnit.SECONDS)
+            .build()
+    }
+
+    single(named("seoulMetroRetrofit")) {
+        Retrofit.Builder()
+            .baseUrl(SeoulMetroApiConfig.BASE_URL)
+            .client(get(named("seoulMetroOkHttp")))
+            .build()
+    }
+
+    single<SeoulMetroTrainApi>(named("seoulMetroApi")) {
+        get<Retrofit>(named("seoulMetroRetrofit")).create(SeoulMetroTrainApi::class.java)
+    }
 }
 
 /**
@@ -444,6 +519,7 @@ val networkModule = module {
 val notificationModule = module {
     single { NotificationHelper(androidContext()) }
     single { AlarmScheduler(androidContext()) }
+    single { BirthdayReminderScheduler(androidContext(), get(), get()) }
     single { WorkManager.getInstance(androidContext()) }
 }
 

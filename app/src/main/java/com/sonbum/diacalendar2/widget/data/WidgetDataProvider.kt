@@ -39,7 +39,10 @@ data class EffectiveShiftTimes(
     val effectiveShiftName: String?,
     val workTime: String?,    // 출근
     val firstTime: String?,   // 전반사업
-    val secondTime: String?   // 후반사업
+    val secondTime: String?,  // 후반사업
+    val numTr1: String? = null,   // 전반열번
+    val numTr2: String? = null,   // 후반열번
+    val typeName: String? = null  // 요일타입(평일/토요일/일요일 등)
 )
 
 class WidgetDataProvider(
@@ -163,19 +166,58 @@ class WidgetDataProvider(
                 else -> originalShift
             }
 
+            // "~"로 끝나는 날(예: "59~")은 전날 야간 근무가 이어지는 날이다.
+            // 그 날 자체 근무는 없으므로 자체 Dia를 조회하지 않고,
+            // 전날 cross-day 근무의 후반(secondTime/numTr2)만 표시한다.
+            val isCarryOverDay = effectiveName?.endsWith("~") == true
+
             // 휴가일은 출근 시각이 없어 알람이 해제되도록 Dia 조회를 건너뛴다.
-            val dia = if (vacation == null && effectiveName != null && officeName != null) {
+            val dia = if (vacation == null && !isCarryOverDay && effectiveName != null && officeName != null) {
                 resolveDia(effectiveName, date, officeName, isLocalOffice, holidayDates)
             } else null
+
+            // 전날 후반 carryover (이 날이 "~"일 때만)
+            var carryOverSecondTime: String? = null
+            var carryOverNumTr2: String? = null
+            if (isCarryOverDay && vacation == null && officeName != null) {
+                val prevDate = date.minusDays(1)
+                // 전날 근무도 교체/충당/지근/지휴/근태가 반영된 "유효 근무"로 조회해야 한다.
+                // (원래 교번만 보면 이미 교체된 옛 근무의 후반이 계속 표시된다)
+                val prevShift = resolveEffectiveShiftName(prevDate)
+                if (!prevShift.isNullOrBlank()) {
+                    val prevDia = resolveDia(prevShift.removeSuffix("~"), prevDate, officeName, isLocalOffice, holidayDates)
+                    if (prevDia != null && DayTypeResolver.isCrossDayType(prevDia.typeName)) {
+                        carryOverSecondTime = prevDia.secondTime
+                        carryOverNumTr2 = prevDia.numTr2
+                    }
+                }
+            }
 
             EffectiveShiftTimes(
                 date = date,
                 effectiveShiftName = effectiveName,
                 workTime = dia?.workTime,
                 firstTime = dia?.firstTime,
-                secondTime = dia?.secondTime
+                secondTime = dia?.secondTime ?: carryOverSecondTime,
+                numTr1 = dia?.numTr1,
+                numTr2 = dia?.numTr2 ?: carryOverNumTr2,
+                typeName = if (dia != null) DayTypeResolver.resolveTypeName(date, holidayDates) else null
             )
         }
+    }
+
+    /**
+     * 특정 날짜의 유효 근무명을 조회한다.
+     * 우선순위: 근태(휴가) > 지휴 > 충당 > 지근 > 교번교체 > 원래 교번
+     */
+    private suspend fun resolveEffectiveShiftName(date: LocalDate): String? {
+        val dateStr = date.toString()
+        vacationRecordDao.getByDate(dateStr)?.let { return it.shortName }
+        lateHolidayRecordDao.getByDateOnce(dateStr)?.let { return it.lateHolidayName }
+        shiftInputRecordDao.getByDate(dateStr)?.let { return it.targetShiftName }
+        lateWorkRecordDao.getByDateOnce(dateStr)?.let { return it.lateWorkName }
+        shiftSwapRecordDao.getByDate(dateStr)?.let { return it.swappedShiftName }
+        return shiftScheduleDao.getScheduleByDate(dateStr)?.shiftName
     }
 
     private suspend fun resolveWorkTime(

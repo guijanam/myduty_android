@@ -7,12 +7,16 @@ import com.sonbum.diacalendar2.data.local.dao.*
 import com.sonbum.diacalendar2.data.local.entity.*
 import com.sonbum.diacalendar2.domain.model.*
 import com.sonbum.diacalendar2.data.local.dao.AnniversaryDao
+import com.sonbum.diacalendar2.data.local.dao.TrainFormationDao
 import com.sonbum.diacalendar2.data.local.dao.CoworkerDao
 import com.sonbum.diacalendar2.data.local.dao.CoworkerGroupDao
 import com.sonbum.diacalendar2.data.local.entity.AnniversaryEntity
+import com.sonbum.diacalendar2.data.local.entity.TrainFormationEntity
 import com.sonbum.diacalendar2.data.local.entity.CoworkerEntity
 import com.sonbum.diacalendar2.data.local.entity.CoworkerGroupEntity
 import com.sonbum.diacalendar2.domain.repository.BackupRepository
+import com.sonbum.diacalendar2.data.local.datastore.BirthdayDefaults
+import com.sonbum.diacalendar2.data.local.datastore.BirthdayPreferences
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
@@ -39,8 +43,11 @@ class BackupRepositoryImpl(
     private val lateHolidayRecordDao: LateHolidayRecordDao,
     private val chatNoteDao: ChatNoteDao,
     private val anniversaryDao: AnniversaryDao,
+    private val trainFormationDao: TrainFormationDao,
     private val coworkerDao: CoworkerDao,
     private val coworkerGroupDao: CoworkerGroupDao,
+    private val birthdayDao: BirthdayDao,
+    private val birthdayPreferences: BirthdayPreferences,
 ) : BackupRepository {
 
     private val json = Json {
@@ -243,6 +250,69 @@ class BackupRepositoryImpl(
             )
         }
 
+        // Birthday people, groups, memberships and milestone rules. Profile images are
+        // embedded so a backup remains portable even when the original private file is gone.
+        val birthdayPeople = birthdayDao.getPeopleOnce().map {
+            BirthdayPersonBackup(
+                id = it.id,
+                name = it.name,
+                photoBase64 = encodeImageToBase64(it.photoPath),
+                relationship = it.relationship,
+                birthYear = it.birthYear,
+                birthMonth = it.birthMonth,
+                birthDay = it.birthDay,
+                calendarType = it.calendarType,
+                isLeapMonth = it.isLeapMonth,
+                timeZoneId = it.timeZoneId,
+                ageDisplayMode = it.ageDisplayMode,
+                leapMonthPolicy = it.leapMonthPolicy,
+                feb29Policy = it.feb29Policy,
+                notificationEnabled = it.notificationEnabled,
+                notificationOffsetsCsv = it.notificationOffsetsCsv,
+                notificationHour = it.notificationHour,
+                notificationMinute = it.notificationMinute,
+                calendarSyncEnabled = it.calendarSyncEnabled,
+                createdAt = it.createdAt,
+                updatedAt = it.updatedAt
+            )
+        }
+        val birthdayGroups = birthdayDao.getGroupsOnce().map {
+            BirthdayGroupBackup(it.id, it.name, it.isDefault, it.sortOrder)
+        }
+        val birthdayPersonGroups = birthdayDao.getPersonGroupsOnce().map {
+            BirthdayPersonGroupBackup(it.personId, it.groupId)
+        }
+        val birthdayMilestones = birthdayDao.getAllMilestonesOnce().map {
+            BirthdayMilestoneBackup(
+                it.id, it.personId, it.name, it.ruleType, it.ruleValue,
+                it.enabled, it.notificationEnabled, it.isDefault
+            )
+        }
+        val birthdayDefaults = birthdayPreferences.defaults.first()
+        val birthdaySettings = BirthdaySettingsBackup(
+            ageDisplayMode = birthdayDefaults.ageDisplayMode.name,
+            notificationOffsets = birthdayDefaults.notificationOffsets.sortedDescending(),
+            notificationHour = birthdayDefaults.notificationHour,
+            notificationMinute = birthdayDefaults.notificationMinute,
+            calendarSyncEnabled = birthdayDefaults.calendarSyncEnabled,
+            calendarId = birthdayDefaults.calendarId
+        )
+
+        // TrainFormations
+        val trainFormationBackups = trainFormationDao.getAllOnce().map {
+            TrainFormationBackup(
+                id = it.id,
+                date = it.date,
+                half = it.half,
+                formationNo = it.formationNo,
+                note = it.note,
+                shiftName = it.shiftName,
+                numTr = it.numTr,
+                sortOrder = it.sortOrder,
+                createdAt = it.createdAt
+            )
+        }
+
         // CoworkerGroups
         val coworkerGroups = coworkerGroupDao.getAllOnce()
         val coworkerGroupBackups = coworkerGroups.map {
@@ -287,8 +357,14 @@ class BackupRepositoryImpl(
             localDias = localDiaBackups,
             chatNotes = chatNoteBackups,
             anniversaries = anniversaryBackups,
+            birthdayPeople = birthdayPeople,
+            birthdayGroups = birthdayGroups,
+            birthdayPersonGroups = birthdayPersonGroups,
+            birthdayMilestones = birthdayMilestones,
+            birthdaySettings = birthdaySettings,
             coworkerGroups = coworkerGroupBackups,
-            coworkers = coworkerBackups
+            coworkers = coworkerBackups,
+            trainFormations = trainFormationBackups
         )
     }
 
@@ -326,6 +402,9 @@ class BackupRepositoryImpl(
 
             if (clearExisting) {
                 // 기존 데이터 삭제
+                birthdayDao.getPeopleOnce().mapNotNull { it.photoPath }.forEach { path ->
+                    runCatching { File(path).delete() }
+                }
                 memoDao.deleteAllMemos()
                 userShiftConfigDao.deleteConfig()
                 shiftScheduleDao.deleteAll()
@@ -342,6 +421,10 @@ class BackupRepositoryImpl(
                 localOfficeDao.deleteAll()
                 chatNoteDao.deleteAll()
                 anniversaryDao.deleteAll()
+                birthdayDao.deleteAllMilestones()
+                birthdayDao.deleteAllPeople()
+                birthdayDao.deleteAllGroups()
+                trainFormationDao.deleteAll()
                 coworkerDao.deleteAll()
                 coworkerGroupDao.deleteAll()
             }
@@ -582,6 +665,111 @@ class BackupRepositoryImpl(
                 restoredCount++
             }
 
+            // Birthday groups are restored by name so merging a backup cannot violate the
+            // unique group-name index. People always receive new local IDs and every relation
+            // is remapped to those IDs.
+            val birthdayGroupIdMap = mutableMapOf<Long, Long>()
+            val currentBirthdayGroups = birthdayDao.getGroupsOnce().associateBy { it.name }
+            backupData.birthdayGroups.forEach { group ->
+                val newId = currentBirthdayGroups[group.name]?.id ?: birthdayDao.insertGroup(
+                    BirthdayGroupEntity(
+                        name = group.name,
+                        isDefault = group.isDefault,
+                        sortOrder = group.sortOrder
+                    )
+                )
+                birthdayGroupIdMap[group.id] = newId
+                restoredCount++
+            }
+
+            val birthdayPersonIdMap = mutableMapOf<Long, Long>()
+            backupData.birthdayPeople.forEach { person ->
+                val photoPath = decodeBase64ToImage(person.photoBase64, "birthday_profiles", "birthday")
+                val newId = birthdayDao.insertPerson(
+                    BirthdayPersonEntity(
+                        name = person.name,
+                        photoPath = photoPath,
+                        relationship = person.relationship,
+                        birthYear = person.birthYear,
+                        birthMonth = person.birthMonth,
+                        birthDay = person.birthDay,
+                        calendarType = person.calendarType,
+                        isLeapMonth = person.isLeapMonth,
+                        timeZoneId = person.timeZoneId,
+                        ageDisplayMode = person.ageDisplayMode,
+                        leapMonthPolicy = person.leapMonthPolicy,
+                        feb29Policy = person.feb29Policy,
+                        notificationEnabled = person.notificationEnabled,
+                        notificationOffsetsCsv = person.notificationOffsetsCsv,
+                        notificationHour = person.notificationHour,
+                        notificationMinute = person.notificationMinute,
+                        calendarSyncEnabled = person.calendarSyncEnabled,
+                        createdAt = person.createdAt,
+                        updatedAt = person.updatedAt
+                    )
+                )
+                birthdayPersonIdMap[person.id] = newId
+                restoredCount++
+            }
+
+            val birthdayLinks = backupData.birthdayPersonGroups.mapNotNull { link ->
+                val personId = birthdayPersonIdMap[link.personId] ?: return@mapNotNull null
+                val groupId = birthdayGroupIdMap[link.groupId] ?: return@mapNotNull null
+                BirthdayPersonGroupEntity(personId, groupId)
+            }
+            if (birthdayLinks.isNotEmpty()) {
+                birthdayDao.insertPersonGroups(birthdayLinks)
+                restoredCount += birthdayLinks.size
+            }
+
+            backupData.birthdayMilestones.forEach { milestone ->
+                val personId = birthdayPersonIdMap[milestone.personId] ?: return@forEach
+                birthdayDao.insertMilestone(
+                    BirthdayMilestoneEntity(
+                        personId = personId,
+                        name = milestone.name,
+                        ruleType = milestone.ruleType,
+                        ruleValue = milestone.ruleValue,
+                        enabled = milestone.enabled,
+                        notificationEnabled = milestone.notificationEnabled,
+                        isDefault = milestone.isDefault
+                    )
+                )
+                restoredCount++
+            }
+
+            backupData.birthdaySettings?.let { settings ->
+                birthdayPreferences.saveDefaults(
+                    BirthdayDefaults(
+                        ageDisplayMode = runCatching { AgeDisplayMode.valueOf(settings.ageDisplayMode) }
+                            .getOrDefault(AgeDisplayMode.FULL_AGE),
+                        notificationOffsets = settings.notificationOffsets.toSet(),
+                        notificationHour = settings.notificationHour.coerceIn(0, 23),
+                        notificationMinute = settings.notificationMinute.coerceIn(0, 59),
+                        calendarSyncEnabled = settings.calendarSyncEnabled,
+                        calendarId = settings.calendarId
+                    )
+                )
+                restoredCount++
+            }
+
+            // TrainFormations 복원
+            backupData.trainFormations.forEach { formation ->
+                trainFormationDao.insert(
+                    TrainFormationEntity(
+                        date = formation.date,
+                        half = formation.half,
+                        formationNo = formation.formationNo,
+                        note = formation.note,
+                        shiftName = formation.shiftName,
+                        numTr = formation.numTr,
+                        sortOrder = formation.sortOrder,
+                        createdAt = formation.createdAt
+                    )
+                )
+                restoredCount++
+            }
+
             // CoworkerGroups 복원 (id → 새 id 매핑 보존)
             val groupIdMap = mutableMapOf<Long, Long>()
             backupData.coworkerGroups.forEach { group ->
@@ -644,13 +832,17 @@ class BackupRepositoryImpl(
     /**
      * Base64 문자열을 이미지 파일로 디코딩하여 내부 저장소에 저장
      */
-    private fun decodeBase64ToImage(base64: String?): String? {
+    private fun decodeBase64ToImage(
+        base64: String?,
+        directoryName: String = "memo_images",
+        filePrefix: String = "memo"
+    ): String? {
         if (base64 == null) return null
         return try {
-            val imagesDir = File(context.filesDir, "memo_images")
+            val imagesDir = File(context.filesDir, directoryName)
             if (!imagesDir.exists()) imagesDir.mkdirs()
 
-            val fileName = "memo_${UUID.randomUUID()}.jpg"
+            val fileName = "${filePrefix}_${UUID.randomUUID()}.jpg"
             val destFile = File(imagesDir, fileName)
 
             val bytes = Base64.decode(base64, Base64.NO_WRAP)

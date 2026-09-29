@@ -22,12 +22,19 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -35,6 +42,9 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -58,6 +68,15 @@ fun CalendarSelectionScreen(
     viewModel: CalendarSelectionViewModel = koinViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // 동기화 결과 메시지를 스낵바로 표시
+    LaunchedEffect(state.syncMessage) {
+        state.syncMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.consumeSyncMessage()
+        }
+    }
 
     // 캘린더 읽기/쓰기 권한 요청
     val calendarPermissionsState = rememberMultiplePermissionsState(
@@ -79,6 +98,7 @@ fun CalendarSelectionScreen(
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = {
@@ -193,6 +213,15 @@ fun CalendarSelectionScreen(
                     calendars = state.calendars,
                     selectedCalendarIds = state.selectedCalendarIds,
                     onToggleSelection = viewModel::toggleCalendarSelection,
+                    shiftSyncEnabled = state.shiftSyncEnabled,
+                    isSyncing = state.isSyncing,
+                    syncableCalendars = state.syncableCalendars,
+                    shiftSyncCalendarId = state.shiftSyncCalendarId,
+                    shiftSyncLabel = state.shiftSyncLabel,
+                    onToggleShiftSync = viewModel::toggleShiftSync,
+                    onSelectSyncCalendar = viewModel::selectSyncCalendar,
+                    onApplyLabel = viewModel::setSyncLabel,
+                    onSyncNow = viewModel::syncNow,
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(innerPadding)
@@ -240,6 +269,15 @@ private fun CalendarList(
     calendars: List<DeviceCalendar>,
     selectedCalendarIds: Set<Long>,
     onToggleSelection: (Long) -> Unit,
+    shiftSyncEnabled: Boolean,
+    isSyncing: Boolean,
+    syncableCalendars: List<DeviceCalendar>,
+    shiftSyncCalendarId: Long,
+    shiftSyncLabel: String,
+    onToggleShiftSync: (Boolean) -> Unit,
+    onSelectSyncCalendar: (Long) -> Unit,
+    onApplyLabel: (String) -> Unit,
+    onSyncNow: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     // 계정별로 그룹화
@@ -248,6 +286,22 @@ private fun CalendarList(
     LazyColumn(
         modifier = modifier
     ) {
+        // 근무 동기화 카드 (맨 위)
+        item(key = "shift_sync_card") {
+            ShiftSyncCard(
+                enabled = shiftSyncEnabled,
+                isSyncing = isSyncing,
+                syncableCalendars = syncableCalendars,
+                selectedSyncCalendarId = shiftSyncCalendarId,
+                syncLabel = shiftSyncLabel,
+                onToggle = onToggleShiftSync,
+                onSelectSyncCalendar = onSelectSyncCalendar,
+                onApplyLabel = onApplyLabel,
+                onSyncNow = onSyncNow
+            )
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+        }
+
         groupedCalendars.forEach { (accountName, accountCalendars) ->
             // 계정 헤더
             item(key = "header_$accountName") {
@@ -269,6 +323,140 @@ private fun CalendarList(
             // 구분선
             item(key = "divider_$accountName") {
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ShiftSyncCard(
+    enabled: Boolean,
+    isSyncing: Boolean,
+    syncableCalendars: List<DeviceCalendar>,
+    selectedSyncCalendarId: Long,
+    syncLabel: String,
+    onToggle: (Boolean) -> Unit,
+    onSelectSyncCalendar: (Long) -> Unit,
+    onApplyLabel: (String) -> Unit,
+    onSyncNow: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "근무 캘린더 동기화",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "내 근무를 선택한 Google 캘린더에 일정으로 등록합니다.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Switch(
+                checked = enabled,
+                onCheckedChange = onToggle
+            )
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // 대상 캘린더 선택 드롭다운
+        var expanded by remember { mutableStateOf(false) }
+        val selectedCalendar = syncableCalendars.firstOrNull { it.id == selectedSyncCalendarId }
+        ExposedDropdownMenuBox(
+            expanded = expanded,
+            onExpandedChange = { expanded = it }
+        ) {
+            OutlinedTextField(
+                value = selectedCalendar?.let { "${it.displayName} (${it.accountName})" }
+                    ?: "근무를 등록할 캘린더 선택",
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("등록 캘린더") },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .menuAnchor()
+            )
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                if (syncableCalendars.isEmpty()) {
+                    DropdownMenuItem(
+                        text = { Text("쓸 수 있는 Google 캘린더가 없습니다") },
+                        onClick = { expanded = false }
+                    )
+                }
+                syncableCalendars.forEach { cal ->
+                    DropdownMenuItem(
+                        text = { Text("${cal.displayName} (${cal.accountName})") },
+                        onClick = {
+                            onSelectSyncCalendar(cal.id)
+                            expanded = false
+                        }
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // 제목 라벨 편집: 이벤트가 "근무명 (라벨)" 로 표시됨. 비우면 근무명만.
+        var labelInput by remember(syncLabel) { mutableStateOf(syncLabel) }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            OutlinedTextField(
+                value = labelInput,
+                onValueChange = { labelInput = it },
+                singleLine = true,
+                label = { Text("제목 라벨") },
+                placeholder = { Text("예: 동대문승무소 (비우면 근무명만)") },
+                modifier = Modifier.weight(1f)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            TextButton(
+                onClick = { onApplyLabel(labelInput.trim()) },
+                enabled = labelInput.trim() != syncLabel.trim()
+            ) {
+                Text("적용")
+            }
+        }
+        Text(
+            text = "이벤트 제목 예시: 주간" +
+                (labelInput.trim().takeIf { it.isNotEmpty() }?.let { " ($it)" } ?: ""),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        if (enabled) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "동료와 공유하려면 Google 캘린더에서 이 캘린더를 공유 설정하세요. " +
+                    "웹(calendar.google.com)에도 동기화됩니다.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = onSyncNow, enabled = !isSyncing) {
+                    Text("지금 다시 동기화")
+                }
+                if (isSyncing) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                }
             }
         }
     }

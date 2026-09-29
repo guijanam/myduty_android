@@ -26,6 +26,10 @@ class LateHolidayRecordRepositoryImpl(
         }
     }
 
+    override suspend fun getByDate(date: LocalDate): LateHolidayRecord? {
+        return dao.getByDateOnce(date.toString())?.toDomain(date)
+    }
+
     override suspend fun addLateHoliday(
         startDate: LocalDate,
         days: Int,

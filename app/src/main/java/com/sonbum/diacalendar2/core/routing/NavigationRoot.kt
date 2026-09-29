@@ -19,15 +19,15 @@ import com.sonbum.diacalendar2.presentation.recipedetails.RecipeDetailsScreen
 import com.sonbum.diacalendar2.presentation.savedrecipes.SavedRecipesRoot
 import com.sonbum.diacalendar2.presentation.shift.ShiftSelectionScreen
 import com.sonbum.diacalendar2.presentation.signin.SignInScreen
-import com.sonbum.diacalendar2.presentation.diatable.DiaTableScreen
+import com.sonbum.diacalendar2.presentation.diatable.DiaTableActivity
 import com.sonbum.diacalendar2.presentation.localdia.LocalDiaEditScreen
 import com.sonbum.diacalendar2.presentation.localdia.LocalDiaListScreen
 import com.sonbum.diacalendar2.presentation.localoffice.LocalOfficeEditScreen
 import com.sonbum.diacalendar2.presentation.localoffice.LocalOfficeListScreen
 import com.sonbum.diacalendar2.presentation.vacation.VacationSettingScreen
 import com.sonbum.diacalendar2.presentation.textsize.TextSizeSettingsScreen
+import com.sonbum.diacalendar2.presentation.shiftcolor.ShiftColorSettingsScreen
 import com.sonbum.diacalendar2.presentation.alarm.WorkAlarmSettingsScreen
-import com.sonbum.diacalendar2.presentation.alarm.ScheduledAlarmListScreen
 import com.sonbum.diacalendar2.presentation.customshift.CustomShiftListScreen
 import com.sonbum.diacalendar2.presentation.customshift.CustomShiftEditScreen
 import com.sonbum.diacalendar2.presentation.auth.AuthScreen
@@ -38,8 +38,6 @@ import com.sonbum.diacalendar2.presentation.community.CommunityScreen
 import com.sonbum.diacalendar2.presentation.board.PostDetailScreen
 import com.sonbum.diacalendar2.presentation.board.PostEditScreen
 import com.sonbum.diacalendar2.presentation.board.PostWriteScreen
-import com.sonbum.diacalendar2.presentation.diatable.ServerDiaEditScreen
-import com.sonbum.diacalendar2.presentation.diatable.ServerOfficeEditScreen
 import com.sonbum.diacalendar2.presentation.menu.MenuScreen
 import android.content.Intent
 import com.sonbum.diacalendar2.presentation.officewebsite.OfficeWebsiteActivity
@@ -52,6 +50,11 @@ import com.sonbum.diacalendar2.presentation.subscription.PaywallScreen
 import com.sonbum.diacalendar2.domain.repository.SubscriptionRepository
 import com.sonbum.diacalendar2.core.util.DeviceIdProvider
 import com.sonbum.diacalendar2.presentation.anniversary.AnniversaryScreen
+import com.sonbum.diacalendar2.presentation.anniversary.BirthdayGroupManagerScreen
+import com.sonbum.diacalendar2.presentation.anniversary.BirthdayPersonDetailScreen
+import com.sonbum.diacalendar2.presentation.anniversary.BirthdayPersonEditScreen
+import com.sonbum.diacalendar2.presentation.anniversary.BirthdaySettingsScreen
+import com.sonbum.diacalendar2.presentation.trainformation.TrainFormationListScreen
 import com.sonbum.diacalendar2.presentation.notifications.DocumentDetailScreen
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.layout.Box
@@ -81,16 +84,35 @@ import com.sonbum.diacalendar2.presentation.main.MainViewModel
 @Composable
 fun NavigationRoot(
 	modifier: Modifier = Modifier,
+	birthdayNavigationToken: Long = 0L,
+	birthdayPersonId: Long? = null,
 ) {
 	val topLevelBackStack = rememberNavBackStack(Route.SignIn)
+	var handledBirthdayNavigationToken by remember { mutableStateOf(0L) }
 	var boardRefreshTrigger by remember { mutableIntStateOf(0) }
 
-	//달력 셀 클릭으로 DateDetail 진입 시마다 카운트 → 일정 횟수 후 페이월 시트 노출 (세션 메모리, 미구독자 한정)
-	var dateDetailOpenCount by remember { mutableIntStateOf(0) }
+	//달력 셀 클릭으로 DateDetail 진입할 때마다 페이월 시트 노출 (미구독자 한정)
 	var showDateDetailPaywall by remember { mutableStateOf(false) }
 	val dateDetailSubscriptionRepository: SubscriptionRepository = koinInject()
 	val navigationScope = rememberCoroutineScope()
 	val appContext = LocalContext.current.applicationContext
+
+	fun openBirthdayDestination() {
+		if (topLevelBackStack.lastOrNull() != Route.Anniversary) {
+			topLevelBackStack.add(Route.Anniversary)
+		}
+		birthdayPersonId?.let { topLevelBackStack.add(Route.BirthdayPersonDetail(it)) }
+		handledBirthdayNavigationToken = birthdayNavigationToken
+	}
+
+	LaunchedEffect(birthdayNavigationToken) {
+		if (birthdayNavigationToken != 0L &&
+			birthdayNavigationToken != handledBirthdayNavigationToken &&
+			topLevelBackStack.lastOrNull() != Route.SignIn
+		) {
+			openBirthdayDestination()
+		}
+	}
 
 	// 달력 셀 클릭으로 DateDetail을 새로 열 때 호출 (다른 화면 다녀와 돌아오는 경우는 제외)
 	fun openDateDetail(route: Route.DateDetail) {
@@ -98,10 +120,7 @@ fun NavigationRoot(
 		navigationScope.launch {
 			val ssaid = DeviceIdProvider.getSsaid(appContext)
 			if (dateDetailSubscriptionRepository.isVip(ssaid)) return@launch
-			dateDetailOpenCount += 1
-			if (dateDetailOpenCount >= 3) {
-				showDateDetailPaywall = true
-			}
+			showDateDetailPaywall = true
 		}
 	}
 
@@ -116,10 +135,15 @@ fun NavigationRoot(
 			entry<Route.SignIn> {
 				SignInScreen(
 					onLogin = {
-						// 백스택을 [Route.Main]으로 원자적 교체 (snapshot 트랜잭션)
+						// 백스택을 [Route.Main]으로 교체.
+						// clear() 후 add()는 중간에 빈 백스택 상태가 관찰되어
+						// NavDisplay가 crash하므로, 먼저 채운 뒤 나머지를 제거한다.
 						Snapshot.withMutableSnapshot {
-							topLevelBackStack.clear()
 							topLevelBackStack.add(Route.Main)
+							topLevelBackStack.retainAll { it == Route.Main }
+						}
+						if (birthdayNavigationToken != 0L && birthdayNavigationToken != handledBirthdayNavigationToken) {
+							openBirthdayDestination()
 						}
 					}
 				)
@@ -152,22 +176,18 @@ fun NavigationRoot(
 						}
 						appContext.startActivity(intent)
 					},
-					onNavigateToSubway = { trainNo, line, officeName ->
-						topLevelBackStack.add(Route.SubwayPosition(trainNo, line, officeName))
+					onNavigateToSubway = { trainNo, line, officeName, allTrainNos ->
+						topLevelBackStack.add(
+							Route.SubwayPosition(trainNo, line, officeName, allTrainNos)
+						)
 					},
 					openEventDialogOnStart = key.openEventDialog
 				)
 
 				if (showDateDetailPaywall) {
 					DateDetailPaywallSheet(
-						onDismiss = {
-							showDateDetailPaywall = false
-							dateDetailOpenCount = 0          // 닫으면 카운터 리셋
-						},
-						onSubscribed = {
-							showDateDetailPaywall = false
-							dateDetailOpenCount = 0          // 구독 완료 후에도 리셋(이후 isSubscribed로 차단됨)
-						}
+						onDismiss = { showDateDetailPaywall = false },
+						onSubscribed = { showDateDetailPaywall = false }
 					)
 				}
 			}
@@ -191,6 +211,7 @@ fun NavigationRoot(
 					myTrainNo = key.myTrainNo,
 					line = key.line,
 					officeName = key.officeName,
+					allTrainNos = key.allTrainNos,
 					onBack = {
 						if (topLevelBackStack.size > 1) {
 							topLevelBackStack.removeAt(topLevelBackStack.lastIndex)
@@ -241,6 +262,51 @@ fun NavigationRoot(
 						if (topLevelBackStack.size > 1) {
 							topLevelBackStack.removeAt(topLevelBackStack.lastIndex)
 						}
+					},
+					onNavigateToPerson = { topLevelBackStack.add(Route.BirthdayPersonDetail(it)) },
+					onNavigateToEditPerson = { topLevelBackStack.add(Route.BirthdayPersonEdit(it)) },
+					onNavigateToGroups = { topLevelBackStack.add(Route.BirthdayGroupManager) },
+					onNavigateToSettings = { topLevelBackStack.add(Route.BirthdaySettings) }
+				)
+			}
+
+			entry<Route.BirthdayPersonDetail> { key ->
+				BirthdayPersonDetailScreen(
+					personId = key.personId,
+					onBack = { if (topLevelBackStack.size > 1) topLevelBackStack.removeAt(topLevelBackStack.lastIndex) },
+					onEdit = { topLevelBackStack.add(Route.BirthdayPersonEdit(it)) }
+				)
+			}
+
+			entry<Route.BirthdayPersonEdit> { key ->
+				BirthdayPersonEditScreen(
+					personId = key.personId,
+					onBack = { if (topLevelBackStack.size > 1) topLevelBackStack.removeAt(topLevelBackStack.lastIndex) }
+				)
+			}
+
+			entry<Route.BirthdayGroupManager> {
+				BirthdayGroupManagerScreen(
+					onBack = { if (topLevelBackStack.size > 1) topLevelBackStack.removeAt(topLevelBackStack.lastIndex) }
+				)
+			}
+
+			entry<Route.BirthdaySettings> {
+				BirthdaySettingsScreen(
+					onBack = { if (topLevelBackStack.size > 1) topLevelBackStack.removeAt(topLevelBackStack.lastIndex) }
+				)
+			}
+
+			// 편성 기록 목록/검색 화면
+			entry<Route.TrainFormationList> {
+				TrainFormationListScreen(
+					onBack = {
+						if (topLevelBackStack.size > 1) {
+							topLevelBackStack.removeAt(topLevelBackStack.lastIndex)
+						}
+					},
+					onNavigateToDate = { dateString ->
+						openDateDetail(Route.DateDetail(dateString))
 					}
 				)
 			}
@@ -276,47 +342,6 @@ fun NavigationRoot(
 					},
 					onNavigateToCustomShiftList = {
 						topLevelBackStack.add(Route.CustomShiftList)
-					}
-				)
-			}
-
-			// 근무표 화면
-			entry<Route.DiaTable> {
-				DiaTableScreen(
-					onBack = {
-						if (topLevelBackStack.size > 1) {
-							topLevelBackStack.removeAt(topLevelBackStack.lastIndex)
-						}
-					},
-					onNavigateToServerDiaEdit = { diaId ->
-						topLevelBackStack.add(Route.ServerDiaEdit(diaId))
-					},
-					onNavigateToServerOfficeEdit = { officeCode ->
-						topLevelBackStack.add(Route.ServerOfficeEdit(officeCode))
-					}
-				)
-			}
-
-			// 서버 근무표 편집
-			entry<Route.ServerDiaEdit> { key ->
-				ServerDiaEditScreen(
-					diaId = key.diaId,
-					onBack = {
-						if (topLevelBackStack.size > 1) {
-							topLevelBackStack.removeAt(topLevelBackStack.lastIndex)
-						}
-					}
-				)
-			}
-
-			// 서버 승무소 교번 패턴 편집
-			entry<Route.ServerOfficeEdit> { key ->
-				ServerOfficeEditScreen(
-					officeCode = key.officeCode,
-					onBack = {
-						if (topLevelBackStack.size > 1) {
-							topLevelBackStack.removeAt(topLevelBackStack.lastIndex)
-						}
 					}
 				)
 			}
@@ -435,23 +460,20 @@ fun NavigationRoot(
 				)
 			}
 
-			// 근무 알람 설정 화면
-			entry<Route.WorkAlarmSettings> {
-				WorkAlarmSettingsScreen(
+			// 근무 색상 설정 화면
+			entry<Route.ShiftColorSettings> {
+				ShiftColorSettingsScreen(
 					onNavigateBack = {
 						if (topLevelBackStack.size > 1) {
 							topLevelBackStack.removeAt(topLevelBackStack.lastIndex)
 						}
-					},
-					onNavigateToList = {
-						topLevelBackStack.add(Route.ScheduledAlarmList)
 					}
 				)
 			}
 
-			// 예정된 알람 리스트 화면
-			entry<Route.ScheduledAlarmList> {
-				ScheduledAlarmListScreen(
+			// 근무 알람 설정 화면
+			entry<Route.WorkAlarmSettings> {
+				WorkAlarmSettingsScreen(
 					onNavigateBack = {
 						if (topLevelBackStack.size > 1) {
 							topLevelBackStack.removeAt(topLevelBackStack.lastIndex)
@@ -471,7 +493,10 @@ fun NavigationRoot(
 					onNavigateToNicknameSetup = {
 						Snapshot.withMutableSnapshot {
 							topLevelBackStack.add(Route.NicknameSetup)
-							topLevelBackStack.removeAll { it is Route.Auth }
+							// 마지막 하나까지 지워 백스택이 비지 않도록 보호
+							if (topLevelBackStack.size > 1) {
+								topLevelBackStack.removeAll { it is Route.Auth }
+							}
 						}
 					},
 					onNavigateToBoard = {
@@ -591,6 +616,9 @@ fun NavigationRoot(
 									onNavigateToAnniversary = {
 										topLevelBackStack.add(Route.Anniversary)
 									},
+									onNavigateToTrainFormation = {
+										topLevelBackStack.add(Route.TrainFormationList)
+									},
 									onNavigateToShiftSelection = {
 										topLevelBackStack.add(Route.ShiftSelection)
 									},
@@ -604,13 +632,27 @@ fun NavigationRoot(
 										topLevelBackStack.add(Route.DateDetail(dateString, openEventDialog = true))
 									},
 									onNavigateToDiaTable = {
-										topLevelBackStack.add(Route.DiaTable)
+										val intent = Intent(appContext, DiaTableActivity::class.java).apply {
+											addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_NEW_TASK)
+										}
+										appContext.startActivity(intent)
+									},
+									onNavigateToOfficeWebsite = { url, officeName ->
+										val intent = Intent(appContext, OfficeWebsiteActivity::class.java).apply {
+											putExtra("url", url)
+											putExtra("officeName", officeName)
+											addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_NEW_TASK)
+										}
+										appContext.startActivity(intent)
 									},
 									onNavigateToVacationSetting = {
 										topLevelBackStack.add(Route.VacationSetting)
 									},
 									onNavigateToTextSizeSettings = {
 										topLevelBackStack.add(Route.TextSizeSettings)
+									},
+									onNavigateToShiftColorSettings = {
+										topLevelBackStack.add(Route.ShiftColorSettings)
 									},
 									onNavigateToWorkAlarmSettings = {
 										topLevelBackStack.add(Route.WorkAlarmSettings)
@@ -646,8 +688,8 @@ fun NavigationRoot(
 											onSubscribed = { isSubscribed = true },
 											onDismiss = {
 												Snapshot.withMutableSnapshot {
-													backStack.clear()
 													backStack.add(Route.Home)
+													backStack.retainAll { it == Route.Home }
 												}
 											}
 										)
@@ -690,7 +732,13 @@ fun NavigationRoot(
 								entry<Route.DocumentDetail> {
 									DocumentDetailScreen(
 										documentId = it.documentId,
-										onBack = { topLevelBackStack.removeLastOrNull() }
+										onBack = {
+											// DocumentDetail은 내부(backStack) 엔트리이므로
+											// topLevelBackStack이 아니라 backStack을 pop해야 한다.
+											if (backStack.size > 1) {
+												backStack.removeAt(backStack.lastIndex)
+											}
+										}
 									)
 								}
 
@@ -698,7 +746,9 @@ fun NavigationRoot(
 									CommunityScreen(modifier = paddedModifier)
 								}
 
-								entry<Route.Profile> { ProfileScreen() }
+								entry<Route.Profile> {
+									ProfileScreen(modifier = paddedModifier)
+								}
 
 								// 승무소 사이트 탭 (URL이 등록된 승무소 사용자에게만 표시)
 								entry<Route.OfficeWebsiteTab> {
@@ -714,8 +764,8 @@ fun NavigationRoot(
 											// URL 없음 확정 → Home으로 리다이렉트
 											LaunchedEffect(Unit) {
 												Snapshot.withMutableSnapshot {
-													backStack.clear()
 													backStack.add(Route.Home)
+													backStack.retainAll { it == Route.Home }
 												}
 											}
 										}

@@ -7,7 +7,15 @@ import java.time.LocalDate
 interface MemoRepository {
     fun getMemosByDate(date: LocalDate): Flow<List<Memo>>
     fun getAllMemos(): Flow<List<Memo>>
+    fun getMemosBetween(startDate: LocalDate, endDate: LocalDate): Flow<List<Memo>>
     fun getDatesWithMemos(): Flow<List<LocalDate>>
+    fun getMemoYears(): Flow<List<Int>>
+    suspend fun getMemosPaged(
+        year: Int?,
+        query: String,
+        limit: Int,
+        offset: Int
+    ): List<Memo>
     fun getMemosByDates(dates: List<LocalDate>): Flow<List<Memo>>
     suspend fun getMemoById(id: String): Memo?
     suspend fun insertMemo(memo: Memo)

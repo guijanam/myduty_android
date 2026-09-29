@@ -83,9 +83,10 @@ fun PaywallScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .padding(top = padding.calculateTopPadding())
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 28.dp, vertical = 20.dp),
+                .padding(horizontal = 28.dp)
+                .padding(top = 20.dp, bottom = 20.dp + padding.calculateBottomPadding()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // --- 커피 한 잔 감성 헤더 ---

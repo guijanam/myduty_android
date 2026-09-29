@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import com.sonbum.diacalendar2.data.local.entity.HolidayEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -22,6 +23,9 @@ interface HolidayDao {
     @Query("SELECT locdate FROM holidays WHERE isHoliday = 'Y'")
     suspend fun getAllHolidayDatesOnce(): List<String>
 
+    @Query("SELECT COUNT(*) FROM holidays WHERE isUserCreated = 0")
+    fun observeServerHolidayCount(): Flow<Int>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(holidays: List<HolidayEntity>)
 
@@ -34,6 +38,12 @@ interface HolidayDao {
     // 서버 공휴일만 삭제 (사용자 생성 공휴일 보존)
     @Query("DELETE FROM holidays WHERE isUserCreated = 0")
     suspend fun deleteServerHolidays()
+
+    @Transaction
+    suspend fun replaceServerHolidays(holidays: List<HolidayEntity>) {
+        deleteServerHolidays()
+        insertAll(holidays)
+    }
 
     // 특정 공휴일 삭제
     @Query("DELETE FROM holidays WHERE id = :id")

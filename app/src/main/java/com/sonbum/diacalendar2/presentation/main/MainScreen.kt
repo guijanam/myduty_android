@@ -1,6 +1,10 @@
 package com.sonbum.diacalendar2.presentation.main
 
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Favorite
@@ -21,6 +25,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavBackStack
@@ -28,6 +33,13 @@ import androidx.navigation3.runtime.NavKey
 import com.sonbum.diacalendar2.LocalScaffoldPaddingValues
 import com.sonbum.diacalendar2.core.routing.Route
 import org.koin.androidx.compose.koinViewModel
+
+/**
+ * 하단 네비게이션 바 높이 (시스템 인셋 제외).
+ * Material3 기본값은 80.dp이나, 홈 화면 달력의 세로 공간 확보를 위해 축소했다.
+ * 아이콘 + 한글 라벨을 유지하는 하한은 56.dp.
+ */
+private val BOTTOM_BAR_HEIGHT = 60.dp
 
 @Composable
 fun MainScreen(
@@ -42,9 +54,12 @@ fun MainScreen(
 
 	fun switchTab(route: NavKey) {
 		if (currentRoute == route) return
+		// clear() 후 add()는 중간에 빈 백스택 상태가 관찰되어
+		// NavDisplay("backstack cannot be empty")가 crash하므로,
+		// 먼저 새 탭을 넣은 뒤 나머지를 제거한다.
 		Snapshot.withMutableSnapshot {
-			backStack.clear()
 			backStack.add(route)
+			backStack.retainAll { it == route }
 		}
 	}
 
@@ -55,7 +70,15 @@ fun MainScreen(
 
 	Scaffold(
 		bottomBar = {
-			NavigationBar {
+			// NavigationBar 내부는 windowInsetsPadding을 먼저 적용한 뒤 최소 높이(80.dp)를
+			// 잡으므로, 기본 총 높이는 80.dp + 인셋이다. 여기서는 인셋을 NavigationBar에서
+			// 떼어내(WindowInsets(0)) 바깥에서 직접 패딩으로 주고, 콘텐츠 높이만 고정한다.
+			NavigationBar(
+				modifier = Modifier
+					.windowInsetsPadding(WindowInsets.navigationBars)
+					.height(BOTTOM_BAR_HEIGHT),
+				windowInsets = WindowInsets(0),
+			) {
 				//home
 				NavigationBarItem(
 					selected = currentRoute is Route.Home,
@@ -76,51 +99,7 @@ fun MainScreen(
 					label = { Text("동료") }
 				)
 
-				//saved
-//				NavigationBarItem(
-//					selected = currentRoute is Route.SavedRecipes,
-//					onClick = {
-//						backStack.clear()
-//						backStack.add(Route.SavedRecipes)
-//					},
-//					icon = {
-//						Icon(Icons.Default.Favorite, contentDescription = "Saved Recipes")
-//					},
-//					label = { Text("Notice") }
-//				)
-
-				//게시판
-//				NavigationBarItem(
-//					selected = currentRoute is Route.Notifications,
-//					onClick = {
-//						viewModel.markBoardChecked()
-//						switchTab(Route.Notifications)
-//					},
-//					icon = {
-//						BadgedBox(badge = {
-//							if (hasNewBoardPosts) Badge()
-//						}) {
-//							Icon(Icons.Default.Forum, contentDescription = "게시판")
-//						}
-//					},
-//					label = { Text("게시판") }
-//				)
-
-				//커뮤니티(seoulmetrospace)
-//				NavigationBarItem(
-//					selected = currentRoute is Route.Community,
-//					onClick = {
-//						backStack.clear()
-//						backStack.add(Route.Community)
-//					},
-//					icon = {
-//						Icon(Icons.Default.Language, contentDescription = "커뮤니티")
-//					},
-//					label = { Text("커뮤니티") }
-//				)
-
-
-
+			
 				//profile
 				NavigationBarItem(
 					selected = currentRoute is Route.Profile,

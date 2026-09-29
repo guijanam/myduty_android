@@ -36,6 +36,9 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -55,8 +58,9 @@ class MainActivity : ComponentActivity() {
 
 	private val themePreferences: ThemePreferences by inject()
 	private lateinit var inAppUpdateManager: InAppUpdateManager
-	private var adShownOnColdStart = false
 	private var updateCheckRequested = false
+	private var birthdayNavigationToken by mutableLongStateOf(0L)
+	private var birthdayPersonId by mutableStateOf<Long?>(null)
 
 	private val updateLauncher = registerForActivityResult(
 		ActivityResultContracts.StartIntentSenderForResult()
@@ -155,7 +159,10 @@ class MainActivity : ComponentActivity() {
 						.background(MaterialTheme.colorScheme.background)
 						.safeDrawingPadding() // 시스템 바, 키보드 등을 모두 고려한 패딩
 				) {
-					NavigationRoot()
+					NavigationRoot(
+						birthdayNavigationToken = birthdayNavigationToken,
+						birthdayPersonId = birthdayPersonId
+					)
 
 					// 업데이트 상태에 따른 UI
 					when (val state = updateState) {
@@ -210,11 +217,17 @@ class MainActivity : ComponentActivity() {
 
 	override fun onNewIntent(intent: Intent) {
 		super.onNewIntent(intent)
+		setIntent(intent)
 		handleDeepLink(intent)
 	}
 
 	private fun handleDeepLink(intent: Intent) {
 		// Google OAuth는 Credential Manager를 통해 처리되므로 딥링크 불필요
+		if (intent.getBooleanExtra("navigate_to_birthdays", false)) {
+			birthdayPersonId = intent.getLongExtra("birthday_person_id", -1L).takeIf { it > 0L }
+			birthdayNavigationToken = System.nanoTime()
+			intent.removeExtra("navigate_to_birthdays")
+		}
 	}
 
 	private fun navigateToNotificationSettings() {
@@ -250,14 +263,6 @@ class MainActivity : ComponentActivity() {
 				waitingForNotificationPermission = false
 			}
 		}
-		// 오프닝 광고 표시 (콜드 스타트 1회만) - 사용자 확보 후 주석 해제
-//		if (!adShownOnColdStart) {
-//			adShownOnColdStart = true
-//			val adManager = (application as Diacalendar2App).appOpenAdManager
-//			if (adManager?.isShowingAd == false) {
-//				adManager.loadAndShow(this)
-//			}
-//		}
 	}
 
 	override fun onPause() {

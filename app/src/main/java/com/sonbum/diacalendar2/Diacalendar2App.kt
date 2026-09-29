@@ -1,11 +1,9 @@
 package com.sonbum.diacalendar2
 
 import android.app.Application
-import com.google.android.gms.ads.MobileAds
 import com.revenuecat.purchases.LogLevel
 import com.revenuecat.purchases.Purchases
 import com.revenuecat.purchases.PurchasesConfiguration
-import com.sonbum.diacalendar2.core.ads.AppOpenAdManager
 import com.sonbum.diacalendar2.di.appModules
 import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
@@ -18,9 +16,6 @@ class Diacalendar2App : Application() {
         lateinit var instance: Diacalendar2App
             private set
     }
-
-    var appOpenAdManager: AppOpenAdManager? = null
-        private set
 
     override fun onCreate() {
         super.onCreate()
@@ -38,11 +33,5 @@ class Diacalendar2App : Application() {
         Purchases.configure(
             PurchasesConfiguration.Builder(this, "goog_IaRZhJLijfECqxDstYcTWuWBpBw").build()
         )
-
-        // AppOpenAdManager를 먼저 생성 후 MobileAds 초기화 (비동기 타이밍 문제 방지)
-        appOpenAdManager = AppOpenAdManager(this)
-        MobileAds.initialize(this) {
-            appOpenAdManager?.loadAd()
-        }
     }
 }

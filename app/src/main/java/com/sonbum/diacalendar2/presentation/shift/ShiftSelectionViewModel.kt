@@ -166,6 +166,26 @@ class ShiftSelectionViewModel(
                         )
                     }
                 }
+            } else {
+                // 해당 모드(메인/sub)에 기존 설정이 없으면 상태를 초기화한다.
+                // (모드 전환 시 다른 모드의 설정이 경고 배너 등에 잔존하지 않도록)
+                _state.update {
+                    it.copy(
+                        selectedOffice = null,
+                        searchQuery = "",
+                        selectedPosition = null,
+                        startDate = LocalDate.now(),
+                        selectedTodayShift = null,
+                        selectedTodayShiftIndex = null,
+                        selectedTodayShiftAvailableIndex = null,
+                        referenceDate = LocalDate.now(),
+                        availableShifts = emptyList(),
+                        shiftPattern = emptyList(),
+                        hasExistingConfig = false,
+                        existingOfficeName = null,
+                        selectedCustomShift = null
+                    )
+                }
             }
         }
     }

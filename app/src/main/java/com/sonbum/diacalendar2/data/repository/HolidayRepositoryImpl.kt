@@ -40,6 +40,10 @@ class HolidayRepositoryImpl(
         }
     }
 
+    override fun hasAppliedHolidays(): Flow<Boolean> {
+        return holidayDao.observeServerHolidayCount().map { it > 0 }
+    }
+
     override suspend fun isHoliday(date: LocalDate): Boolean {
         val dateString = date.format(dateFormatter)
         return holidayDao.getHolidayByDate(dateString) != null
@@ -52,6 +56,7 @@ class HolidayRepositoryImpl(
                 apiKey = apiKey,
                 authorization = "Bearer $apiKey"
             )
+            check(holidays.isNotEmpty()) { "서버에서 공휴일 정보를 받지 못했습니다" }
 
             val entities = holidays.map { dto ->
                 HolidayEntity(
@@ -63,9 +68,8 @@ class HolidayRepositoryImpl(
                 )
             }
 
-            // 서버 공휴일만 삭제 (사용자 생성 공휴일 보존)
-            holidayDao.deleteServerHolidays()
-            holidayDao.insertAll(entities)
+            // 서버 공휴일만 원자적으로 교체 (사용자 생성 공휴일 보존)
+            holidayDao.replaceServerHolidays(entities)
             Result.success(entities.size)
         } catch (e: Exception) {
             Result.failure(e)

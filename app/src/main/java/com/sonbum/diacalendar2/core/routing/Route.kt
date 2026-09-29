@@ -68,10 +68,10 @@ sealed interface Route : NavKey {
 	data object TextSizeSettings : Route
 
 	@Serializable
-	data object WorkAlarmSettings : Route
+	data object ShiftColorSettings : Route
 
 	@Serializable
-	data object ScheduledAlarmList : Route
+	data object WorkAlarmSettings : Route
 
 	@Serializable
 	data object Auth : Route
@@ -108,9 +108,12 @@ sealed interface Route : NavKey {
 
 	@Serializable
 	data class SubwayPosition(
+		/** 교대 시작 열번(첫 토큰). 화면 제목/기본 강조에 쓴다. */
 		val myTrainNo: String,
 		val line: Int,
-		val officeName: String
+		val officeName: String,
+		/** 원본 열번 순서를 보존한 값. 위치 화면에서는 가장 앞 열번 하나만 사용한다. */
+		val allTrainNos: String = ""
 	) : Route
 
 	@Serializable
@@ -124,6 +127,21 @@ sealed interface Route : NavKey {
 
 	@Serializable
 	data object Anniversary : Route
+
+	@Serializable
+	data class BirthdayPersonDetail(val personId: Long) : Route
+
+	@Serializable
+	data class BirthdayPersonEdit(val personId: Long? = null) : Route
+
+	@Serializable
+	data object BirthdayGroupManager : Route
+
+	@Serializable
+	data object BirthdaySettings : Route
+
+	@Serializable
+	data object TrainFormationList : Route
 
 	@Serializable
 	data object CoworkerGroup : Route

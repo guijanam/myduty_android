@@ -60,8 +60,9 @@ import java.time.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AnniversaryScreen(
+fun LegacyAnniversaryScreen(
     onBack: () -> Unit,
+    embedded: Boolean = false,
     viewModel: AnniversaryViewModel = koinViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -69,16 +70,16 @@ fun AnniversaryScreen(
     var editTarget by remember { mutableStateOf<Anniversary?>(null) }
 
     Scaffold(
-        topBar = {
+        topBar = if (embedded) ({}) else ({
             TopAppBar(
-                title = { Text("기념일 관리") },
+                title = { Text("기념일 관리(음력지원)") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "뒤로")
                     }
                 }
             )
-        },
+        }),
         floatingActionButton = {
             FloatingActionButton(onClick = {
                 editTarget = null

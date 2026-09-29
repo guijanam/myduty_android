@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  카카오 말풍선 심볼. 카카오 디자인 가이드상 심볼의 형태/비율/색상은 변형할 수 없으므로
+  항상 검정 90%로 고정한다 (버튼 배경이 항상 #FEE500이라 다크모드 대응이 필요 없다).
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#000000"
+        android:fillAlpha="0.9"
+        android:pathData="M12,3C6.99,3 3,6.2 3,10.14c0,2.52 1.65,4.73 4.14,5.99l-1.05,3.84c-0.09,0.34 0.29,0.61 0.59,0.42l4.6,-3.04c0.24,0.02 0.48,0.03 0.72,0.03 5.01,0 9,-3.2 9,-7.24C21,6.2 17.01,3 12,3z" />
+</vector>

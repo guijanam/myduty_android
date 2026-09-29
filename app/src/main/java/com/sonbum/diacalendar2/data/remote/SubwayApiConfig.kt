@@ -7,5 +7,6 @@ package com.sonbum.diacalendar2.data.remote
 object SubwayApiConfig {
     const val BASE_URL = "http://swopenAPI.seoul.go.kr/"
     const val API_KEY = "595a517963646576333041576d556d"
-    const val DEFAULT_COUNT = 100
+    // 1호선 실측 80대. total이 이 값을 넘으면 열차가 조용히 누락되므로 여유를 둔다.
+    const val DEFAULT_COUNT = 200
 }

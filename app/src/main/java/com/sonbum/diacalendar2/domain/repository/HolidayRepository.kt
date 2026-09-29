@@ -8,6 +8,7 @@ interface HolidayRepository {
     fun getAllHolidays(): Flow<List<Holiday>>
     fun getHolidayDates(): Flow<Set<LocalDate>>
     fun getHolidayMap(): Flow<Map<LocalDate, String>>
+    fun hasAppliedHolidays(): Flow<Boolean>
     suspend fun isHoliday(date: LocalDate): Boolean
     suspend fun refreshHolidays(): Result<Int>
 

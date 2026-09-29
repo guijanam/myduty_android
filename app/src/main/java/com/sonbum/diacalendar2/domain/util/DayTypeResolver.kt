@@ -24,6 +24,13 @@ object DayTypeResolver {
         SATURDAY("토")
     }
 
+    /** 후반 근무가 다음날 아침으로 이어지는(밤샘) typeName 집합 */
+    private val CROSS_DAY_TYPES = setOf("평평", "평휴", "휴평", "휴휴", "평토", "휴토", "토휴")
+
+    /** 해당 typeName이 다음날로 이어지는(밤샘) 근무인지 판별 */
+    fun isCrossDayType(typeName: String?): Boolean =
+        typeName != null && typeName in CROSS_DAY_TYPES
+
     /**
      * 날짜의 유형을 판별한다.
      * @param date 판별할 날짜

@@ -9,5 +9,10 @@ data class DeviceCalendar(
     val accountName: String,
     val accountType: String,
     val color: Int,
-    val isPrimary: Boolean = false
-)
+    val isPrimary: Boolean = false,
+    /** 이벤트를 쓸 수 있는 캘린더인지 (access level >= CONTRIBUTOR) */
+    val isWritable: Boolean = false
+) {
+    /** Google 계정 캘린더 여부 (웹/공유 동기화 대상) */
+    val isGoogle: Boolean get() = accountType == "com.google"
+}

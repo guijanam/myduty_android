@@ -35,16 +35,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import androidx.fragment.app.Fragment
-import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.lifecycle.findViewTreeLifecycleOwner
 import com.kizitonwose.calendar.compose.CalendarLayoutInfo
 import com.kizitonwose.calendar.compose.CalendarState
 import com.kizitonwose.calendar.compose.weekcalendar.WeekCalendarState
@@ -53,7 +47,6 @@ import com.kizitonwose.calendar.compose.yearcalendar.YearCalendarState
 import com.kizitonwose.calendar.core.CalendarMonth
 import com.kizitonwose.calendar.core.CalendarYear
 import com.kizitonwose.calendar.core.Week
-import com.sonbum.diacalendar2.shared.findActivity
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterNotNull
 
@@ -83,19 +76,6 @@ fun Modifier.clickable(
 		role = role,
 		onClick = onClick,
 	)
-}
-
-@Composable
-fun StatusBarColorUpdateEffect(color: Color) {
-	if (LocalInspectionMode.current) return // findActivity() will not work in preview.
-	val activity = LocalContext.current.findActivity()
-	val lifecycleOwner = LocalLifecycleOwner.current
-	val observer = remember {
-		StatusBarColorLifecycleObserver(activity, color.toArgb())
-	}
-	LaunchedEffect(lifecycleOwner) {
-		lifecycleOwner.lifecycle.addObserver(observer)
-	}
 }
 
 @Composable
@@ -327,12 +307,3 @@ internal fun Context.getColorCompat(@ColorRes color: Int) =
 
 internal fun TextView.setTextColorRes(@ColorRes color: Int) =
 	setTextColor(context.getColorCompat(color))
-
-fun Fragment.addStatusBarColorUpdate(@ColorRes colorRes: Int) {
-	view?.findViewTreeLifecycleOwner()?.lifecycle?.addObserver(
-		StatusBarColorLifecycleObserver(
-			requireActivity(),
-			requireContext().getColorCompat(colorRes),
-		),
-	)
-}

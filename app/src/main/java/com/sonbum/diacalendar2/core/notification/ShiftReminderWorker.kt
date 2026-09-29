@@ -20,6 +20,11 @@ import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
+internal fun resolveShiftAlarmTrigger(
+    defaultTriggerAtMillis: Long,
+    customTriggerAtMillis: Long?
+): Long = customTriggerAtMillis ?: defaultTriggerAtMillis
+
 /**
  * 오늘부터 WINDOW_DAYS일치 근무 알람을 재계산해 단일 출처(scheduled_alarms)와 AlarmManager에 반영한다.
  *
@@ -94,14 +99,18 @@ class ShiftReminderWorker(
             return
         }
 
-        val triggerMillis = t.date.atTime(time)
+        val defaultTriggerMillis = t.date.atTime(time)
             .minusMinutes(minutesBefore.toLong())
             .atZone(ZoneId.systemDefault())
             .toInstant()
             .toEpochMilli()
 
-        // dismissed 상태 보존 (사용자가 개별로 끈 알람)
-        val dismissed = scheduledAlarmDao.getByDateSlot(dateStr, slot)?.dismissed ?: false
+        // 목록에서 바꾼 개별 설정은 워커가 재계산되어도 보존한다.
+        val existing = scheduledAlarmDao.getByDateSlot(dateStr, slot)
+        val dismissed = existing?.dismissed ?: false
+        val customTriggerAtMillis = existing?.customTriggerAtMillis
+        val soundUri = existing?.soundUri
+        val triggerMillis = resolveShiftAlarmTrigger(defaultTriggerMillis, customTriggerAtMillis)
 
         scheduledAlarmDao.upsert(
             ScheduledAlarmEntity(
@@ -110,7 +119,9 @@ class ShiftReminderWorker(
                 shiftName = t.effectiveShiftName,
                 timeText = time.format(HHMM),
                 triggerAtMillis = triggerMillis,
-                dismissed = dismissed
+                dismissed = dismissed,
+                customTriggerAtMillis = customTriggerAtMillis,
+                soundUri = soundUri
             )
         )
 
@@ -124,6 +135,7 @@ class ShiftReminderWorker(
                 slot = slot,
                 fullScreen = prefs.fullScreen,
                 sound = prefs.sound,
+                soundUri = soundUri,
                 vibrate = prefs.vibrate
             )
         }

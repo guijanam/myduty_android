@@ -7,6 +7,7 @@ import java.time.LocalDate
 interface LateWorkRecordRepository {
     fun getAllRecords(): Flow<List<LateWorkRecord>>
     fun observeByDate(date: LocalDate): Flow<LateWorkRecord?>
+    suspend fun getByDate(date: LocalDate): LateWorkRecord?
     suspend fun addLateWork(
         startDate: LocalDate,
         days: Int,

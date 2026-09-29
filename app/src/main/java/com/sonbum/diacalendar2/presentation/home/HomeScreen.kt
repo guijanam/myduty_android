@@ -7,7 +7,6 @@ import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material3.IconButton
 import com.sonbum.diacalendar2.core.util.DeviceIdProvider
 import com.sonbum.diacalendar2.domain.repository.SubscriptionRepository
@@ -39,7 +38,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.Groups
@@ -47,7 +45,6 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.automirrored.filled.NoteAdd
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Work
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Restaurant
@@ -95,12 +92,14 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.colorResource
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.PlatformTextStyle
@@ -127,7 +126,6 @@ import com.kizitonwose.calendar.core.previousMonth
 import com.kizitonwose.calendar.core.yearMonth
 import com.sonbum.diacalendar2.R
 import com.sonbum.diacalendar2.SimpleCalendarTitle
-import com.sonbum.diacalendar2.StatusBarColorUpdateEffect
 import com.sonbum.diacalendar2.applyScaffoldBottomPadding
 import com.sonbum.diacalendar2.applyScaffoldHorizontalPaddings
 import com.sonbum.diacalendar2.applyScaffoldTopPadding
@@ -143,16 +141,20 @@ import java.time.LocalDate
 import java.time.ZoneId
 import androidx.core.graphics.toColorInt
 import com.sonbum.diacalendar2.rememberFirstCompletelyVisibleMonth
+import com.sonbum.diacalendar2.data.local.OfficeWebsiteRegistry
 import com.sonbum.diacalendar2.data.local.datastore.CalendarTextSizes
+import com.sonbum.diacalendar2.data.local.datastore.ShiftDisplayColors
 import com.sonbum.diacalendar2.data.local.datastore.ThemeMode
 import com.sonbum.diacalendar2.presentation.shared.ShiftBadge
+import com.sonbum.diacalendar2.presentation.shared.VacationBadge
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.material.icons.filled.DeviceThermostat
-import androidx.compose.material.icons.filled.HolidayVillage
-import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.TextFields
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
@@ -176,13 +178,18 @@ fun HomeScreen(
 	holidayWorkShifts: List<String> = emptyList(),
 	vacationMap: Map<LocalDate, String> = emptyMap(),
 	isRefreshingHolidays: Boolean = false,
+	needsHolidayApplication: Boolean = false,
+	isRefreshingShifts: Boolean = false,
 	shiftPattern: List<String> = emptyList(),
 	isCustomShift: Boolean = false,
 	officeName: String? = null,
+	officeWebsiteUrl: String? = null,
 	onAction: (HomeAction) -> Unit,
+	onNavigateToOfficeWebsite: (String, String) -> Unit = { _, _ -> },
 	onVisibleYearChanged: (Int) -> Unit = {},
 	onNavigateToCalendarSelection: () -> Unit = {},
 	onNavigateToAnniversary: () -> Unit = {},
+	onNavigateToTrainFormation: () -> Unit = {},
 	onNavigateToShiftSelection: () -> Unit = {},
 	onNavigateToSubShiftSelection: () -> Unit = {},
 	onToggleSubShift: (Boolean) -> Unit = {},
@@ -191,11 +198,14 @@ fun HomeScreen(
 	currentThemeMode: ThemeMode = ThemeMode.SYSTEM,
 	onThemeModeChange: (ThemeMode) -> Unit = {},
 	onRefreshHolidays: () -> Unit = {},
+	onRefreshShiftSchedule: () -> Unit = {},
 	onNavigateToDiaTable: () -> Unit = {},
 	onNavigateToVacationSetting: () -> Unit = {},
 	onNavigateToTextSizeSettings: () -> Unit = {},
+	onNavigateToShiftColorSettings: () -> Unit = {},
 	onNavigateToWorkAlarmSettings: () -> Unit = {},
 	textSizes: CalendarTextSizes = CalendarTextSizes.DEFAULT,
+	shiftDisplayColors: ShiftDisplayColors = ShiftDisplayColors.DEFAULT,
 	onBackup: () -> Unit = {},
 	onRestore: () -> Unit = {},
 	horizontal: Boolean? = null,
@@ -219,8 +229,8 @@ fun HomeScreen(
 		}
 	}
 	val currentMonth = remember(today) { today.yearMonth }
-	val startMonth = remember { currentMonth.minusMonths(500) }
-	val endMonth = remember { currentMonth.plusMonths(500) }
+	val startMonth = remember { currentMonth.minusMonths(100) }
+	val endMonth = remember { currentMonth.plusMonths(100) }
 	val selections = remember { mutableStateListOf<CalendarDay>() }
 	val daysOfWeek = remember { daysOfWeek() }
 
@@ -235,8 +245,12 @@ fun HomeScreen(
 
 	// 테마 설정 다이얼로그 상태
 	var showThemeDialog by remember { mutableStateOf(false) }
-
-	StatusBarColorUpdateEffect(MaterialTheme.colorScheme.background)
+	val dayShiftBackgroundColor = remember(shiftDisplayColors.dayShiftColorHex) {
+		shiftDisplayColors.dayShiftColorHex.toComposeColorOrNull()
+	}
+	val nightShiftBackgroundColor = remember(shiftDisplayColors.nightShiftColorHex) {
+		shiftDisplayColors.nightShiftColorHex.toComposeColorOrNull()
+	}
 
 	// 테마 설정 다이얼로그
 	if (showThemeDialog) {
@@ -255,6 +269,8 @@ fun HomeScreen(
 		drawerContent = {
 			HomeDrawerContent(
 				isRefreshingHolidays = isRefreshingHolidays,
+				needsHolidayApplication = needsHolidayApplication,
+				isRefreshingShifts = isRefreshingShifts,
 				showCrewPattern = showCrewPattern,
 				onToggleCrewPattern = onToggleCrewPattern,
 				showSubShift = showSubShift,
@@ -267,18 +283,27 @@ fun HomeScreen(
 						when (item) {
 							DrawerItem.CALENDAR -> onNavigateToCalendarSelection()
 							DrawerItem.ANNIVERSARY -> onNavigateToAnniversary()
+							DrawerItem.TRAIN_FORMATION -> onNavigateToTrainFormation()
 							DrawerItem.SHIFT -> onNavigateToShiftSelection()
 							DrawerItem.SUB_SHIFT -> onNavigateToSubShiftSelection()
 							DrawerItem.HOLIDAY_REFRESH -> onRefreshHolidays()
+							DrawerItem.SHIFT_REFRESH -> onRefreshShiftSchedule()
 							DrawerItem.SETTINGS -> showThemeDialog = true
 							DrawerItem.VACATION -> onNavigateToVacationSetting()
 							DrawerItem.TEXT_SIZE -> onNavigateToTextSizeSettings()
+							DrawerItem.SHIFT_COLOR -> onNavigateToShiftColorSettings()
 							DrawerItem.WORK_ALARM -> onNavigateToWorkAlarmSettings()
 							DrawerItem.BACKUP -> onBackup()
 							DrawerItem.RESTORE -> onRestore()
 							DrawerItem.MENU_UPLOAD -> {
 								val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://cafeteria-nine-psi.vercel.app/analyze"))
 								context.startActivity(intent)
+							}
+							DrawerItem.INQUIRY -> {
+								// 카카오톡 오픈채팅 문의방. 브라우저/카톡이 없는 기기에서
+								// ActivityNotFoundException으로 죽지 않도록 runCatching으로 감싼다.
+								val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://open.kakao.com/o/g5H4r9ki"))
+								runCatching { context.startActivity(intent) }
 							}
 						}
 					}
@@ -344,6 +369,7 @@ fun HomeScreen(
 							drawerState.open()
 						}
 					},
+					showMenuAttention = needsHolidayApplication,
 					goToday = {
 						scope.launch {
 							state.scrollToMonth(currentMonth)
@@ -357,6 +383,7 @@ fun HomeScreen(
 					},
 					restCount = titleRestCount,
 					coverCount = titleCoverCount,
+					isCurrentMonth = visibleMonth.yearMonth == currentMonth,
 				)
 			FullScreenCalendar(
 				modifier = Modifier
@@ -373,6 +400,10 @@ fun HomeScreen(
 					val anniversaryName = anniversaryMap[day.date]
 					val shiftName = shiftScheduleMap[day.date]
 					val subShiftName = if (showSubShift) subShiftScheduleMap[day.date] else null
+					val isNightShift = shiftName != null &&
+						shiftScheduleMap[day.date.plusDays(1)]?.contains("~") == true
+					val isSubNightShift = subShiftName != null &&
+						subShiftScheduleMap[day.date.plusDays(1)]?.contains("~") == true
 					val vacationShortName = vacationMap[day.date]
 					val shiftInputInfo = shiftInputMap[day.date]
 					// 근무조 패턴 계산
@@ -393,6 +424,8 @@ fun HomeScreen(
 						anniversaryName = anniversaryName,
 						shiftName = shiftName,
 						subShiftName = subShiftName,
+						isNightShift = isNightShift,
+						isSubNightShift = isSubNightShift,
 						swapDates = swapDates,
 						shiftInputInfo = shiftInputInfo?.let { it.shortName to it.colorHex },
 						holidayWorkShifts = holidayWorkShifts,
@@ -400,6 +433,8 @@ fun HomeScreen(
 						memos = memosForDay,
 						events = eventsForDay,
 						textSizes = textSizes,
+						dayShiftBackgroundColor = dayShiftBackgroundColor,
+						nightShiftBackgroundColor = nightShiftBackgroundColor,
 						crewPatternLabel = crewPatternLabel
 					) { clicked ->
 						onAction(HomeAction.OnDateClick(clicked.date))
@@ -432,6 +467,9 @@ fun HomeScreen(
 						onDiaTableClick = onNavigateToDiaTable,
 						shiftPattern = shiftPattern,
 						isCustomShift = isCustomShift,
+						officeName = officeName,
+						officeWebsiteUrl = officeWebsiteUrl,
+						onNavigateToOfficeWebsite = onNavigateToOfficeWebsite,
 					)
 				},
 			)
@@ -658,12 +696,14 @@ private fun ExpandableFab(
 }
 
 private enum class DrawerItem {
-	CALENDAR, ANNIVERSARY, SHIFT, SUB_SHIFT, HOLIDAY_REFRESH, SETTINGS, VACATION, TEXT_SIZE, WORK_ALARM, BACKUP, RESTORE, MENU_UPLOAD
+	CALENDAR, ANNIVERSARY, TRAIN_FORMATION, SHIFT, SUB_SHIFT, HOLIDAY_REFRESH, SHIFT_REFRESH, SETTINGS, VACATION, TEXT_SIZE, SHIFT_COLOR, WORK_ALARM, BACKUP, RESTORE, MENU_UPLOAD, INQUIRY
 }
 
 @Composable
 private fun HomeDrawerContent(
 	isRefreshingHolidays: Boolean = false,
+	needsHolidayApplication: Boolean = false,
+	isRefreshingShifts: Boolean = false,
 	showCrewPattern: Boolean = false,
 	onToggleCrewPattern: (Boolean) -> Unit = {},
 	showSubShift: Boolean = true,
@@ -714,7 +754,7 @@ private fun HomeDrawerContent(
 						if (isVipRefreshing) {
 							CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
 						} else {
-							Text("VIP 상태 확인", style = MaterialTheme.typography.labelMedium)
+							Text("VIP확인(PUSH)", style = MaterialTheme.typography.labelMedium)
 						}
 					}
 
@@ -767,7 +807,13 @@ private fun HomeDrawerContent(
 
 			// 메뉴 아이템들
 			NavigationDrawerItem(
-				icon = { Icon(Icons.Default.CalendarMonth, contentDescription = null) },
+				icon = {
+					Icon(
+						painter = painterResource(R.drawable.calendar),
+						contentDescription = null,
+						tint = Color.Unspecified
+					)
+				},
 				label = { Text("캘린더 연동") },
 				selected = false,
 				onClick = { onItemClick(DrawerItem.CALENDAR) },
@@ -775,12 +821,49 @@ private fun HomeDrawerContent(
 			)
 
 			NavigationDrawerItem(
-				icon = { Icon(Icons.Default.Favorite, contentDescription = null) },
-				label = { Text("기념일 관리") },
+				icon = {
+					Icon(
+						painter = painterResource(R.drawable.anniversary),
+						contentDescription = null,
+						tint = Color.Unspecified
+					)
+				},
+				label = { Text("생일&기념일 관리") },
 				selected = false,
 				onClick = { onItemClick(DrawerItem.ANNIVERSARY) },
 				modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
 			)
+			HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+			NavigationDrawerItem(
+				icon = {
+					Icon(
+						painter = painterResource(R.drawable.subway),
+						contentDescription = null,
+						tint = Color.Unspecified
+					)
+				},
+				label = { Text("편성기록 목록") },
+				selected = false,
+				onClick = { onItemClick(DrawerItem.TRAIN_FORMATION) },
+				modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+			)
+
+			HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+			NavigationDrawerItem(
+				icon = {
+					Icon(
+						painter = painterResource(R.drawable.alarm),
+						contentDescription = null,
+						tint = Color.Unspecified
+					)
+				},
+				label = { Text("근무 알람") },
+				selected = false,
+				onClick = { onItemClick(DrawerItem.WORK_ALARM) },
+				modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+			)
+			HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
 			NavigationDrawerItem(
 				icon = {
@@ -790,25 +873,136 @@ private fun HomeDrawerContent(
 							strokeWidth = 2.dp
 						)
 					} else {
-						Icon(Icons.Default.Refresh, contentDescription = null)
+						Icon(
+							painter = painterResource(R.drawable.holiday_refresh),
+							contentDescription = null,
+							tint = Color.Unspecified
+						)
 					}
 				},
-				label = { Text(if (isRefreshingHolidays) "공휴일 갱신 중..." else "공휴일 갱신") },
-				selected = false,
+				label = {
+					Text(
+						when {
+							isRefreshingHolidays -> "공휴일 갱신 중..."
+							needsHolidayApplication -> "공휴일 적용 필요"
+							else -> "공휴일 갱신"
+						}
+					)
+				},
+				selected = needsHolidayApplication,
 				onClick = { if (!isRefreshingHolidays) onItemClick(DrawerItem.HOLIDAY_REFRESH) },
-				modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+				modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
+				colors = NavigationDrawerItemDefaults.colors(
+					selectedContainerColor = MaterialTheme.colorScheme.errorContainer,
+					selectedIconColor = MaterialTheme.colorScheme.error,
+					selectedTextColor = MaterialTheme.colorScheme.onErrorContainer
+				)
 			)
 
+
+			HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
 			NavigationDrawerItem(
-				icon = { Icon(Icons.Default.Work, contentDescription = null) },
-				label = { Text("내근무 생성") },
+				icon = {
+					Icon(
+						painter = painterResource(R.drawable.work_schedule),
+						contentDescription = null,
+						tint = Color.Unspecified
+					)
+				},
+				label = { Text("내근무 설정") },
 				selected = false,
 				onClick = { onItemClick(DrawerItem.SHIFT) },
 				modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
 			)
+			NavigationDrawerItem(
+				icon = {
+					if (isRefreshingShifts) {
+						CircularProgressIndicator(
+							modifier = Modifier.size(24.dp),
+							strokeWidth = 2.dp
+						)
+					} else {
+						Icon(
+							painter = painterResource(R.drawable.work_schedule_refresh),
+							contentDescription = null,
+							tint = Color.Unspecified
+						)
+					}
+				},
+				label = { Text(if (isRefreshingShifts) "근무표 갱신 중..." else "근무표 갱신") },
+				selected = false,
+				onClick = { if (!isRefreshingShifts) onItemClick(DrawerItem.SHIFT_REFRESH) },
+				modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+			)
+
+
+			HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
 
 			NavigationDrawerItem(
-				icon = { Icon(Icons.Default.Work, contentDescription = null) },
+				icon = { Icon(Icons.Default.Info, contentDescription = null) },
+				label = { Text("근태종류 설정") },
+				selected = false,
+				onClick = { onItemClick(DrawerItem.VACATION) },
+				modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+			)
+			HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+
+			NavigationDrawerItem(
+				icon = { Icon(Icons.Default.DeviceThermostat, contentDescription = null) },
+				label = { Text("테마 설정") },
+				selected = false,
+				onClick = { onItemClick(DrawerItem.SETTINGS) },
+				modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+			)
+
+
+
+			NavigationDrawerItem(
+				icon = { Icon(Icons.Default.TextFields, contentDescription = null) },
+				label = { Text("텍스트 크기 설정") },
+				selected = false,
+				onClick = { onItemClick(DrawerItem.TEXT_SIZE) },
+				modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+			)
+
+			NavigationDrawerItem(
+				icon = { Icon(Icons.Default.Palette, contentDescription = null) },
+				label = { Text("근무 색상 설정") },
+				selected = false,
+				onClick = { onItemClick(DrawerItem.SHIFT_COLOR) },
+				modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+			)
+			HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+
+			NavigationDrawerItem(
+				icon = { Icon(Icons.Default.Visibility, contentDescription = null) },
+				label = {
+					Row(
+						modifier = Modifier.fillMaxWidth(),
+						horizontalArrangement = Arrangement.SpaceBetween,
+						verticalAlignment = Alignment.CenterVertically
+					) {
+						Text("근무조 표시")
+						Switch(
+							checked = showCrewPattern,
+							onCheckedChange = onToggleCrewPattern,
+							modifier = Modifier.height(24.dp)
+						)
+					}
+				},
+				selected = false,
+				onClick = { onToggleCrewPattern(!showCrewPattern) },
+				modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+			)
+
+			HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+			NavigationDrawerItem(
+				icon = { Icon(Icons.Default.Group, contentDescription = null) },
 				label = { Text("sub 근무 생성") },
 				selected = false,
 				onClick = { onItemClick(DrawerItem.SUB_SHIFT) },
@@ -816,7 +1010,7 @@ private fun HomeDrawerContent(
 			)
 
 			NavigationDrawerItem(
-				icon = { Icon(Icons.Default.Work, contentDescription = null) },
+				icon = { Icon(Icons.Default.Visibility, contentDescription = null) },
 				label = {
 					Row(
 						modifier = Modifier.fillMaxWidth(),
@@ -836,61 +1030,7 @@ private fun HomeDrawerContent(
 				modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
 			)
 
-
 			HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
-			NavigationDrawerItem(
-				icon = { Icon(Icons.Default.DeviceThermostat, contentDescription = null) },
-				label = { Text("테마 설정") },
-				selected = false,
-				onClick = { onItemClick(DrawerItem.SETTINGS) },
-				modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-			)
-
-			NavigationDrawerItem(
-				icon = { Icon(Icons.Default.HolidayVillage, contentDescription = null) },
-				label = { Text("근태종류 설정") },
-				selected = false,
-				onClick = { onItemClick(DrawerItem.VACATION) },
-				modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-			)
-
-			NavigationDrawerItem(
-				icon = { Icon(Icons.Default.TextFields, contentDescription = null) },
-				label = { Text("텍스트 크기 설정") },
-				selected = false,
-				onClick = { onItemClick(DrawerItem.TEXT_SIZE) },
-				modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-			)
-
-			NavigationDrawerItem(
-				icon = { Icon(Icons.Default.Notifications, contentDescription = null) },
-				label = { Text("근무 알람") },
-				selected = false,
-				onClick = { onItemClick(DrawerItem.WORK_ALARM) },
-				modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-			)
-
-			NavigationDrawerItem(
-				icon = { Icon(Icons.Default.Groups, contentDescription = null) },
-				label = {
-					Row(
-						modifier = Modifier.fillMaxWidth(),
-						horizontalArrangement = Arrangement.SpaceBetween,
-						verticalAlignment = Alignment.CenterVertically
-					) {
-						Text("근무조 표시")
-						Switch(
-							checked = showCrewPattern,
-							onCheckedChange = onToggleCrewPattern,
-							modifier = Modifier.height(24.dp)
-						)
-					}
-				},
-				selected = false,
-				onClick = { onToggleCrewPattern(!showCrewPattern) },
-				modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-			)
 
 			NavigationDrawerItem(
 				icon = { Icon(Icons.Default.Restaurant, contentDescription = null) },
@@ -918,6 +1058,41 @@ private fun HomeDrawerContent(
 				onClick = { onItemClick(DrawerItem.RESTORE) },
 				modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
 			)
+			HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+			// 카카오톡 오픈채팅 문의. 카카오 디자인 가이드의 옐로우 버튼 스펙을 따른다.
+			// (컨테이너 #FEE500, 라벨 #191919, radius 6dp) 브랜드 색이므로 테마와 무관하게 고정.
+			Surface(
+				onClick = { onItemClick(DrawerItem.INQUIRY) },
+				shape = RoundedCornerShape(6.dp),
+				color = Color(0xFFFEE500),
+				modifier = Modifier
+					.fillMaxWidth()
+					.padding(NavigationDrawerItemDefaults.ItemPadding)
+					.heightIn(min = 48.dp)
+			) {
+				Row(
+					modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+					verticalAlignment = Alignment.CenterVertically,
+					horizontalArrangement = Arrangement.Center
+				) {
+					Icon(
+						painter = painterResource(R.drawable.kakao_symbol),
+						contentDescription = null,
+						tint = Color.Unspecified,
+						modifier = Modifier.size(20.dp)
+					)
+					Spacer(modifier = Modifier.width(8.dp))
+					Text(
+						text = "카카오톡으로 문의하기",
+						color = Color(0xFF191919),
+						style = MaterialTheme.typography.labelLarge,
+						fontWeight = FontWeight.Medium
+					)
+				}
+			}
+
+
 
 			Spacer(modifier = Modifier.height(80.dp))
 		}
@@ -979,8 +1154,13 @@ private fun MonthFooter(
 	onDiaTableClick: () -> Unit = {},
 	shiftPattern: List<String> = emptyList(),
 	isCustomShift: Boolean = false,
+	officeName: String? = null,
+	officeWebsiteUrl: String? = null,
+	onNavigateToOfficeWebsite: (String, String) -> Unit = { _, _ -> },
 ) {
 	var showShiftOrderDialog by remember { mutableStateOf(false) }
+	var showWebsitePasswordDialog by remember { mutableStateOf(false) }
+	val officeWebsiteRegistry: OfficeWebsiteRegistry = koinInject()
 
 	Box(
 		Modifier
@@ -1012,6 +1192,35 @@ private fun MonthFooter(
 				),
 				color = MaterialTheme.colorScheme.onBackground
 			)
+			// 승무소 사이트 버튼 (URL 매핑된 승무소만 표시)
+			if (officeWebsiteUrl != null) {
+				Spacer(modifier = Modifier.width(20.dp))
+				Text(
+					text = "👤근무자",
+					modifier = Modifier
+						.clickable(
+							showRipple = true,
+							onClick = {
+								val name = officeName ?: ""
+								val urlWithDate = appendDateParam(officeWebsiteUrl, LocalDate.now())
+								val needsPassword = officeWebsiteRegistry.requiresPassword(name) &&
+									!officeWebsiteRegistry.isAuthenticated(name)
+								if (needsPassword) {
+									showWebsitePasswordDialog = true
+								} else {
+									onNavigateToOfficeWebsite(urlWithDate, name)
+								}
+							}
+						)
+						.padding(horizontal = 4.dp, vertical = 1.dp),
+					fontSize = 15.sp,
+					style = TextStyle(
+						platformStyle = PlatformTextStyle(includeFontPadding = false),
+						fontWeight = FontWeight.Bold
+					),
+					color = MaterialTheme.colorScheme.onBackground
+				)
+			}
 			Spacer(modifier = Modifier.width(20.dp))
 			Text(
 				text = "🔁교번순서",
@@ -1038,6 +1247,30 @@ private fun MonthFooter(
 		ShiftOrderDialog(
 			shiftPattern = shiftPattern,
 			onDismiss = { showShiftOrderDialog = false }
+		)
+	}
+
+	// 승무소 사이트 비밀번호 다이얼로그
+	if (showWebsitePasswordDialog) {
+		val name = officeName ?: ""
+		OfficeWebsitePasswordDialog(
+			officeName = name,
+			onDismiss = { showWebsitePasswordDialog = false },
+			onConfirm = { input ->
+				if (officeWebsiteRegistry.verifyPassword(name, input)) {
+					officeWebsiteRegistry.setAuthenticated(name)
+					showWebsitePasswordDialog = false
+					if (officeWebsiteUrl != null) {
+						onNavigateToOfficeWebsite(
+							appendDateParam(officeWebsiteUrl, LocalDate.now()),
+							name
+						)
+					}
+					true
+				} else {
+					false
+				}
+			}
 		)
 	}
 }
@@ -1124,6 +1357,8 @@ private fun Day(
 	anniversaryName: String? = null,
 	shiftName: String? = null,
 	subShiftName: String? = null,
+	isNightShift: Boolean = false,
+	isSubNightShift: Boolean = false,
 	swapDates: Set<LocalDate> = emptySet(),
 	shiftInputInfo: Pair<String, String>? = null, // (shortName, colorHex) for 충당
 	holidayWorkShifts: List<String> = emptyList(),
@@ -1131,14 +1366,27 @@ private fun Day(
 	memos: List<Memo> = emptyList(),
 	events: List<CalendarEvent> = emptyList(),
 	textSizes: CalendarTextSizes = CalendarTextSizes.DEFAULT,
+	dayShiftBackgroundColor: Color? = null,
+	nightShiftBackgroundColor: Color? = null,
 	crewPatternLabel: String? = null,
 	onClick: (CalendarDay) -> Unit,
 ) {
 	val isHoliday = holidayName != null
 
-	// 강조하고 싶은 오늘 날짜 테두리 색상과 두께를 정의합니다.
-	val todayBorderWidth = 1.dp
-	val todayBorderColor = colorResource(id = R.color.example_2_red) // 혹은 원하는 테두리 색상 (예: R.color.today_border_color)
+	// 강조하고 싶은 오늘 날짜 테두리 두께와 무지개 그라데이션을 정의합니다.
+	val todayBorderWidth = 2.dp
+	val rainbowBorderBrush = Brush.sweepGradient(
+		listOf(
+			Color(0xFFFF0000), // 빨
+			Color(0xFFFF9800), // 주
+			Color(0xFFFFEB3B), // 노
+			Color(0xFF4CAF50), // 초
+			Color(0xFF2196F3), // 파
+			Color(0xFF3F51B5), // 남
+			Color(0xFF9C27B0), // 보
+			Color(0xFFFF0000), // 빨 (시작 색으로 닫아 이음새 제거)
+		)
+	)
 
 	Column(
 		Modifier
@@ -1149,12 +1397,12 @@ private fun Day(
 				color = colorResource(id = R.color.calendarBorder_color),
 				shape = RectangleShape
 			)
-			// 2. 오늘 날짜일 경우 강조 테두리 추가 적용
+			// 2. 오늘 날짜일 경우 무지개 그라데이션 테두리 추가 적용
 			.then(
 				if (isToday) {
 					Modifier.border(
 						width = todayBorderWidth,
-						color = todayBorderColor,
+						brush = rainbowBorderBrush,
 						shape = RectangleShape
 					)
 				} else {
@@ -1164,7 +1412,6 @@ private fun Day(
 			.background(
 				color = when {
 					isSelected -> colorResource(R.color.example_1_selection_color)
-					isToday -> colorResource(id = R.color.today_backgroundColor)
 					else -> Color.Transparent
 				},
 			)
@@ -1280,7 +1527,10 @@ private fun Day(
 						isShiftInput = isShiftInput,
 						shiftInputColorHex = shiftInputColorHex,
 						isHolidayWork = isHolidayWork,
-						fontSize = textSizes.shiftFontSize
+						fontSize = textSizes.shiftFontSize,
+						dayShiftBackgroundColor = dayShiftBackgroundColor,
+						nightShiftBackgroundColor = nightShiftBackgroundColor,
+						isNightShift = isNightShift
 					)
 				}
 			}
@@ -1297,7 +1547,10 @@ private fun Day(
 			) {
 				ShiftBadge(
 					shiftName = subShiftName,
-					fontSize = (textSizes.shiftFontSize / 2f).coerceAtLeast(8f)
+					fontSize = (textSizes.shiftFontSize * 0.8f).coerceAtLeast(8f),
+					dayShiftBackgroundColor = dayShiftBackgroundColor,
+					nightShiftBackgroundColor = nightShiftBackgroundColor,
+					isNightShift = isSubNightShift
 				)
 			}
 		}
@@ -1395,34 +1648,8 @@ private fun CrewPatternBadge(label: String, fontSize: Float = 9f) {
 }
 
 
-@Composable
-private fun VacationBadge(shortName: String, fontSize: Float = 14f) {
-	Box(
-		modifier = Modifier
-			.clip(RoundedCornerShape(3.dp))
-			.background(MaterialTheme.colorScheme.errorContainer)
-			.padding(horizontal = 4.dp, vertical = 1.dp),
-		contentAlignment = Alignment.Center
-	) {
-		Text(
-			text = shortName,
-			fontSize = fontSize.sp,
-			lineHeight = (fontSize - 4).coerceAtLeast(8f).sp,
-			fontWeight = FontWeight.Bold,
-			color = MaterialTheme.colorScheme.onErrorContainer,
-			maxLines = 1,
-			style = TextStyle(
-				platformStyle = PlatformTextStyle(includeFontPadding = false),
-				lineHeightStyle = LineHeightStyle(
-					alignment = LineHeightStyle.Alignment.Center,
-					trim = LineHeightStyle.Trim.Both
-				)
-			)
-		)
-	}
-}
-
 // ShiftBadge는 presentation/shared/ShiftBadge.kt 로 이동되었습니다.
+// VacationBadge는 presentation/shared/VacationBadge.kt 로 이동되었습니다.
 
 @Composable
 private fun MemoIndicator(memo: Memo, fontSize: Float = 8f) {
@@ -1598,5 +1825,15 @@ private fun FooterActionButton(
 				style = TextStyle(platformStyle = PlatformTextStyle(includeFontPadding = false))
 			)
 		}
+	}
+}
+
+private fun String.toComposeColorOrNull(): Color? {
+	// 빈 값(테마 기본색)이면 null을 돌려주고, 잘못된 값도 예외로 앱이 죽지 않게 한다.
+	if (isBlank()) return null
+	return try {
+		Color(toColorInt())
+	} catch (e: RuntimeException) {
+		null
 	}
 }

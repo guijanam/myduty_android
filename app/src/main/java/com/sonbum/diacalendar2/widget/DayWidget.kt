@@ -3,6 +3,8 @@ package com.sonbum.diacalendar2.widget
 import android.annotation.SuppressLint
 import android.content.Context
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.graphics.Color
 import androidx.core.graphics.toColorInt
 import androidx.compose.ui.unit.dp
@@ -57,22 +59,32 @@ class DayWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         Log.d("DayWidget", "provideGlance() called - reloading data")
 
+        // 최초 데이터는 suspend 컨텍스트(백그라운드)에서 미리 로딩한다.
+        val initialData = loadData()
+
         provideContent {
             // currentState를 읽어서 상태 변경 시 recomposition 트리거
             val prefs = currentState<Preferences>()
             val lastUpdated = prefs[longPreferencesKey("last_updated")] ?: 0L
             Log.d("DayWidget", "provideContent() recomposing, lastUpdated=$lastUpdated")
 
-            // 데이터 로딩은 remember + produceState 대신 직접 로딩
-            val dayDataList = loadDataBlocking()
+            // lastUpdated가 바뀌면 백그라운드에서 다시 로딩한다(메인 스레드 차단 금지).
+            val dayDataList by produceState(initialValue = initialData, key1 = lastUpdated) {
+                if (lastUpdated != 0L) {
+                    value = loadData()
+                }
+            }
 
             val size = LocalSize.current
             // 너비/높이를 모두 고려해 글자 크기를 비례 조절한다.
             // 기준 크기(300 x 200dp)를 1.0으로 두고, 작아지면 줄이고 커지면 키운다.
+            // 세로를 더 작게 줄여도 글자는 너무 작아지지 않도록 너비 비중을 크게 둔다.
             val widthScale = size.width.value / 300f
             val heightScale = size.height.value / 200f
-            val scaleFactor = minOf(widthScale, heightScale).coerceIn(0.6f, 2.0f)
-            val isSmallMode = size.width < 200.dp || size.height < 130.dp
+            // 높이가 줄어도 글자가 크게 작아지지 않게 너비 기준을 우선하고,
+            // 하한을 높여 작은 위젯에서도 글자가 충분히 크게 보이도록 한다.
+            val scaleFactor = (widthScale * 0.7f + heightScale * 0.3f).coerceIn(0.85f, 2.0f)
+            val isSmallMode = size.width < 200.dp || size.height < 110.dp
 
             GlanceTheme {
                 DayWidgetContent(
@@ -85,7 +97,7 @@ class DayWidget : GlanceAppWidget() {
         }
     }
 
-    private fun loadDataBlocking(): List<WidgetDayData> {
+    private suspend fun loadData(): List<WidgetDayData> {
         return try {
             val koin = getKoin()
             val provider = WidgetDataProvider(
@@ -104,7 +116,7 @@ class DayWidget : GlanceAppWidget() {
             )
             val today = LocalDate.now(ZoneId.of("Asia/Seoul"))
             val tomorrow = today.plusDays(1)
-            kotlinx.coroutines.runBlocking(Dispatchers.IO) {
+            withContext(Dispatchers.IO) {
                 provider.loadDayDataList(listOf(today, tomorrow))
             }
         } catch (e: Exception) {
@@ -122,14 +134,16 @@ private fun DayWidgetContent(
     scaleFactor: Float,
     isSmallMode: Boolean
 ) {
-    Column(
+    // 주간 위젯처럼 오늘(앞)/내일(뒤)을 좌우 두 칸으로 배치한다.
+    // 각 칸은 세로로: 날짜 → worktime → 근무 → 이벤트/메모 순서.
+    Row(
         modifier = GlanceModifier
             .fillMaxSize()
             .background(GlanceTheme.colors.background)
             .padding(vertical = (1 * scaleFactor).dp, horizontal = (2 * scaleFactor).dp)
             .clickable(actionStartActivity<MainActivity>())
     ) {
-        Box(modifier = GlanceModifier.defaultWeight()) {
+        Box(modifier = GlanceModifier.defaultWeight().fillMaxHeight()) {
             if (todayData != null) {
                 DaySection(todayData, scaleFactor, isSmallMode)
             }
@@ -137,12 +151,12 @@ private fun DayWidgetContent(
 
         Box(
             modifier = GlanceModifier
-                .fillMaxWidth()
-                .height(0.5.dp)
+                .width(0.5.dp)
+                .fillMaxHeight()
                 .background(ColorProvider(Color.Gray.copy(alpha = 0.5f)))
         ) {}
 
-        Box(modifier = GlanceModifier.defaultWeight()) {
+        Box(modifier = GlanceModifier.defaultWeight().fillMaxHeight()) {
             if (tomorrowData != null) {
                 DaySection(tomorrowData, scaleFactor, isSmallMode)
             }
@@ -156,27 +170,19 @@ private fun DaySection(
     scaleFactor: Float,
     isSmallMode: Boolean
 ) {
-    Row(
-        modifier = GlanceModifier.fillMaxSize(),
-        verticalAlignment = Alignment.CenterVertically
+    Column(
+        modifier = GlanceModifier
+            .fillMaxSize()
+            .padding(horizontal = (2 * scaleFactor).dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalAlignment = Alignment.Top
     ) {
-        Column(
-            modifier = GlanceModifier
-                .width(if (isSmallMode) (70 * scaleFactor).dp else (100 * scaleFactor).dp)
-                .fillMaxHeight(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalAlignment = Alignment.Top
-        ) {
-            DateRow(data, isSmallMode, scaleFactor)
-            Spacer(modifier = GlanceModifier.height(if (isSmallMode) 0.dp else (2 * scaleFactor).dp))
-            WorkTimeRow(data.workTime, isSmallMode, scaleFactor)
-            ShiftNameRow(data, isSmallMode, scaleFactor)
-        }
-
-        Column(
-            modifier = GlanceModifier.defaultWeight().fillMaxHeight(),
-            verticalAlignment = Alignment.Top
-        ) {
+        DateRow(data, isSmallMode, scaleFactor)
+        Spacer(modifier = GlanceModifier.height(if (isSmallMode) 0.dp else (1 * scaleFactor).dp))
+        WorkTimeRow(data.workTime, isSmallMode, scaleFactor)
+        ShiftNameRow(data, isSmallMode, scaleFactor)
+        Spacer(modifier = GlanceModifier.height(if (isSmallMode) 0.dp else (1 * scaleFactor).dp))
+        Box(modifier = GlanceModifier.defaultWeight().fillMaxWidth()) {
             MemoAndEventColumn(data, isSmallMode, scaleFactor)
         }
     }
@@ -225,7 +231,7 @@ private fun DateRow(data: WidgetDayData, isSmallMode: Boolean, scaleFactor: Floa
 
 @Composable
 private fun WorkTimeRow(workTime: String?, isSmallMode: Boolean, scaleFactor: Float) {
-    val baseSize = if (isSmallMode) 18 else 20
+    val baseSize = if (isSmallMode) 18 else 24
     Text(
         modifier = GlanceModifier.fillMaxWidth(),
         text = workTime ?: "",
@@ -241,7 +247,7 @@ private fun WorkTimeRow(workTime: String?, isSmallMode: Boolean, scaleFactor: Fl
 @Composable
 private fun ShiftNameRow(data: WidgetDayData, isSmallMode: Boolean, scaleFactor: Float) {
     val shiftName = data.effectiveShiftName ?: return
-    val baseSize = if (isSmallMode) 15 else 16
+    val baseSize = if (isSmallMode) 15 else 20
 
     Text(
         modifier = GlanceModifier.fillMaxWidth(),
