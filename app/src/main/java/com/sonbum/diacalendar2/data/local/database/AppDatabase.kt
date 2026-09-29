@@ -60,6 +60,11 @@ import com.sonbum.diacalendar2.data.local.entity.AnniversaryEntity
 import com.sonbum.diacalendar2.data.local.dao.AnniversaryDao
 import com.sonbum.diacalendar2.data.local.entity.ScheduledAlarmEntity
 import com.sonbum.diacalendar2.data.local.dao.ScheduledAlarmDao
+import com.sonbum.diacalendar2.data.local.dao.BirthdayDao
+import com.sonbum.diacalendar2.data.local.entity.BirthdayGroupEntity
+import com.sonbum.diacalendar2.data.local.entity.BirthdayMilestoneEntity
+import com.sonbum.diacalendar2.data.local.entity.BirthdayPersonEntity
+import com.sonbum.diacalendar2.data.local.entity.BirthdayPersonGroupEntity
 
 @Database(
     entities = [
@@ -90,9 +95,13 @@ import com.sonbum.diacalendar2.data.local.dao.ScheduledAlarmDao
         ScheduledAlarmEntity::class,
         SubShiftConfigEntity::class,
         SubShiftScheduleEntity::class,
-        TrainFormationEntity::class
+        TrainFormationEntity::class,
+        BirthdayPersonEntity::class,
+        BirthdayGroupEntity::class,
+        BirthdayPersonGroupEntity::class,
+        BirthdayMilestoneEntity::class
     ],
-    version = 30,
+    version = 31,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -124,6 +133,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun subShiftConfigDao(): SubShiftConfigDao
     abstract fun subShiftScheduleDao(): SubShiftScheduleDao
     abstract fun trainFormationDao(): TrainFormationDao
+    abstract fun birthdayDao(): BirthdayDao
 
     companion object {
         // 버전 2 → 3: holidays 테이블에 isUserCreated 컬럼 추가
@@ -577,6 +587,70 @@ abstract class AppDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE scheduled_alarms ADD COLUMN customTriggerAtMillis INTEGER")
                 db.execSQL("ALTER TABLE scheduled_alarms ADD COLUMN soundUri TEXT")
+            }
+        }
+
+        // 버전 30 → 31: 기존 기념일과 분리된 인물 기반 생일·나이 관리
+        val MIGRATION_30_31 = object : Migration(30, 31) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS birthday_people (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        name TEXT NOT NULL,
+                        photoPath TEXT,
+                        relationship TEXT NOT NULL,
+                        birthYear INTEGER NOT NULL,
+                        birthMonth INTEGER NOT NULL,
+                        birthDay INTEGER NOT NULL,
+                        calendarType TEXT NOT NULL,
+                        isLeapMonth INTEGER NOT NULL,
+                        timeZoneId TEXT NOT NULL,
+                        ageDisplayMode TEXT NOT NULL,
+                        leapMonthPolicy TEXT NOT NULL,
+                        feb29Policy TEXT NOT NULL,
+                        notificationEnabled INTEGER NOT NULL,
+                        notificationOffsetsCsv TEXT NOT NULL,
+                        notificationHour INTEGER NOT NULL,
+                        notificationMinute INTEGER NOT NULL,
+                        calendarSyncEnabled INTEGER NOT NULL,
+                        createdAt INTEGER NOT NULL,
+                        updatedAt INTEGER NOT NULL
+                    )
+                """.trimIndent())
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS birthday_groups (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        name TEXT NOT NULL,
+                        isDefault INTEGER NOT NULL,
+                        sortOrder INTEGER NOT NULL
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_birthday_groups_name ON birthday_groups(name)")
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS birthday_person_groups (
+                        personId INTEGER NOT NULL,
+                        groupId INTEGER NOT NULL,
+                        PRIMARY KEY(personId, groupId),
+                        FOREIGN KEY(personId) REFERENCES birthday_people(id) ON DELETE CASCADE,
+                        FOREIGN KEY(groupId) REFERENCES birthday_groups(id) ON DELETE CASCADE
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_birthday_person_groups_personId ON birthday_person_groups(personId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_birthday_person_groups_groupId ON birthday_person_groups(groupId)")
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS birthday_milestones (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        personId INTEGER NOT NULL,
+                        name TEXT NOT NULL,
+                        ruleType TEXT NOT NULL,
+                        ruleValue INTEGER NOT NULL,
+                        enabled INTEGER NOT NULL,
+                        notificationEnabled INTEGER NOT NULL,
+                        isDefault INTEGER NOT NULL,
+                        FOREIGN KEY(personId) REFERENCES birthday_people(id) ON DELETE CASCADE
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_birthday_milestones_personId ON birthday_milestones(personId)")
             }
         }
 

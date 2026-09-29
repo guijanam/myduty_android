@@ -25,7 +25,10 @@ import com.sonbum.diacalendar2.domain.repository.OfficeRepository
 import com.sonbum.diacalendar2.domain.repository.ShiftInputRecordRepository
 import com.sonbum.diacalendar2.domain.repository.BackupRepository
 import com.sonbum.diacalendar2.domain.repository.AnniversaryRepository
+import com.sonbum.diacalendar2.domain.repository.BirthdayRepository
 import com.sonbum.diacalendar2.domain.usecase.ShiftCalendarSyncUseCase
+import com.sonbum.diacalendar2.domain.usecase.BirthdayCalendarSyncUseCase
+import com.sonbum.diacalendar2.core.notification.BirthdayReminderScheduler
 import android.net.Uri
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -56,6 +59,7 @@ data class HomeCalendarState(
     val shiftScheduleMap: Map<LocalDate, String> = emptyMap(),
     val vacationMap: Map<LocalDate, String> = emptyMap(),
     val isRefreshingHolidays: Boolean = false,
+    val needsHolidayApplication: Boolean = false,
     val isRefreshingShifts: Boolean = false,
     val shiftPattern: List<String> = emptyList(),
     val subShiftScheduleMap: Map<LocalDate, String> = emptyMap(),
@@ -86,8 +90,11 @@ class HomeViewModel(
     private val backupRepository: BackupRepository,
     private val crewPatternPreferences: CrewPatternPreferences,
     private val anniversaryRepository: AnniversaryRepository,
+    private val birthdayRepository: BirthdayRepository,
     private val shiftColorPreferences: ShiftColorPreferences,
-    private val shiftCalendarSyncUseCase: ShiftCalendarSyncUseCase
+    private val shiftCalendarSyncUseCase: ShiftCalendarSyncUseCase,
+    private val birthdayCalendarSyncUseCase: BirthdayCalendarSyncUseCase,
+    private val birthdayReminderScheduler: BirthdayReminderScheduler
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(HomeCalendarState())
@@ -125,11 +132,23 @@ class HomeViewModel(
         observeSelectedCalendars()
         observeEventChanges()
         observeHolidays()
+        observeHolidayApplicationStatus()
+        refreshHolidays(showResultMessage = false)
         observeShiftSchedules()
         observeVacationRecords()
         observeSubShiftSchedules()
         loadShiftPattern()
         observeAnniversaries()
+        refreshBirthdayIntegrations()
+    }
+
+    /** Keep external birthday surfaces current even when the user never opens the birthday tab. */
+    private fun refreshBirthdayIntegrations() {
+        viewModelScope.launch {
+            birthdayRepository.ensureDefaults()
+            birthdayCalendarSyncUseCase.sync()
+            birthdayReminderScheduler.rescheduleAll()
+        }
     }
 
     private fun observeSubShiftSchedules() {
@@ -188,6 +207,16 @@ class HomeViewModel(
         viewModelScope.launch {
             holidayRepository.getHolidayMap().collect { map ->
                 _state.update { it.copy(holidayMap = map) }
+            }
+        }
+    }
+
+    private fun observeHolidayApplicationStatus() {
+        viewModelScope.launch {
+            holidayRepository.hasAppliedHolidays().collect { hasAppliedHolidays ->
+                _state.update {
+                    it.copy(needsHolidayApplication = !hasAppliedHolidays)
+                }
             }
         }
     }
@@ -312,16 +341,20 @@ class HomeViewModel(
         loadCalendarEvents()
     }
 
-    fun refreshHolidays() {
+    fun refreshHolidays(showResultMessage: Boolean = true) {
         viewModelScope.launch {
+            if (_state.value.isRefreshingHolidays) return@launch
+
             _state.update { it.copy(isRefreshingHolidays = true) }
             val result = holidayRepository.refreshHolidays()
             _state.update { it.copy(isRefreshingHolidays = false) }
 
-            if (result.isSuccess) {
-                _event.emit(HomeEvent.ShowMessage("공휴일 정보가 갱신되었습니다 (${result.getOrNull()}개)"))
-            } else {
-                _event.emit(HomeEvent.ShowMessage("공휴일 갱신 실패: ${result.exceptionOrNull()?.message}"))
+            if (showResultMessage) {
+                if (result.isSuccess) {
+                    _event.emit(HomeEvent.ShowMessage("공휴일 정보가 갱신되었습니다 (${result.getOrNull()}개)"))
+                } else {
+                    _event.emit(HomeEvent.ShowMessage("공휴일 갱신 실패: ${result.exceptionOrNull()?.message}"))
+                }
             }
         }
     }
@@ -368,9 +401,10 @@ class HomeViewModel(
             // 기념일 목록 변화 또는 표시 연도 변화 시 모두 재계산
             combine(
                 anniversaryRepository.getAll(),
+                birthdayRepository.observePeople(),
                 _visibleYear
-            ) { list, year -> list to year }
-                .collect { (list, year) ->
+            ) { _, _, year -> year }
+                .collect { year ->
                     val map = buildAnniversaryMap(year)
                     _state.update { it.copy(anniversaryMap = map) }
                 }
@@ -385,9 +419,14 @@ class HomeViewModel(
 
     private suspend fun buildAnniversaryMap(year: Int): Map<LocalDate, String> {
         val raw = anniversaryRepository.getAnniversaryMapForYear(year)
-        return raw.mapNotNull { (key, value) ->
+        val merged = raw.mapNotNull { (key, value) ->
             try { LocalDate.parse(key) to value } catch (e: Exception) { null }
-        }.toMap()
+        }.toMap().toMutableMap()
+        birthdayRepository.getOccurrencesForYear(year).forEach { occurrence ->
+            val label = "🎂 ${occurrence.personName}"
+            merged[occurrence.date] = listOfNotNull(merged[occurrence.date], label).joinToString(", ")
+        }
+        return merged
     }
 
     private fun loadShiftPattern() {
@@ -468,6 +507,8 @@ class HomeViewModel(
 
             if (restoreResult.isSuccess) {
                 val count = restoreResult.getOrNull() ?: 0
+                birthdayCalendarSyncUseCase.sync()
+                birthdayReminderScheduler.rescheduleAll()
                 _event.emit(HomeEvent.ShowMessage("복원이 완료되었습니다 (${count}개 항목)"))
                 _event.emit(HomeEvent.BackupRestored)
             } else {

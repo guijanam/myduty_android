@@ -443,13 +443,16 @@ class DeviceCalendarRepositoryImpl(
     // ===== 근무 동기화 =====
 
     override suspend fun deleteShiftSyncEvents(calendarId: Long): Int =
+        deleteEventsByMarker(calendarId, SHIFT_SYNC_MARKER)
+
+    override suspend fun deleteEventsByMarker(calendarId: Long, marker: String): Int =
         withContext(Dispatchers.IO) {
             try {
                 // 우리가 등록한 이벤트만 삭제 (마커 description으로 식별)
                 val selection =
                     "${CalendarContract.Events.CALENDAR_ID} = ? AND " +
                         "${CalendarContract.Events.DESCRIPTION} = ?"
-                val args = arrayOf(calendarId.toString(), SHIFT_SYNC_MARKER)
+                val args = arrayOf(calendarId.toString(), marker)
                 val deleted = contentResolver.delete(
                     CalendarContract.Events.CONTENT_URI,
                     selection,
@@ -458,7 +461,7 @@ class DeviceCalendarRepositoryImpl(
                 if (deleted > 0) _eventChanges.tryEmit(Unit)
                 deleted
             } catch (e: Exception) {
-                android.util.Log.e("DeviceCalendarRepo", "deleteShiftSyncEvents failed", e)
+                android.util.Log.e("DeviceCalendarRepo", "deleteEventsByMarker failed", e)
                 0
             }
         }

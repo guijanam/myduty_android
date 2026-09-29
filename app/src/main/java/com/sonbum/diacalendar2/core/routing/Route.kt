@@ -129,6 +129,18 @@ sealed interface Route : NavKey {
 	data object Anniversary : Route
 
 	@Serializable
+	data class BirthdayPersonDetail(val personId: Long) : Route
+
+	@Serializable
+	data class BirthdayPersonEdit(val personId: Long? = null) : Route
+
+	@Serializable
+	data object BirthdayGroupManager : Route
+
+	@Serializable
+	data object BirthdaySettings : Route
+
+	@Serializable
 	data object TrainFormationList : Route
 
 	@Serializable

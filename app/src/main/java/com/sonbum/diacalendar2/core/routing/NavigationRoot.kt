@@ -50,6 +50,10 @@ import com.sonbum.diacalendar2.presentation.subscription.PaywallScreen
 import com.sonbum.diacalendar2.domain.repository.SubscriptionRepository
 import com.sonbum.diacalendar2.core.util.DeviceIdProvider
 import com.sonbum.diacalendar2.presentation.anniversary.AnniversaryScreen
+import com.sonbum.diacalendar2.presentation.anniversary.BirthdayGroupManagerScreen
+import com.sonbum.diacalendar2.presentation.anniversary.BirthdayPersonDetailScreen
+import com.sonbum.diacalendar2.presentation.anniversary.BirthdayPersonEditScreen
+import com.sonbum.diacalendar2.presentation.anniversary.BirthdaySettingsScreen
 import com.sonbum.diacalendar2.presentation.trainformation.TrainFormationListScreen
 import com.sonbum.diacalendar2.presentation.notifications.DocumentDetailScreen
 import androidx.compose.ui.platform.LocalContext
@@ -80,8 +84,11 @@ import com.sonbum.diacalendar2.presentation.main.MainViewModel
 @Composable
 fun NavigationRoot(
 	modifier: Modifier = Modifier,
+	birthdayNavigationToken: Long = 0L,
+	birthdayPersonId: Long? = null,
 ) {
 	val topLevelBackStack = rememberNavBackStack(Route.SignIn)
+	var handledBirthdayNavigationToken by remember { mutableStateOf(0L) }
 	var boardRefreshTrigger by remember { mutableIntStateOf(0) }
 
 	//달력 셀 클릭으로 DateDetail 진입할 때마다 페이월 시트 노출 (미구독자 한정)
@@ -89,6 +96,23 @@ fun NavigationRoot(
 	val dateDetailSubscriptionRepository: SubscriptionRepository = koinInject()
 	val navigationScope = rememberCoroutineScope()
 	val appContext = LocalContext.current.applicationContext
+
+	fun openBirthdayDestination() {
+		if (topLevelBackStack.lastOrNull() != Route.Anniversary) {
+			topLevelBackStack.add(Route.Anniversary)
+		}
+		birthdayPersonId?.let { topLevelBackStack.add(Route.BirthdayPersonDetail(it)) }
+		handledBirthdayNavigationToken = birthdayNavigationToken
+	}
+
+	LaunchedEffect(birthdayNavigationToken) {
+		if (birthdayNavigationToken != 0L &&
+			birthdayNavigationToken != handledBirthdayNavigationToken &&
+			topLevelBackStack.lastOrNull() != Route.SignIn
+		) {
+			openBirthdayDestination()
+		}
+	}
 
 	// 달력 셀 클릭으로 DateDetail을 새로 열 때 호출 (다른 화면 다녀와 돌아오는 경우는 제외)
 	fun openDateDetail(route: Route.DateDetail) {
@@ -117,6 +141,9 @@ fun NavigationRoot(
 						Snapshot.withMutableSnapshot {
 							topLevelBackStack.add(Route.Main)
 							topLevelBackStack.retainAll { it == Route.Main }
+						}
+						if (birthdayNavigationToken != 0L && birthdayNavigationToken != handledBirthdayNavigationToken) {
+							openBirthdayDestination()
 						}
 					}
 				)
@@ -235,7 +262,38 @@ fun NavigationRoot(
 						if (topLevelBackStack.size > 1) {
 							topLevelBackStack.removeAt(topLevelBackStack.lastIndex)
 						}
-					}
+					},
+					onNavigateToPerson = { topLevelBackStack.add(Route.BirthdayPersonDetail(it)) },
+					onNavigateToEditPerson = { topLevelBackStack.add(Route.BirthdayPersonEdit(it)) },
+					onNavigateToGroups = { topLevelBackStack.add(Route.BirthdayGroupManager) },
+					onNavigateToSettings = { topLevelBackStack.add(Route.BirthdaySettings) }
+				)
+			}
+
+			entry<Route.BirthdayPersonDetail> { key ->
+				BirthdayPersonDetailScreen(
+					personId = key.personId,
+					onBack = { if (topLevelBackStack.size > 1) topLevelBackStack.removeAt(topLevelBackStack.lastIndex) },
+					onEdit = { topLevelBackStack.add(Route.BirthdayPersonEdit(it)) }
+				)
+			}
+
+			entry<Route.BirthdayPersonEdit> { key ->
+				BirthdayPersonEditScreen(
+					personId = key.personId,
+					onBack = { if (topLevelBackStack.size > 1) topLevelBackStack.removeAt(topLevelBackStack.lastIndex) }
+				)
+			}
+
+			entry<Route.BirthdayGroupManager> {
+				BirthdayGroupManagerScreen(
+					onBack = { if (topLevelBackStack.size > 1) topLevelBackStack.removeAt(topLevelBackStack.lastIndex) }
+				)
+			}
+
+			entry<Route.BirthdaySettings> {
+				BirthdaySettingsScreen(
+					onBack = { if (topLevelBackStack.size > 1) topLevelBackStack.removeAt(topLevelBackStack.lastIndex) }
 				)
 			}
 

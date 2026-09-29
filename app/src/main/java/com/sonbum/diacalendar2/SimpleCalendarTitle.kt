@@ -61,6 +61,7 @@ fun SimpleCalendarTitle(
 	currentMonth: YearMonth,
 	isHorizontal: Boolean = true,
 	onMenuClick: () -> Unit = {},
+	showMenuAttention: Boolean = false,
 	goToday: () -> Unit,
 	onMonthSelected: (YearMonth) -> Unit = {},
 	restCount: Int? = null,
@@ -76,9 +77,10 @@ fun SimpleCalendarTitle(
 		// 메뉴 아이콘 (네비게이션 드로어)
 		CalendarNavigationIcon(
 			imageVector = Icons.Default.Menu,
-			contentDescription = "Menu",
+			contentDescription = if (showMenuAttention) "메뉴, 공휴일 적용 필요" else "메뉴",
 			onClick = onMenuClick,
 			isHorizontal = true,
+			showAttention = showMenuAttention,
 		)
 		Row(
 			modifier = Modifier
@@ -169,6 +171,7 @@ private fun CalendarNavigationIcon(
 	imageVector: ImageVector,
 	contentDescription: String,
 	isHorizontal: Boolean = true,
+	showAttention: Boolean = false,
 	onClick: () -> Unit,
 ) = Box(
 	modifier = Modifier
@@ -191,6 +194,15 @@ private fun CalendarNavigationIcon(
 		tint = MaterialTheme.colorScheme.onBackground,
 		contentDescription = contentDescription,
 	)
+	if (showAttention) {
+		Box(
+			modifier = Modifier
+				.align(Alignment.TopEnd)
+				.padding(2.dp)
+				.size(10.dp)
+				.background(MaterialTheme.colorScheme.error, CircleShape)
+		)
+	}
 }
 
 @Composable

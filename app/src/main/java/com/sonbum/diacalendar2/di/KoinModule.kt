@@ -32,6 +32,7 @@ import com.sonbum.diacalendar2.data.repository.MemoRepositoryImpl
 import com.sonbum.diacalendar2.domain.usecase.BackupRestoreUseCase
 import com.sonbum.diacalendar2.domain.usecase.EffectiveShiftUseCase
 import com.sonbum.diacalendar2.domain.usecase.ShiftCalendarSyncUseCase
+import com.sonbum.diacalendar2.domain.usecase.BirthdayCalendarSyncUseCase
 import com.sonbum.diacalendar2.data.repository.OfficeRepositoryImpl
 import com.sonbum.diacalendar2.data.repository.ShiftRepositoryImpl
 import com.sonbum.diacalendar2.data.repository.ShiftSwapRecordRepositoryImpl
@@ -109,6 +110,12 @@ import com.sonbum.diacalendar2.presentation.board.PostWriteViewModel
 import com.sonbum.diacalendar2.presentation.board.BlockedUsersViewModel
 import com.sonbum.diacalendar2.data.local.datastore.AuthPreferences
 import com.sonbum.diacalendar2.data.local.datastore.VipPreferences
+import com.sonbum.diacalendar2.data.local.datastore.BirthdayPreferences
+import com.sonbum.diacalendar2.data.repository.BirthdayRepositoryImpl
+import com.sonbum.diacalendar2.domain.repository.BirthdayRepository
+import com.sonbum.diacalendar2.domain.util.AgeCalculator
+import com.sonbum.diacalendar2.domain.util.BirthdayDateResolver
+import com.sonbum.diacalendar2.domain.util.MilestoneCalculator
 import com.sonbum.diacalendar2.data.remote.BoardSupabaseConfig
 import com.sonbum.diacalendar2.data.remote.MenuSupabaseConfig
 import com.sonbum.diacalendar2.data.remote.api.SupabaseBoardApi
@@ -119,6 +126,7 @@ import com.sonbum.diacalendar2.presentation.menu.MenuViewModel
 import org.koin.core.qualifier.named
 import com.sonbum.diacalendar2.core.notification.AlarmScheduler
 import com.sonbum.diacalendar2.core.notification.NotificationHelper
+import com.sonbum.diacalendar2.core.notification.BirthdayReminderScheduler
 import com.sonbum.diacalendar2.data.local.datastore.CrewPatternPreferences
 import com.sonbum.diacalendar2.data.local.datastore.NotificationPreferences
 import androidx.work.WorkManager
@@ -127,6 +135,7 @@ import com.sonbum.diacalendar2.data.repository.TrainFormationRepositoryImpl
 import com.sonbum.diacalendar2.domain.repository.AnniversaryRepository
 import com.sonbum.diacalendar2.domain.repository.TrainFormationRepository
 import com.sonbum.diacalendar2.presentation.anniversary.AnniversaryViewModel
+import com.sonbum.diacalendar2.presentation.anniversary.BirthdayViewModel
 import com.sonbum.diacalendar2.data.repository.DocumentRepositoryImpl
 import com.sonbum.diacalendar2.domain.repository.DocumentRepository
 import com.sonbum.diacalendar2.presentation.notifications.DocumentViewModel
@@ -181,7 +190,8 @@ val databaseModule = module {
                 AppDatabase.MIGRATION_26_27,
                 AppDatabase.MIGRATION_27_28,
                 AppDatabase.MIGRATION_28_29,
-                AppDatabase.MIGRATION_29_30
+                AppDatabase.MIGRATION_29_30,
+                AppDatabase.MIGRATION_30_31
             )
             .fallbackToDestructiveMigration()
             .build()
@@ -214,6 +224,7 @@ val databaseModule = module {
     single { get<AppDatabase>().subShiftConfigDao() }
     single { get<AppDatabase>().subShiftScheduleDao() }
     single { get<AppDatabase>().trainFormationDao() }
+    single { get<AppDatabase>().birthdayDao() }
     single {
         com.sonbum.diacalendar2.widget.data.WidgetDataProvider(
             get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()
@@ -241,6 +252,7 @@ val dataStoreModule = module {
     single { SubwayStationRegistry(androidContext()) }
     single { SubwayPreferences(androidContext()) }
     single { VipPreferences(androidContext()) }
+    single { BirthdayPreferences(androidContext()) }
 }
 
 /**
@@ -298,12 +310,15 @@ val repositoryModule = module {
             anniversaryDao = get(),
             trainFormationDao = get(),
             coworkerDao = get(),
-            coworkerGroupDao = get()
+            coworkerGroupDao = get(),
+            birthdayDao = get(),
+            birthdayPreferences = get()
         )
     }
     singleOf(::BackupRestoreUseCase)
     singleOf(::EffectiveShiftUseCase)
     singleOf(::ShiftCalendarSyncUseCase)
+    singleOf(::BirthdayCalendarSyncUseCase)
     single<AuthRepository> { AuthRepositoryImpl(get(named("boardApi")), get()) }
     single<BoardRepository> { BoardRepositoryImpl(get(named("boardApi")), get()) }
     single<MenuRepository> { MenuRepositoryImpl(get(named("menuApi"))) }
@@ -312,6 +327,10 @@ val repositoryModule = module {
     single<AnniversaryRepository> { AnniversaryRepositoryImpl(get()) }
     single<TrainFormationRepository> { TrainFormationRepositoryImpl(get()) }
     single<DocumentRepository> { DocumentRepositoryImpl(get()) }
+    single { BirthdayDateResolver() }
+    single { AgeCalculator(get()) }
+    single { MilestoneCalculator(get()) }
+    single<BirthdayRepository> { BirthdayRepositoryImpl(get(), get(), get(), get()) }
 }
 
 /**
@@ -321,7 +340,7 @@ val repositoryModule = module {
 val viewModelModule = module {
     viewModelOf(::HomeViewModel)
     viewModelOf(::SubwayPositionViewModel)
-    viewModel { DateDetailViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), androidContext()) }
+    viewModel { DateDetailViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), androidContext()) }
     viewModel { MemoEditViewModel(get(), get(), androidContext()) }
     viewModelOf(::CalendarSelectionViewModel)
     viewModel { ProfileViewModel(get(), get(), get(), get(), get(), androidContext()) }
@@ -361,6 +380,7 @@ val viewModelModule = module {
     viewModelOf(::CoworkerEditViewModel)
     viewModelOf(::PaywallViewModel)
     viewModelOf(::AnniversaryViewModel)
+    viewModel { BirthdayViewModel(get(), get(), get(), get(), get(), get(), get(), androidContext()) }
     viewModelOf(::TrainFormationListViewModel)
     viewModelOf(::DocumentViewModel)
 }
@@ -499,6 +519,7 @@ val networkModule = module {
 val notificationModule = module {
     single { NotificationHelper(androidContext()) }
     single { AlarmScheduler(androidContext()) }
+    single { BirthdayReminderScheduler(androidContext(), get(), get()) }
     single { WorkManager.getInstance(androidContext()) }
 }
 

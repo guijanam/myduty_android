@@ -75,4 +75,7 @@ interface DeviceCalendarRepository {
      * 재동기화 시 기존 근무를 비우는 용도.
      */
     suspend fun deleteShiftSyncEvents(calendarId: Long): Int
+
+    /** 특정 description 마커로 앱이 만든 이벤트만 삭제한다. */
+    suspend fun deleteEventsByMarker(calendarId: Long, marker: String): Int
 }

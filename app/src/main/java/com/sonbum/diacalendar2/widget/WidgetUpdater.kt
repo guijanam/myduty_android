@@ -21,6 +21,7 @@ private const val TAG = "WidgetUpdater"
 
 // Glance 상태 변경을 트리거하기 위한 키
 private val LAST_UPDATED_KEY = longPreferencesKey("last_updated")
+private val BIRTHDAY_LAST_UPDATED_KEY = longPreferencesKey("birthday_last_updated")
 
 /**
  * 위젯 데이터가 변경되었을 때 두 위젯(DayWidget, WeekWidget)을 모두 업데이트합니다.
@@ -59,6 +60,16 @@ object WidgetUpdater {
                         prefs[LAST_UPDATED_KEY] = now
                     }
                     weekWidget.update(appContext, id)
+                }
+
+                val birthdayWidget = BirthdayWidget()
+                val birthdayIds = manager.getGlanceIds(BirthdayWidget::class.java)
+                Log.d(TAG, "Updating ${birthdayIds.size} BirthdayWidgets")
+                birthdayIds.forEach { id ->
+                    updateAppWidgetState(appContext, id) { prefs ->
+                        prefs[BIRTHDAY_LAST_UPDATED_KEY] = now
+                    }
+                    birthdayWidget.update(appContext, id)
                 }
 
                 Log.d(TAG, "Widget update completed")

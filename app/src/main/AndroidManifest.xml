@@ -124,10 +124,18 @@
             android:exported="false" />
 
         <receiver
+            android:name=".core.notification.BirthdayAlarmReceiver"
+            android:exported="false" />
+
+        <receiver
             android:name=".core.notification.BootReceiver"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.DATE_CHANGED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
 
@@ -168,6 +176,21 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/week_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.BirthdayWidgetReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="android.intent.action.DATE_CHANGED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/birthday_widget_info" />
         </receiver>
     </application>
 

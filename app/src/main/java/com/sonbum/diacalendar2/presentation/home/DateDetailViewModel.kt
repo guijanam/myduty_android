@@ -36,6 +36,7 @@ import com.sonbum.diacalendar2.domain.repository.LateHolidayTypeRepository
 import com.sonbum.diacalendar2.domain.repository.ShiftInputRecordRepository
 import com.sonbum.diacalendar2.domain.repository.ShiftInputTypeRepository
 import com.sonbum.diacalendar2.domain.repository.AnniversaryRepository
+import com.sonbum.diacalendar2.domain.repository.BirthdayRepository
 import com.sonbum.diacalendar2.domain.model.TrainFormation
 import com.sonbum.diacalendar2.domain.model.TrainHalf
 import com.sonbum.diacalendar2.domain.repository.TrainFormationRepository
@@ -118,6 +119,7 @@ class DateDetailViewModel(
     private val localOfficeRepository: LocalOfficeRepository,
     private val officeWebsiteRegistry: OfficeWebsiteRegistry,
     private val anniversaryRepository: AnniversaryRepository,
+    private val birthdayRepository: BirthdayRepository,
     private val alarmScheduler: AlarmScheduler,
     private val trainFormationRepository: TrainFormationRepository,
     private val shiftColorPreferences: ShiftColorPreferences,
@@ -217,9 +219,18 @@ class DateDetailViewModel(
 
     private fun loadAnniversaryInfo(date: LocalDate) {
         viewModelScope.launch {
-            anniversaryRepository.getAll().collect { list ->
-                val map = anniversaryRepository.getAnniversaryMapForYear(date.year)
-                _state.update { it.copy(anniversaryName = map[date.toString()]) }
+            kotlinx.coroutines.flow.combine(
+                anniversaryRepository.getAll(),
+                birthdayRepository.observePeople()
+            ) { _, _ -> Unit }.collect {
+                val legacy = anniversaryRepository.getAnniversaryMapForYear(date.year)[date.toString()]
+                val birthdays = birthdayRepository.getOccurrencesForYear(date.year)
+                    .filter { it.date == date }
+                    .joinToString(", ") { "🎂 ${it.personName}" }
+                    .ifBlank { null }
+                _state.update {
+                    it.copy(anniversaryName = listOfNotNull(legacy, birthdays).joinToString(", ").ifBlank { null })
+                }
             }
         }
     }

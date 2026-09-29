@@ -35,6 +35,7 @@
     <string name="week_mode">Week mode</string>
     <string name="day_widget_description">오늘과 내일의 교번, 출근시간, 메모를 표시합니다</string>
     <string name="week_widget_description">일주일간의 교번을 표시합니다</string>
+    <string name="birthday_widget_description">오늘과 다가오는 생일, 나이와 D-day를 표시합니다</string>
     <string name="example_8_zero_selection">No selections in this month</string>
     <plurals name="example_8_selection">
         <item quantity="zero">@string/example_8_zero_selection</item>

@@ -39,6 +39,7 @@ class NotificationHelper(private val context: Context) {
         const val CHANNEL_SHIFT = "shift_reminders"
         const val CHANNEL_SHIFT_ALARM = "shift_alarm"  // 풀스크린 근무 알람
         const val CHANNEL_FCM = "fcm_messages"
+        const val CHANNEL_BIRTHDAY = "birthday_reminders"
         private const val MEMO_NOTIFICATION_BASE_ID = 10000
         private const val SHIFT_NOTIFICATION_BASE_ID = 20000
         private const val TAG = "NotificationHelper"
@@ -76,6 +77,12 @@ class NotificationHelper(private val context: Context) {
             description = "개발자 공지 및 업데이트 알림"
         }
 
+        val birthdayChannel = NotificationChannel(
+            CHANNEL_BIRTHDAY,
+            "생일과 주요 나이 알림",
+            NotificationManager.IMPORTANCE_DEFAULT
+        ).apply { description = "생일 및 환갑·칠순 등 주요 나이 알림" }
+
         // 풀스크린 근무 알람 채널: 소리/진동은 액티비티가 직접 제어하므로 채널은 무음 처리
         val shiftAlarmChannel = NotificationChannel(
             CHANNEL_SHIFT_ALARM,
@@ -91,6 +98,38 @@ class NotificationHelper(private val context: Context) {
         notificationManager.createNotificationChannel(shiftChannel)
         notificationManager.createNotificationChannel(shiftAlarmChannel)
         notificationManager.createNotificationChannel(fcmChannel)
+        notificationManager.createNotificationChannel(birthdayChannel)
+    }
+
+    fun showBirthdayNotification(
+        personId: Long,
+        personName: String,
+        eventName: String,
+        eventDate: String,
+        daysBefore: Int
+    ) {
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra("navigate_to_birthdays", true)
+            putExtra("birthday_person_id", personId)
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context, personId.hashCode(), intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val content = when {
+            daysBefore == 0 -> "$personName 님의 $eventName 당일입니다"
+            else -> "$personName 님의 ${eventName}까지 ${daysBefore}일 남았습니다"
+        }
+        val notification = NotificationCompat.Builder(context, CHANNEL_BIRTHDAY)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setContentTitle("🎂 $eventName 알림")
+            .setContentText(content)
+            .setStyle(NotificationCompat.BigTextStyle().bigText("$content · $eventDate"))
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .build()
+        notificationManager().notify(300_000 + personId.hashCode().and(0xFFFF), notification)
     }
 
     fun showMemoNotification(title: String, content: String, memoId: String, dateString: String) {

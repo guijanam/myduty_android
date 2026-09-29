@@ -61,12 +61,17 @@ data class AppBackupData(
     val localDias: List<LocalDiaBackup> = emptyList(),
     val chatNotes: List<ChatNoteBackup> = emptyList(),
     val anniversaries: List<AnniversaryBackup> = emptyList(),
+    val birthdayPeople: List<BirthdayPersonBackup> = emptyList(),
+    val birthdayGroups: List<BirthdayGroupBackup> = emptyList(),
+    val birthdayPersonGroups: List<BirthdayPersonGroupBackup> = emptyList(),
+    val birthdayMilestones: List<BirthdayMilestoneBackup> = emptyList(),
+    val birthdaySettings: BirthdaySettingsBackup? = null,
     val coworkerGroups: List<CoworkerGroupBackup> = emptyList(),
     val coworkers: List<CoworkerBackup> = emptyList(),
     val trainFormations: List<TrainFormationBackup> = emptyList()
 ) {
     companion object {
-        const val CURRENT_VERSION = 2
+        const val CURRENT_VERSION = 3
         const val FILE_EXTENSION = "dcbackup"
     }
 }
@@ -232,6 +237,63 @@ data class AnniversaryBackup(
     val day: Int,
     val isLunar: Boolean,
     val createdAt: Long
+)
+
+@Serializable
+data class BirthdayPersonBackup(
+    val id: Long,
+    val name: String,
+    val photoBase64: String? = null,
+    val relationship: String = "",
+    val birthYear: Int,
+    val birthMonth: Int,
+    val birthDay: Int,
+    val calendarType: String = "SOLAR",
+    val isLeapMonth: Boolean = false,
+    val timeZoneId: String = "Asia/Seoul",
+    val ageDisplayMode: String = "FULL_AGE",
+    val leapMonthPolicy: String = "REGULAR_SAME_MONTH",
+    val feb29Policy: String = "FEBRUARY_28",
+    val notificationEnabled: Boolean = true,
+    val notificationOffsetsCsv: String = "30,7,3,1,0",
+    val notificationHour: Int = 9,
+    val notificationMinute: Int = 0,
+    val calendarSyncEnabled: Boolean = true,
+    val createdAt: Long = 0,
+    val updatedAt: Long = 0
+)
+
+@Serializable
+data class BirthdayGroupBackup(
+    val id: Long,
+    val name: String,
+    val isDefault: Boolean,
+    val sortOrder: Int
+)
+
+@Serializable
+data class BirthdayPersonGroupBackup(val personId: Long, val groupId: Long)
+
+@Serializable
+data class BirthdayMilestoneBackup(
+    val id: Long,
+    val personId: Long,
+    val name: String,
+    val ruleType: String,
+    val ruleValue: Int,
+    val enabled: Boolean,
+    val notificationEnabled: Boolean,
+    val isDefault: Boolean
+)
+
+@Serializable
+data class BirthdaySettingsBackup(
+    val ageDisplayMode: String = "FULL_AGE",
+    val notificationOffsets: List<Int> = listOf(30, 7, 3, 1, 0),
+    val notificationHour: Int = 9,
+    val notificationMinute: Int = 0,
+    val calendarSyncEnabled: Boolean = false,
+    val calendarId: Long = -1
 )
 
 @Serializable
